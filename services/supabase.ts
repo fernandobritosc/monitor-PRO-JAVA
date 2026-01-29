@@ -4,22 +4,32 @@ import { createClient } from '@supabase/supabase-js';
 const getSupabaseConfig = () => {
   const env = import.meta.env || ({} as any);
   
-  // Tenta pegar do LocalStorage (Config Manual) OU das Variáveis de Ambiente (Vercel)
-  const url = localStorage.getItem('monitorpro_supabase_url') || env.VITE_SUPABASE_URL;
-  const key = localStorage.getItem('monitorpro_supabase_key') || env.VITE_SUPABASE_KEY;
+  // 1. Tenta pegar do LocalStorage (Config Manual)
+  let url = localStorage.getItem('monitorpro_supabase_url');
+  let key = localStorage.getItem('monitorpro_supabase_key');
 
-  // Verifica se as chaves são válidas
-  const isUrlValid = url && url.includes('https://') && url.includes('.supabase.co');
+  // 2. Se não tiver no LocalStorage, tenta pegar das Variáveis de Ambiente (Vercel)
+  if (!url || url.includes('placeholder')) {
+     url = env.VITE_SUPABASE_URL;
+  }
+  if (!key || key === 'placeholder') {
+     key = env.VITE_SUPABASE_KEY;
+  }
+
+  // 3. Validação Relaxada (Correção do Bug de Persistência)
+  // Antes exigia .supabase.co, agora aceita qualquer HTTPS válido para evitar rejeição acidental
+  const isUrlValid = url && url.startsWith('https://') && url.length > 10;
   const isKeyValid = key && key.length > 20;
 
   if (!isUrlValid || !isKeyValid) {
-    console.warn("MonitorPro: Credenciais inválidas ou ausentes. Verifique as Variáveis de Ambiente na Vercel (VITE_SUPABASE_URL e VITE_SUPABASE_KEY).");
+    console.warn("MonitorPro: Nenhuma credencial válida encontrada. Aguardando configuração manual.");
+    return { 
+        url: 'https://placeholder.supabase.co', 
+        key: 'placeholder' 
+    };
   }
 
-  return { 
-    url: isUrlValid ? url : 'https://placeholder.supabase.co', 
-    key: isKeyValid ? key : 'placeholder' 
-  };
+  return { url, key };
 };
 
 const { url, key } = getSupabaseConfig();
@@ -32,7 +42,6 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      // Mudamos para v9 para invalidar sessões antigas que causam loop e forçar um novo login limpo
       storageKey: 'monitorpro_auth_v9', 
       storage: window.localStorage
     },
@@ -40,13 +49,23 @@ export const supabase = createClient(
 );
 
 export const saveAppConfig = (newUrl: string, newKey: string) => {
-  localStorage.setItem('monitorpro_supabase_url', newUrl);
-  localStorage.setItem('monitorpro_supabase_key', newKey);
+  // Limpa espaços em branco que causam erros
+  const cleanUrl = newUrl.trim();
+  const cleanKey = newKey.trim();
+  
+  localStorage.setItem('monitorpro_supabase_url', cleanUrl);
+  localStorage.setItem('monitorpro_supabase_key', cleanKey);
+  
+  // Força reload para aplicar
   window.location.reload();
 };
 
 export const resetAppConfig = () => {
-  const keys = Object.keys(localStorage).filter(k => k.startsWith('monitorpro_'));
-  keys.forEach(k => localStorage.removeItem(k));
-  window.location.href = window.location.origin;
+  // Remove chaves de configuração
+  localStorage.removeItem('monitorpro_supabase_url');
+  localStorage.removeItem('monitorpro_supabase_key');
+  // Remove sessão antiga para evitar conflito
+  localStorage.removeItem('monitorpro_auth_v9');
+  
+  window.location.reload();
 };
