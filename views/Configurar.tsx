@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria, UserProfile } from '../types';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2 } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
 
 interface ConfigurarProps {
   editais: EditalMateria[];
@@ -23,6 +23,9 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
+  
+  // Estado para Erro de RLS
+  const [permissionError, setPermissionError] = useState<boolean>(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingMission, setLoadingMission] = useState(false);
@@ -75,7 +78,13 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
     const { error } = await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
     if (error) {
-        alert('Erro ao atualizar: ' + error.message);
+        console.error("Erro no update de perfil:", error);
+        // Se for erro de permissão (RLS), mostra o modal de ajuda
+        if (error.code === '42501' || error.message.includes('permission')) {
+             setPermissionError(true);
+        } else {
+             alert('Erro ao atualizar: ' + error.message);
+        }
         // Revert
         setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: !newStatus } : u));
     }
@@ -386,6 +395,44 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
   return (
     <div className="space-y-12 pb-20 animate-in fade-in duration-500">
+      
+      {/* MODAL DE ERRO DE PERMISSÃO (RLS) */}
+      {permissionError && (
+         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4">
+             <div className="bg-slate-950 border border-red-500/50 w-full max-w-2xl rounded-2xl p-8 relative shadow-2xl shadow-red-500/10">
+                 <button onClick={() => setPermissionError(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={24} /></button>
+                 
+                 <div className="flex items-center gap-3 mb-4 text-red-500">
+                    <AlertTriangle size={32} />
+                    <h3 className="text-xl font-bold">Bloqueio de Segurança (RLS)</h3>
+                 </div>
+                 
+                 <p className="text-slate-300 text-sm mb-6">
+                    O Supabase bloqueou a atualização do perfil do usuário. Isso acontece porque, por padrão, usuários só podem editar seus próprios dados.
+                    Para funcionar, você precisa adicionar uma regra (Policy) no banco de dados.
+                 </p>
+
+                 <div className="bg-slate-900 rounded-xl p-4 border border-white/10 font-mono text-xs text-cyan-400 overflow-x-auto relative group">
+                    <p className="text-slate-500 mb-2 font-sans font-bold uppercase tracking-widest flex items-center gap-2">
+                       <Terminal size={12} /> Execute no Supabase SQL Editor:
+                    </p>
+                    <code className="block whitespace-pre-wrap">
+                       {`-- Permite que usuários com is_admin=true atualizem qualquer perfil
+create policy "Admins can update profiles" 
+on profiles for update 
+using ( (select is_admin from profiles where id = auth.uid()) = true );`}
+                    </code>
+                 </div>
+
+                 <div className="mt-6 flex justify-end">
+                    <button onClick={() => setPermissionError(false)} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold text-sm">
+                       Entendi, vou corrigir
+                    </button>
+                 </div>
+             </div>
+         </div>
+      )}
+
       {isAdmin && (
         <div className="glass rounded-3xl p-8 border border-purple-500/30 relative overflow-hidden">
           {approvalMsg && (
