@@ -175,15 +175,26 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
+    // Timeout de segurança: Se o Supabase não responder em 5s, libera a UI para Login
+    const safetyTimeout = setTimeout(() => {
+       if (mounted && authChecking) {
+          console.warn("Auth timeout - liberando interface");
+          setAuthChecking(false);
+       }
+    }, 5000);
+
     // A. Check manual imediato (Resolve F5)
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
        if (mounted && currentSession) {
           console.log("Sessão recuperada manualmente");
           setSession(currentSession);
           fetchData(currentSession);
-          // Não paramos o authChecking aqui, deixamos o onAuthStateChange confirmar, 
-          // mas já iniciamos os dados para ser mais rápido.
+          setAuthChecking(false); // Garante liberação rápida se já tiver sessão
+          clearTimeout(safetyTimeout);
        }
+    }).catch(err => {
+        console.error("Erro no getSession manual:", err);
+        if (mounted) setAuthChecking(false);
     });
 
     // B. Listener de Eventos (Resolve Login/Logout/Token)
@@ -195,6 +206,7 @@ const App: React.FC = () => {
         if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
             setSession(newSession);
             setAuthChecking(false);
+            clearTimeout(safetyTimeout);
             if (newSession) fetchData(newSession);
         } 
         else if (event === 'SIGNED_OUT') {
@@ -202,12 +214,14 @@ const App: React.FC = () => {
             setStudyRecords([]);
             setEditais([]);
             setAuthChecking(false);
+            clearTimeout(safetyTimeout);
         }
     });
 
     return () => { 
         mounted = false;
         subscription.unsubscribe();
+        clearTimeout(safetyTimeout);
     };
   }, [fetchData]);
 

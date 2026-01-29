@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria, UserProfile } from '../types';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy } from 'lucide-react';
 
 interface ConfigurarProps {
   editais: EditalMateria[];
@@ -19,13 +19,15 @@ interface SubjectDraft {
 
 const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated, setMissaoAtiva }) => {
   const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearch, setUserSearch] = useState('');
   const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
   
-  // Estado para Erro de RLS
+  // Estado para Erro de RLS e Modal SQL
   const [permissionError, setPermissionError] = useState<boolean>(false);
+  const [showSqlModal, setShowSqlModal] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingMission, setLoadingMission] = useState(false);
@@ -47,6 +49,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     const checkAdmin = async () => {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setCurrentUserEmail(user.email || '');
       try {
         const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
         if (user.email === 'fernandobritosc@gmail.com' || profile?.is_admin === true) {
@@ -80,7 +83,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     if (error) {
         console.error("Erro no update de perfil:", error);
         // Se for erro de permissão (RLS), mostra o modal de ajuda
-        if (error.code === '42501' || error.message.includes('permission')) {
+        if (error.code === '42501' || error.message.includes('permission') || error.message.includes('row-level security')) {
              setPermissionError(true);
         } else {
              alert('Erro ao atualizar: ' + error.message);
@@ -90,6 +93,50 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     }
   };
 
+  // GERAÇÃO DO SCRIPT SQL
+  const sqlScript = useMemo(() => {
+     return `-- 1. HABILITAR PERMISSÕES (RLS)
+alter table profiles enable row level security;
+alter table editais_materias enable row level security;
+
+-- 2. PERMISSÕES DE PERFIL (Permite Admin aprovar)
+create policy "Public profiles are viewable by everyone"
+on profiles for select to authenticated using (true);
+
+create policy "Users can update own profile"
+on profiles for update to authenticated using (auth.uid() = id);
+
+create policy "Admins can update any profile"
+on profiles for update to authenticated using (
+  (select is_admin from profiles where id = auth.uid()) = true
+);
+
+-- 3. BIBLIOTECA DE EDITAIS (Permite compartilhar modelos)
+create policy "Editais are viewable by everyone"
+on editais_materias for select to authenticated using (true);
+
+create policy "Users can insert own editais"
+on editais_materias for insert to authenticated with check (auth.uid() = user_id);
+
+create policy "Users can update own editais"
+on editais_materias for update to authenticated using (auth.uid() = user_id);
+
+create policy "Users can delete own editais"
+on editais_materias for delete to authenticated using (auth.uid() = user_id);
+
+-- 4. PROMOVER SEU USUÁRIO A ADMIN (Execute se necessário)
+update profiles 
+set is_admin = true, approved = true 
+where email = '${currentUserEmail || 'seu@email.com'}';
+`;
+  }, [currentUserEmail]);
+
+  const copyToClipboard = () => {
+     navigator.clipboard.writeText(sqlScript);
+     alert("Script copiado! Cole no SQL Editor do Supabase.");
+  };
+
+  // ... (RESTO DO COMPONENTE MANTIDO IGUAL) ...
   const groupedMissions = useMemo(() => {
     const groups: Record<string, { cargo: string, materiasCount: number, isPrincipal: boolean, dataProva?: string }> = {};
     if (!editais || !Array.isArray(editais)) return [];
@@ -163,7 +210,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     if (topicsArray.length === 0) topicsArray = ['Geral'];
     
     if (editingSubjectIndex !== null) {
-      // ATUALIZAR ITEM EXISTENTE
       setFormSubjects(prev => prev.map((sub, idx) => 
         idx === editingSubjectIndex 
           ? { ...sub, materia: finalName, topicos: topicsArray }
@@ -171,7 +217,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
       ));
       setEditingSubjectIndex(null);
     } else {
-      // ADICIONAR NOVO
       setFormSubjects(prev => [...prev, { materia: finalName, topicos: topicsArray }]);
     }
     
@@ -199,7 +244,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     setFormSubjects(prev => prev.filter((_, i) => i !== index));
   };
 
-  // Lógica de "Smart Sync" / De-Para
   const handleSaveMission = async () => {
     if (!formConcurso.trim() || !formCargo.trim()) {
       alert("Preencha o nome do Concurso e o Cargo.");
@@ -215,7 +259,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada.");
 
-      // 1. Busca estado atual no banco para comparar
       const targetConcursoName = editingOldName || formConcurso;
       
       const { data: existingRecords } = await supabase
@@ -225,22 +268,17 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
         .eq('concurso', targetConcursoName);
 
       const dbItems = existingRecords || [];
-      const dbIds = new Set(dbItems.map(i => i.id));
       
       const toInsert: any[] = [];
       const toUpdate: any[] = [];
       const idsToKeep = new Set<string>();
 
-      // Configs Gerais
       let isPrincipal = editais.length === 0 || editais.some(e => e.concurso === editingOldName && e.is_principal);
       const dateToSave = formDataProva && formDataProva.trim() !== '' ? formDataProva : null;
 
-      // Controle de duplicatas locais
       const usedNames = new Set<string>();
 
-      // 2. Mapeamento (De-Para)
       for (const sub of formSubjects) {
-          // Desduplicação de nomes no front (ex: Direito (2))
           let originalName = sub.materia.trim();
           let safeName = originalName;
           let counter = 2;
@@ -250,23 +288,18 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
           }
           usedNames.add(safeName.toLowerCase());
 
-          // Tenta encontrar correspondente no banco
-          // Prioridade 1: Match por ID
           let match = sub.id ? dbItems.find(d => d.id === sub.id) : null;
           
-          // Prioridade 2: Match por Nome (caso não tenha ID ou ID não encontrado)
-          // Isso resolve o problema de "Inserir duplicado" pois ele vai achar o existente e fazer UPDATE
           if (!match) {
              match = dbItems.find(d => d.materia.toLowerCase() === safeName.toLowerCase() && !idsToKeep.has(d.id));
           }
 
           if (match) {
-             // UPDATE: Item já existe, atualiza dados
              idsToKeep.add(match.id);
              toUpdate.push({
                  id: match.id,
                  payload: {
-                     concurso: formConcurso, // Atualiza nome do concurso se mudou
+                     concurso: formConcurso,
                      cargo: formCargo,
                      materia: safeName,
                      topicos: sub.topicos,
@@ -275,7 +308,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
                  }
              });
           } else {
-             // INSERT: Item novo
              toInsert.push({
                  user_id: user.id,
                  concurso: formConcurso,
@@ -288,36 +320,23 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
           }
       }
 
-      // 3. Identificar Deletados (Estavam no banco mas não estão no Form)
       const idsToDelete = dbItems.filter(i => !idsToKeep.has(i.id)).map(i => i.id);
 
-      // --- EXECUÇÃO DAS OPERAÇÕES ---
-      
-      // A. Delete (Limpa conflitos potenciais)
       if (idsToDelete.length > 0) {
           const { error: deleteError } = await supabase.from('editais_materias').delete().in('id', idsToDelete);
-          if (deleteError) {
-             // Se falhar o delete por permissão, não trava o resto, mas avisa no console
-             console.warn("Aviso: Delete parcial falhou (provável RLS). Itens desmarcados podem permanecer.", deleteError);
-          }
+          if (deleteError) console.warn("Aviso: Delete parcial falhou.", deleteError);
       }
 
-      // B. Update
       for (const item of toUpdate) {
-          const { error } = await supabase
-             .from('editais_materias')
-             .update(item.payload)
-             .eq('id', item.id);
+          const { error } = await supabase.from('editais_materias').update(item.payload).eq('id', item.id);
           if (error) throw error;
       }
 
-      // C. Insert
       if (toInsert.length > 0) {
           const { error } = await supabase.from('editais_materias').insert(toInsert);
           if (error) throw error;
       }
 
-      // Atualiza contexto da missão se necessário
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) {
         setMissaoAtiva(formConcurso);
       } else if (!missaoAtiva) {
@@ -345,19 +364,15 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     try {
       setRefreshing(true); 
       
-      // ESTRATÉGIA DE-PARA ROBUSTA PARA EXCLUSÃO:
-      // 1. Busca IDs frescos do banco para garantir que estamos deletando registros que realmente existem.
-      // Isso evita erros de string ou estado local desatualizado.
       const { data: dbItems, error: fetchError } = await supabase
         .from('editais_materias')
         .select('id')
         .eq('user_id', user.id)
         .eq('concurso', concurso);
 
-      if (fetchError) throw new Error("Erro ao buscar dados para exclusão: " + fetchError.message);
+      if (fetchError) throw new Error("Erro ao buscar dados: " + fetchError.message);
 
       if (!dbItems || dbItems.length === 0) {
-          // Se já não existe no banco, apenas atualiza a tela para remover o item fantasma
           if (missaoAtiva === concurso) setMissaoAtiva(''); 
           await onUpdated();
           return;
@@ -365,16 +380,11 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
       const idsToDelete = dbItems.map(i => i.id);
 
-      // 2. Deleta pelos IDs encontrados (Chave Primária) - Muito mais seguro
-      const { error: deleteError } = await supabase
-          .from('editais_materias')
-          .delete()
-          .in('id', idsToDelete);
+      const { error: deleteError } = await supabase.from('editais_materias').delete().in('id', idsToDelete);
       
       if (deleteError) {
-          // Tratamento específico e amigável para erro de permissão (RLS)
           if (deleteError.code === '42501' || deleteError.message?.includes('row-level security')) {
-              throw new Error("PERMISSÃO NEGADA: O banco de dados bloqueou a exclusão. Verifique se a política de DELETE está habilitada para a tabela 'editais_materias' no Supabase.");
+              throw new Error("PERMISSÃO NEGADA: Execute o script SQL de configuração (botão na tela) para corrigir.");
           }
           throw deleteError;
       }
@@ -396,37 +406,46 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   return (
     <div className="space-y-12 pb-20 animate-in fade-in duration-500">
       
-      {/* MODAL DE ERRO DE PERMISSÃO (RLS) */}
-      {permissionError && (
+      {/* MODAL DE SQL (GERAL) ou ERRO DE PERMISSÃO */}
+      {(permissionError || showSqlModal) && (
          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-             <div className="bg-slate-950 border border-red-500/50 w-full max-w-2xl rounded-2xl p-8 relative shadow-2xl shadow-red-500/10">
-                 <button onClick={() => setPermissionError(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={24} /></button>
+             <div className="bg-slate-950 border border-slate-700 w-full max-w-3xl rounded-2xl p-8 relative shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+                 <button onClick={() => { setPermissionError(false); setShowSqlModal(false); }} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={24} /></button>
                  
-                 <div className="flex items-center gap-3 mb-4 text-red-500">
-                    <AlertTriangle size={32} />
-                    <h3 className="text-xl font-bold">Bloqueio de Segurança (RLS)</h3>
+                 <div className="flex items-center gap-3 mb-4 text-cyan-400">
+                    {permissionError ? <AlertTriangle size={32} className="text-red-500"/> : <Database size={32} />}
+                    <h3 className="text-xl font-bold">
+                        {permissionError ? 'Bloqueio de Permissão Detectado' : 'Configuração do Banco de Dados'}
+                    </h3>
                  </div>
                  
-                 <p className="text-slate-300 text-sm mb-6">
-                    O Supabase bloqueou a atualização do perfil do usuário. Isso acontece porque, por padrão, usuários só podem editar seus próprios dados.
-                    Para funcionar, você precisa adicionar uma regra (Policy) no banco de dados.
+                 <p className="text-slate-300 text-sm mb-4">
+                    Para que o sistema funcione corretamente (aprovar usuários, compartilhar editais), você precisa executar estes comandos no 
+                    <strong className="text-white"> SQL Editor</strong> do Supabase.
                  </p>
 
-                 <div className="bg-slate-900 rounded-xl p-4 border border-white/10 font-mono text-xs text-cyan-400 overflow-x-auto relative group">
-                    <p className="text-slate-500 mb-2 font-sans font-bold uppercase tracking-widest flex items-center gap-2">
-                       <Terminal size={12} /> Execute no Supabase SQL Editor:
-                    </p>
-                    <code className="block whitespace-pre-wrap">
-                       {`-- Permite que usuários com is_admin=true atualizem qualquer perfil
-create policy "Admins can update profiles" 
-on profiles for update 
-using ( (select is_admin from profiles where id = auth.uid()) = true );`}
-                    </code>
+                 <div className="relative bg-slate-900 rounded-xl border border-white/10 flex-1 overflow-hidden flex flex-col">
+                    <div className="flex justify-between items-center px-4 py-2 bg-slate-800/50 border-b border-white/5">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest flex items-center gap-2">
+                           <Terminal size={12} /> Script SQL
+                        </span>
+                        <button onClick={copyToClipboard} className="text-xs font-bold text-cyan-400 hover:text-cyan-300 flex items-center gap-1">
+                           <Copy size={12} /> Copiar
+                        </button>
+                    </div>
+                    <div className="flex-1 overflow-y-auto custom-scrollbar p-4">
+                        <code className="block whitespace-pre font-mono text-xs text-green-400/90 leading-relaxed">
+                           {sqlScript}
+                        </code>
+                    </div>
                  </div>
 
-                 <div className="mt-6 flex justify-end">
-                    <button onClick={() => setPermissionError(false)} className="bg-slate-800 hover:bg-slate-700 text-white px-6 py-2 rounded-lg font-bold text-sm">
-                       Entendi, vou corrigir
+                 <div className="mt-6 flex justify-end gap-3">
+                    <a href="https://supabase.com/dashboard/project/_/sql/new" target="_blank" rel="noopener noreferrer" className="bg-slate-800 hover:bg-slate-700 text-slate-300 px-6 py-2 rounded-lg font-bold text-sm border border-white/5 flex items-center gap-2">
+                        Abrir Supabase <Search size={14} />
+                    </a>
+                    <button onClick={() => { setPermissionError(false); setShowSqlModal(false); }} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-2 rounded-lg font-bold text-sm">
+                       Fechar
                     </button>
                  </div>
              </div>
@@ -441,17 +460,26 @@ using ( (select is_admin from profiles where id = auth.uid()) = true );`}
              </div>
           )}
 
-          <div className="flex justify-between items-center mb-6">
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
             <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração</h3>
-            <div className="relative w-64">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-              <input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <button 
+                    onClick={() => setShowSqlModal(true)} 
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-500/20 flex items-center gap-2 transition-all"
+                >
+                    <Database size={14} /> Permissões (SQL)
+                </button>
+                <div className="relative flex-1 md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                    <input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+                </div>
             </div>
           </div>
           <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
             {loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (
               <div key={u.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 flex items-center justify-between">
-                <span className="text-xs font-mono">{u.email}</span>
+                <span className="text-xs font-mono">{u.email} {u.email === currentUserEmail && '(Você)'}</span>
                 <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white shadow-lg shadow-green-600/20'}`}>
                     {u.approved ? 'Bloquear' : <><CheckCircle2 size={12}/> Aprovar</>}
                 </button>
@@ -461,6 +489,7 @@ using ( (select is_admin from profiles where id = auth.uid()) = true );`}
         </div>
       )}
 
+      {/* ... RESTO DO COMPONENTE (MANTIDO IDÊNTICO AO ANTERIOR) ... */}
       <div className="glass rounded-3xl p-8 shadow-xl">
         <div className="flex justify-between items-center mb-8">
            <div className="flex items-center gap-4">
