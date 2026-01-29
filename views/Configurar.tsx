@@ -1,7 +1,8 @@
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria, UserProfile } from '../types';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, AlertTriangle, PenSquare } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2 } from 'lucide-react';
 
 interface ConfigurarProps {
   editais: EditalMateria[];
@@ -21,6 +22,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
   const [loadingUsers, setLoadingUsers] = useState(false);
   const [userSearch, setUserSearch] = useState('');
+  const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingMission, setLoadingMission] = useState(false);
@@ -63,8 +65,20 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
   const toggleUserApproval = async (userId: string, currentStatus: boolean | undefined) => {
     const newStatus = !currentStatus;
+    
+    // Otimistic Update
     setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: newStatus } : u));
-    await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
+    
+    // Feedback rápido
+    setApprovalMsg(newStatus ? 'Usuário APROVADO com sucesso!' : 'Acesso do usuário BLOQUEADO.');
+    setTimeout(() => setApprovalMsg(null), 3000);
+
+    const { error } = await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
+    if (error) {
+        alert('Erro ao atualizar: ' + error.message);
+        // Revert
+        setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: !newStatus } : u));
+    }
   };
 
   const groupedMissions = useMemo(() => {
@@ -373,7 +387,13 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   return (
     <div className="space-y-12 pb-20 animate-in fade-in duration-500">
       {isAdmin && (
-        <div className="glass rounded-3xl p-8 border border-purple-500/30">
+        <div className="glass rounded-3xl p-8 border border-purple-500/30 relative overflow-hidden">
+          {approvalMsg && (
+             <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top-4 z-50">
+                {approvalMsg}
+             </div>
+          )}
+
           <div className="flex justify-between items-center mb-6">
             <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração</h3>
             <div className="relative w-64">
@@ -385,8 +405,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
             {loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (
               <div key={u.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 flex items-center justify-between">
                 <span className="text-xs font-mono">{u.email}</span>
-                <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white'}`}>
-                    {u.approved ? 'Bloquear' : 'Aprovar'}
+                <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white shadow-lg shadow-green-600/20'}`}>
+                    {u.approved ? 'Bloquear' : <><CheckCircle2 size={12}/> Aprovar</>}
                 </button>
               </div>
             ))}
@@ -570,7 +590,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
                             </div>
                             <div className="flex items-center gap-1">
                                 <button onClick={() => handleEditSubject(idx)} className="text-slate-700 group-hover:text-cyan-400 transition-colors p-2 hover:bg-white/5 rounded-lg" title="Editar nome/tópicos">
-                                    <PenSquare size={16} />
+                                    <Edit size={16} />
                                 </button>
                                 <button onClick={() => handleRemoveSubject(idx)} className="text-slate-700 group-hover:text-red-500 transition-colors p-2 hover:bg-white/5 rounded-lg" title="Remover da lista">
                                     <Trash2 size={16} />
