@@ -32,8 +32,8 @@ export const supabase = createClient(
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      // Mudamos para v8 para invalidar sessões antigas/corrompidas que causam loop de login
-      storageKey: 'monitorpro_auth_v8', 
+      // Mudamos para v9 para invalidar sessões antigas que causam loop e forçar um novo login limpo
+      storageKey: 'monitorpro_auth_v9', 
       storage: window.localStorage
     },
   }
