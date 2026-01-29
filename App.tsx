@@ -175,25 +175,25 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de segurança: Se o Supabase não responder em 5s, libera a UI para Login
+    // Timeout de segurança: Se o Supabase demorar mais de 3s para responder, libera a interface
     const safetyTimeout = setTimeout(() => {
        if (mounted && authChecking) {
-          console.warn("Auth timeout - liberando interface");
+          console.warn("Auth timeout - forçando liberação de UI");
           setAuthChecking(false);
        }
-    }, 5000);
+    }, 3000);
 
-    // A. Check manual imediato (Resolve F5)
+    // A. Check manual imediato (Resolve F5 e Cache)
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
        if (mounted && currentSession) {
-          console.log("Sessão recuperada manualmente");
+          console.log("Sessão recuperada via getSession");
           setSession(currentSession);
           fetchData(currentSession);
-          setAuthChecking(false); // Garante liberação rápida se já tiver sessão
+          setAuthChecking(false);
           clearTimeout(safetyTimeout);
        }
     }).catch(err => {
-        console.error("Erro no getSession manual:", err);
+        console.error("Erro getSession:", err);
         if (mounted) setAuthChecking(false);
     });
 
@@ -277,7 +277,7 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Verificando credenciais...
+             Conectando...
            </p>
         </div>
       </div>

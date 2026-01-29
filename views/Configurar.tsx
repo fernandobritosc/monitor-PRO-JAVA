@@ -95,40 +95,64 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
   // GERAÇÃO DO SCRIPT SQL
   const sqlScript = useMemo(() => {
-     return `-- 1. HABILITAR PERMISSÕES (RLS)
-alter table profiles enable row level security;
-alter table editais_materias enable row level security;
+     return `-- 1. HABILITA A SEGURANÇA (RLS) NAS TABELAS
+ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
+ALTER TABLE editais_materias ENABLE ROW LEVEL SECURITY;
+ALTER TABLE registros_estudos ENABLE ROW LEVEL SECURITY;
+ALTER TABLE questoes_revisao ENABLE ROW LEVEL SECURITY;
 
--- 2. PERMISSÕES DE PERFIL (Permite Admin aprovar)
-create policy "Public profiles are viewable by everyone"
-on profiles for select to authenticated using (true);
+-- 2. LIMPA POLÍTICAS ANTIGAS (PARA EVITAR ERRO DE DUPLICIDADE)
+DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
+DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
+DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
+DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
 
-create policy "Users can update own profile"
-on profiles for update to authenticated using (auth.uid() = id);
+DROP POLICY IF EXISTS "Editais viewable by everyone" ON editais_materias;
+DROP POLICY IF EXISTS "Users manage own editais" ON editais_materias;
 
-create policy "Admins can update any profile"
-on profiles for update to authenticated using (
-  (select is_admin from profiles where id = auth.uid()) = true
+DROP POLICY IF EXISTS "Users manage own records" ON registros_estudos;
+DROP POLICY IF EXISTS "Users manage own questions" ON questoes_revisao;
+
+-- 3. PERMISSÕES DE PERFIL (FUNDAMENTAL PARA LOGIN E APROVAÇÃO)
+-- Todo mundo pode ler perfis (necessário para checar se está aprovado)
+CREATE POLICY "Public profiles are viewable by everyone" 
+ON profiles FOR SELECT USING (true);
+
+-- Usuário pode criar seu próprio perfil (ao se cadastrar)
+CREATE POLICY "Users can insert their own profile" 
+ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
+
+-- Usuário pode editar seus próprios dados
+CREATE POLICY "Users can update own profile" 
+ON profiles FOR UPDATE USING (auth.uid() = id);
+
+-- *** CRÍTICO: ADMINS PODEM APROVAR OUTROS ***
+CREATE POLICY "Admins can update any profile" 
+ON profiles FOR UPDATE USING (
+  (SELECT is_admin FROM profiles WHERE id = auth.uid()) = true
 );
 
--- 3. BIBLIOTECA DE EDITAIS (Permite compartilhar modelos)
-create policy "Editais are viewable by everyone"
-on editais_materias for select to authenticated using (true);
+-- 4. PERMISSÕES DA BIBLIOTECA DE EDITAIS
+-- Todo mundo vê os editais (para a tela de Onboarding funcionar com modelos de outros)
+CREATE POLICY "Editais viewable by everyone" 
+ON editais_materias FOR SELECT USING (true);
 
-create policy "Users can insert own editais"
-on editais_materias for insert to authenticated with check (auth.uid() = user_id);
+-- Usuário só edita/apaga os seus
+CREATE POLICY "Users manage own editais" 
+ON editais_materias FOR ALL USING (auth.uid() = user_id);
 
-create policy "Users can update own editais"
-on editais_materias for update to authenticated using (auth.uid() = user_id);
+-- 5. PERMISSÕES DE ESTUDO (DADOS PESSOAIS)
+-- Cada um só vê e mexe no seu
+CREATE POLICY "Users manage own records" 
+ON registros_estudos FOR ALL USING (auth.uid() = user_id);
 
-create policy "Users can delete own editais"
-on editais_materias for delete to authenticated using (auth.uid() = user_id);
+CREATE POLICY "Users manage own questions" 
+ON questoes_revisao FOR ALL USING (auth.uid() = user_id);
 
--- 4. PROMOVER SEU USUÁRIO A ADMIN (Execute se necessário)
-update profiles 
-set is_admin = true, approved = true 
-where email = '${currentUserEmail || 'seu@email.com'}';
-`;
+-- 6. GARANTIR QUE VOCÊ É ADMIN
+UPDATE profiles 
+SET is_admin = true, approved = true 
+WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
   }, [currentUserEmail]);
 
   const copyToClipboard = () => {
@@ -316,6 +340,8 @@ where email = '${currentUserEmail || 'seu@email.com'}';
                  topicos: sub.topicos,
                  data_prova: dateToSave,
                  is_principal: isPrincipal
+                 // Note: Policies must allow insert. 
+                 // If RLS is enabled, user must have 'insert' permission on 'editais_materias'
              });
           }
       }
@@ -489,7 +515,7 @@ where email = '${currentUserEmail || 'seu@email.com'}';
         </div>
       )}
 
-      {/* ... RESTO DO COMPONENTE (MANTIDO IDÊNTICO AO ANTERIOR) ... */}
+      {/* ... RESTO DO COMPONENTE ... */}
       <div className="glass rounded-3xl p-8 shadow-xl">
         <div className="flex justify-between items-center mb-8">
            <div className="flex items-center gap-4">
