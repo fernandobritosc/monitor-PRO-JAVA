@@ -4,29 +4,36 @@ import { createClient } from '@supabase/supabase-js';
 const getSupabaseConfig = () => {
   const env = import.meta.env || ({} as any);
   
+  // Tenta pegar do LocalStorage (Config Manual) OU das Variáveis de Ambiente (Vercel)
   const url = localStorage.getItem('monitorpro_supabase_url') || env.VITE_SUPABASE_URL;
   const key = localStorage.getItem('monitorpro_supabase_key') || env.VITE_SUPABASE_KEY;
 
-  const isPlaceholder = !url || !key || url.includes('placeholder') || key.includes('placeholder');
+  // Verifica se as chaves são válidas
+  const isUrlValid = url && url.includes('https://') && url.includes('.supabase.co');
+  const isKeyValid = key && key.length > 20;
 
-  if (isPlaceholder) {
-    console.warn("MonitorPro: Credenciais do Supabase não detectadas ou inválidas (placeholders). O App deve redirecionar para Configuração.");
+  if (!isUrlValid || !isKeyValid) {
+    console.warn("MonitorPro: Credenciais inválidas ou ausentes. Verifique as Variáveis de Ambiente na Vercel (VITE_SUPABASE_URL e VITE_SUPABASE_KEY).");
   }
 
-  return { url, key };
+  return { 
+    url: isUrlValid ? url : 'https://placeholder.supabase.co', 
+    key: isKeyValid ? key : 'placeholder' 
+  };
 };
 
 const { url, key } = getSupabaseConfig();
 
 export const supabase = createClient(
-  url || 'https://placeholder.supabase.co', 
-  key || 'placeholder',
+  url, 
+  key,
   {
     auth: {
       persistSession: true,
       autoRefreshToken: true,
       detectSessionInUrl: true,
-      storageKey: 'monitorpro_auth_v7', 
+      // Mudamos para v8 para invalidar sessões antigas/corrompidas que causam loop de login
+      storageKey: 'monitorpro_auth_v8', 
       storage: window.localStorage
     },
   }

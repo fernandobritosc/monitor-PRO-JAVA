@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect, useCallback, useMemo, useRef } from 'react';
 import { supabase } from './services/supabase';
 import { ViewType, StudyRecord, EditalMateria } from './types';
@@ -16,7 +17,7 @@ import {
   ConfigScreen,
   Reports 
 } from './views';
-import { RefreshCw, Lock, AlertOctagon, WifiOff } from 'lucide-react';
+import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -69,7 +70,6 @@ const App: React.FC = () => {
         .maybeSingle();
 
       if (profileError) {
-         // Se falhar aqui com API Key, pegamos no catch
          if (profileError.message.includes('Invalid API key')) throw profileError;
       }
 
@@ -81,7 +81,7 @@ const App: React.FC = () => {
       }
       setIsAccessLocked(false);
 
-      // 2. Editais e Registros (Promise.allSettled para resiliência)
+      // 2. Editais e Registros
       const [editaisResult, recordsResult] = await Promise.allSettled([
         supabase.from('editais_materias').select('*').eq('user_id', userId),
         supabase.from('registros_estudos').select('*').eq('user_id', userId).order('data_estudo', { ascending: false })
@@ -105,8 +105,6 @@ const App: React.FC = () => {
       // Processa Registros
       if (recordsResult.status === 'fulfilled' && recordsResult.value.data) {
         setStudyRecords(recordsResult.value.data);
-      } else if (recordsResult.status === 'rejected') {
-        console.error("Erro registros:", recordsResult.reason);
       }
 
       setIsOffline(false);
@@ -115,9 +113,9 @@ const App: React.FC = () => {
     } catch (err: any) {
       console.error("Fetch Data Error:", err);
       
-      if (err.message?.includes('Invalid API key') || err.code === 401) {
+      if (err.message?.includes('Invalid API key') || err.code === 401 || err.code === 'PGRST301') {
         setIsConfigMisconfigured(true);
-        setConfigError("Chave de API inválida detectada durante o uso. Por favor, configure novamente.");
+        setConfigError("Chave de API inválida detectada. Verifique as variáveis de ambiente na Vercel.");
       } else if (err.message?.includes('fetch') || err.message?.includes('AbortError')) {
         setIsOffline(true);
       } else {
@@ -133,16 +131,15 @@ const App: React.FC = () => {
     let mounted = true;
 
     const init = async () => {
-      // 1. Verificar sessão existente no LocalStorage primeiro
       try {
-         // Usamos then/catch aqui para pegar erros de configuração (Invalid API Key) que o getSession pode lançar
+         // Tenta recuperar sessão existente
          const { data, error } = await supabase.auth.getSession();
          
          if (error) {
-             console.error("Erro crítico na sessão:", error);
-             if (error.message?.includes('Invalid API key') || error.status === 401) {
+             console.error("Erro na sessão:", error);
+             if (error.message?.includes('Invalid API key')) {
                  if (mounted) {
-                     setConfigError("Credenciais inválidas. Configure sua conexão com o Supabase.");
+                     setConfigError("Configuração Inválida. Verifique suas chaves.");
                      setIsConfigMisconfigured(true);
                      setAuthChecking(false);
                  }
@@ -150,52 +147,42 @@ const App: React.FC = () => {
              }
          }
 
-         const existingSession = data?.session;
-         
          if (mounted) {
-            if (existingSession) {
-                setSession(existingSession);
-                fetchData(existingSession);
+            if (data?.session) {
+                setSession(data.session);
+                fetchData(data.session);
             }
-            // Só liberamos a UI (Login ou App) depois de processar a sessão encontrada
+            // Importante: Apenas marca como 'verificado' após o getSession retornar
             setAuthChecking(false);
          }
       } catch (e: any) {
-         console.error("Error restoring session (Exception):", e);
-         if (e.message?.includes('Invalid API key')) {
-             if (mounted) {
-                 setConfigError("Erro de configuração detectado. Verifique suas chaves.");
-                 setIsConfigMisconfigured(true);
-             }
-         }
+         console.error("Exceção na inicialização:", e);
          if (mounted) setAuthChecking(false);
       }
-
-      // 2. Ouvir mudanças
-      const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-          if (!mounted) return;
-          console.log("Auth Event:", event);
-
-          if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
-              setSession(newSession);
-              setAuthChecking(false); 
-              if (newSession) fetchData(newSession);
-          } else if (event === 'SIGNED_OUT') {
-              setSession(null);
-              setStudyRecords([]);
-              setEditais([]);
-              setAuthChecking(false);
-          }
-      });
-
-      return () => {
-         subscription.unsubscribe();
-      };
     };
 
     init();
 
-    return () => { mounted = false; };
+    // Listener para mudanças de auth (login, logout, refresh token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+        if (!mounted) return;
+        
+        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+            setSession(newSession);
+            setAuthChecking(false);
+            if (newSession) fetchData(newSession);
+        } else if (event === 'SIGNED_OUT') {
+            setSession(null);
+            setStudyRecords([]);
+            setEditais([]);
+            setAuthChecking(false);
+        }
+    });
+
+    return () => { 
+        mounted = false;
+        subscription.unsubscribe();
+    };
   }, [fetchData]);
 
   // --- RENDERS ---
@@ -214,7 +201,7 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Inicializando Sistema...
+             Conectando ao banco de dados...
            </p>
         </div>
       </div>
@@ -294,10 +281,10 @@ const App: React.FC = () => {
          <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold animate-in fade-in shadow-lg shadow-yellow-500/5">
            <div className="flex items-center gap-2">
              <WifiOff size={20} className="shrink-0" /> 
-             <span>Conexão instável. Usando cache ou tentando reconectar...</span>
+             <span>Conexão instável. Tentando reconectar...</span>
            </div>
            <button onClick={() => fetchData(session)} className="md:ml-auto flex items-center gap-2 hover:text-white">
-             <RefreshCw size={14} /> Reconectar
+             <Loader2 size={14} className={dataLoading ? "animate-spin" : ""} /> Reconectar
            </button>
         </div>
       )}
