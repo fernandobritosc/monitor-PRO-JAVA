@@ -15,7 +15,8 @@ import {
   WeeklyGuide, 
   QuestionsBank, 
   ConfigScreen,
-  Reports 
+  Reports,
+  Onboarding 
 } from './views';
 import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2 } from 'lucide-react';
 
@@ -28,7 +29,10 @@ const App: React.FC = () => {
   const [isConfigMisconfigured, setIsConfigMisconfigured] = useState(false);
   const [manualConfigMode, setManualConfigMode] = useState(false);
   const [configError, setConfigError] = useState<string | null>(null);
+  
+  // Controle de Fluxo
   const [activeView, setActiveView] = useState<ViewType>('HOME');
+  const [showOnboarding, setShowOnboarding] = useState(false);
   
   // Dados
   const [editais, setEditais] = useState<EditalMateria[]>([]);
@@ -60,6 +64,29 @@ const App: React.FC = () => {
     const progress = Math.min(( (totalXP - (Math.pow(level - 1, 2) * 100)) / ((Math.pow(level, 2) * 100) - (Math.pow(level - 1, 2) * 100)) ) * 100, 100);
     return { totalXP, level, progress: isNaN(progress) ? 0 : progress };
   }, [studyRecords]);
+
+  // Função chamada pelo Onboarding para salvar o edital escolhido
+  const handleTemplateSelection = async (templateData: any[]) => {
+     if (!session?.user?.id) return;
+     
+     try {
+        const payload = templateData.map(t => ({
+           ...t,
+           user_id: session.user.id
+        }));
+
+        const { error } = await supabase.from('editais_materias').insert(payload);
+        if (error) throw error;
+        
+        // Atualiza a tela
+        await fetchData(session);
+        setShowOnboarding(false);
+
+     } catch (err: any) {
+        console.error("Erro ao salvar template:", err);
+        alert("Erro ao configurar edital: " + err.message);
+     }
+  };
 
   // Função central de dados blindada
   const fetchData = useCallback(async (currentSession: any) => {
@@ -108,8 +135,11 @@ const App: React.FC = () => {
              const principal = edData.find((e: any) => e.is_principal);
              return principal ? principal.concurso : edData[0].concurso;
           });
+          setShowOnboarding(false);
         } else {
           setEditais([]);
+          // SE NÃO TEM EDITAIS, ATIVA O MODO ONBOARDING (SELEÇÃO DE MODELO)
+          setShowOnboarding(true);
         }
       }
 
@@ -159,7 +189,6 @@ const App: React.FC = () => {
                 const hasLocalToken = localStorage.getItem('monitorpro_auth_v9');
                 if (hasLocalToken) {
                     console.log("Token local detectado, aguardando tentativa de refresh automático do Supabase...");
-                    // Dá um pequeno tempo (aumentado para 3s) para o onAuthStateChange disparar
                     setTimeout(() => {
                         if (mounted && authChecking) setAuthChecking(false);
                     }, 3000);
@@ -242,6 +271,11 @@ const App: React.FC = () => {
         </div>
       </div>
     );
+  }
+
+  // NOVA TELA DE ONBOARDING (SELEÇÃO DE EDITAL)
+  if (showOnboarding) {
+     return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={session.user.email} />;
   }
 
   const renderView = () => {
