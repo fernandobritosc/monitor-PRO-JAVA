@@ -1,0 +1,8 @@
+{
+  "name": "MonitorPro - Sistema de Estudos Inteligente",
+  "description": "Uma plataforma avançada para gestão de estudos, revisões e monitoramento de desempenho para concursos públicos, convertida de Streamlit para uma Single Page Application robusta em React para resolver problemas de persistência de sessão.",
+  "requestFramePermissions": [
+    "camera",
+    "microphone"
+  ]
+}

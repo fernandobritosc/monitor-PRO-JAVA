@@ -1,0 +1,604 @@
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../services/supabase';
+import { EditalMateria, UserProfile } from '../types';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, AlertTriangle, PenSquare } from 'lucide-react';
+
+interface ConfigurarProps {
+  editais: EditalMateria[];
+  missaoAtiva: string;
+  onUpdated: () => Promise<void>;
+  setMissaoAtiva: (missao: string) => void;
+}
+
+interface SubjectDraft {
+  id?: string;
+  materia: string;
+  topicos: string[];
+}
+
+const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated, setMissaoAtiva }) => {
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [usersList, setUsersList] = useState<UserProfile[]>([]);
+  const [loadingUsers, setLoadingUsers] = useState(false);
+  const [userSearch, setUserSearch] = useState('');
+
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [loadingMission, setLoadingMission] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [editingOldName, setEditingOldName] = useState<string | null>(null);
+
+  // Form States
+  const [formConcurso, setFormConcurso] = useState('');
+  const [formCargo, setFormCargo] = useState('');
+  const [formDataProva, setFormDataProva] = useState('');
+  const [formSubjects, setFormSubjects] = useState<SubjectDraft[]>([]);
+
+  // Subject Input States
+  const [newSubjectName, setNewSubjectName] = useState('');
+  const [newSubjectTopics, setNewSubjectTopics] = useState('');
+  const [editingSubjectIndex, setEditingSubjectIndex] = useState<number | null>(null);
+
+  useEffect(() => {
+    const checkAdmin = async () => {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      try {
+        const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+        if (user.email === 'fernandobritosc@gmail.com' || profile?.is_admin === true) {
+          setIsAdmin(true);
+          fetchUsers();
+        }
+      } catch (e) {}
+    };
+    checkAdmin();
+  }, []);
+
+  const fetchUsers = async () => {
+    setLoadingUsers(true);
+    try {
+      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      if (data) setUsersList(data);
+    } catch (e) {} finally { setLoadingUsers(false); }
+  };
+
+  const toggleUserApproval = async (userId: string, currentStatus: boolean | undefined) => {
+    const newStatus = !currentStatus;
+    setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: newStatus } : u));
+    await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
+  };
+
+  const groupedMissions = useMemo(() => {
+    const groups: Record<string, { cargo: string, materiasCount: number, isPrincipal: boolean, dataProva?: string }> = {};
+    if (!editais || !Array.isArray(editais)) return [];
+    
+    editais.forEach(e => {
+      if (!groups[e.concurso]) {
+        groups[e.concurso] = { 
+          cargo: e.cargo, 
+          materiasCount: 0, 
+          isPrincipal: e.is_principal,
+          dataProva: e.data_prova
+        };
+      }
+      groups[e.concurso].materiasCount++;
+      if (e.is_principal) groups[e.concurso].isPrincipal = true;
+    });
+    return Object.entries(groups).map(([concurso, data]) => ({ concurso, ...data }));
+  }, [editais]);
+
+  const handleManualRefresh = async () => {
+    if (refreshing) return;
+    setRefreshing(true);
+    try {
+      await onUpdated();
+    } catch (e) {
+      console.error("Refresh Error:", e);
+    } finally {
+      setTimeout(() => setRefreshing(false), 800);
+    }
+  };
+
+  const handleOpenCreate = () => {
+    setEditingOldName(null);
+    setFormConcurso('');
+    setFormCargo('');
+    setFormDataProva('');
+    setFormSubjects([]);
+    setNewSubjectName('');
+    setNewSubjectTopics('');
+    setEditingSubjectIndex(null);
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEdit = (concurso: string) => {
+    const missionRows = editais.filter(e => e.concurso === concurso);
+    if (missionRows.length === 0) return;
+    
+    const firstRow = missionRows[0];
+    setEditingOldName(concurso);
+    setFormConcurso(concurso);
+    setFormCargo(firstRow.cargo);
+    setFormDataProva(firstRow.data_prova || '');
+    setFormSubjects(missionRows.map(row => ({ 
+        id: row.id, 
+        materia: row.materia, 
+        topicos: row.topicos || [] 
+    })));
+    setEditingSubjectIndex(null);
+    setIsModalOpen(true);
+  };
+
+  const processTopicsText = (text: string): string[] => {
+    return text.split(/[\n;]+/).map(t => t.trim()).filter(t => t.length > 0 && t !== '.');
+  };
+  
+  const handleAddSubject = () => {
+    if (!newSubjectName.trim()) return;
+    
+    let finalName = newSubjectName.trim();
+    let topicsArray = processTopicsText(newSubjectTopics);
+    if (topicsArray.length === 0) topicsArray = ['Geral'];
+    
+    if (editingSubjectIndex !== null) {
+      // ATUALIZAR ITEM EXISTENTE
+      setFormSubjects(prev => prev.map((sub, idx) => 
+        idx === editingSubjectIndex 
+          ? { ...sub, materia: finalName, topicos: topicsArray }
+          : sub
+      ));
+      setEditingSubjectIndex(null);
+    } else {
+      // ADICIONAR NOVO
+      setFormSubjects(prev => [...prev, { materia: finalName, topicos: topicsArray }]);
+    }
+    
+    setNewSubjectName('');
+    setNewSubjectTopics('');
+  };
+
+  const handleEditSubject = (index: number) => {
+    const sub = formSubjects[index];
+    setNewSubjectName(sub.materia);
+    setNewSubjectTopics(sub.topicos.join('\n'));
+    setEditingSubjectIndex(index);
+  };
+
+  const handleCancelSubjectEdit = () => {
+    setNewSubjectName('');
+    setNewSubjectTopics('');
+    setEditingSubjectIndex(null);
+  };
+
+  const handleRemoveSubject = (index: number) => {
+    if (editingSubjectIndex === index) {
+      handleCancelSubjectEdit();
+    }
+    setFormSubjects(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // Lógica de "Smart Sync" / De-Para
+  const handleSaveMission = async () => {
+    if (!formConcurso.trim() || !formCargo.trim()) {
+      alert("Preencha o nome do Concurso e o Cargo.");
+      return;
+    }
+    if (formSubjects.length === 0) {
+      alert("Adicione pelo menos uma matéria antes de salvar.");
+      return;
+    }
+
+    setLoadingMission(true);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("Sessão expirada.");
+
+      // 1. Busca estado atual no banco para comparar
+      const targetConcursoName = editingOldName || formConcurso;
+      
+      const { data: existingRecords } = await supabase
+        .from('editais_materias')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('concurso', targetConcursoName);
+
+      const dbItems = existingRecords || [];
+      const dbIds = new Set(dbItems.map(i => i.id));
+      
+      const toInsert: any[] = [];
+      const toUpdate: any[] = [];
+      const idsToKeep = new Set<string>();
+
+      // Configs Gerais
+      let isPrincipal = editais.length === 0 || editais.some(e => e.concurso === editingOldName && e.is_principal);
+      const dateToSave = formDataProva && formDataProva.trim() !== '' ? formDataProva : null;
+
+      // Controle de duplicatas locais
+      const usedNames = new Set<string>();
+
+      // 2. Mapeamento (De-Para)
+      for (const sub of formSubjects) {
+          // Desduplicação de nomes no front (ex: Direito (2))
+          let originalName = sub.materia.trim();
+          let safeName = originalName;
+          let counter = 2;
+          while (usedNames.has(safeName.toLowerCase())) {
+              safeName = `${originalName} (${counter})`;
+              counter++;
+          }
+          usedNames.add(safeName.toLowerCase());
+
+          // Tenta encontrar correspondente no banco
+          // Prioridade 1: Match por ID
+          let match = sub.id ? dbItems.find(d => d.id === sub.id) : null;
+          
+          // Prioridade 2: Match por Nome (caso não tenha ID ou ID não encontrado)
+          // Isso resolve o problema de "Inserir duplicado" pois ele vai achar o existente e fazer UPDATE
+          if (!match) {
+             match = dbItems.find(d => d.materia.toLowerCase() === safeName.toLowerCase() && !idsToKeep.has(d.id));
+          }
+
+          if (match) {
+             // UPDATE: Item já existe, atualiza dados
+             idsToKeep.add(match.id);
+             toUpdate.push({
+                 id: match.id,
+                 payload: {
+                     concurso: formConcurso, // Atualiza nome do concurso se mudou
+                     cargo: formCargo,
+                     materia: safeName,
+                     topicos: sub.topicos,
+                     data_prova: dateToSave,
+                     is_principal: isPrincipal
+                 }
+             });
+          } else {
+             // INSERT: Item novo
+             toInsert.push({
+                 user_id: user.id,
+                 concurso: formConcurso,
+                 cargo: formCargo,
+                 materia: safeName,
+                 topicos: sub.topicos,
+                 data_prova: dateToSave,
+                 is_principal: isPrincipal
+             });
+          }
+      }
+
+      // 3. Identificar Deletados (Estavam no banco mas não estão no Form)
+      const idsToDelete = dbItems.filter(i => !idsToKeep.has(i.id)).map(i => i.id);
+
+      // --- EXECUÇÃO DAS OPERAÇÕES ---
+      
+      // A. Delete (Limpa conflitos potenciais)
+      if (idsToDelete.length > 0) {
+          const { error: deleteError } = await supabase.from('editais_materias').delete().in('id', idsToDelete);
+          if (deleteError) {
+             // Se falhar o delete por permissão, não trava o resto, mas avisa no console
+             console.warn("Aviso: Delete parcial falhou (provável RLS). Itens desmarcados podem permanecer.", deleteError);
+          }
+      }
+
+      // B. Update
+      for (const item of toUpdate) {
+          const { error } = await supabase
+             .from('editais_materias')
+             .update(item.payload)
+             .eq('id', item.id);
+          if (error) throw error;
+      }
+
+      // C. Insert
+      if (toInsert.length > 0) {
+          const { error } = await supabase.from('editais_materias').insert(toInsert);
+          if (error) throw error;
+      }
+
+      // Atualiza contexto da missão se necessário
+      if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) {
+        setMissaoAtiva(formConcurso);
+      } else if (!missaoAtiva) {
+        setMissaoAtiva(formConcurso);
+      }
+
+      await onUpdated(); 
+      setIsModalOpen(false);
+
+    } catch (err: any) {
+      alert("Erro ao salvar: " + err.message);
+    } finally {
+      setLoadingMission(false);
+    }
+  };
+
+  const handleDeleteMission = async (concurso: string) => {
+    if (!window.confirm(`Tem certeza que deseja apagar o edital "${concurso}"?\nIsso removerá todas as matérias configuradas para este concurso.`)) {
+        return;
+    }
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return;
+
+    try {
+      setRefreshing(true); 
+      
+      // ESTRATÉGIA DE-PARA ROBUSTA PARA EXCLUSÃO:
+      // 1. Busca IDs frescos do banco para garantir que estamos deletando registros que realmente existem.
+      // Isso evita erros de string ou estado local desatualizado.
+      const { data: dbItems, error: fetchError } = await supabase
+        .from('editais_materias')
+        .select('id')
+        .eq('user_id', user.id)
+        .eq('concurso', concurso);
+
+      if (fetchError) throw new Error("Erro ao buscar dados para exclusão: " + fetchError.message);
+
+      if (!dbItems || dbItems.length === 0) {
+          // Se já não existe no banco, apenas atualiza a tela para remover o item fantasma
+          if (missaoAtiva === concurso) setMissaoAtiva(''); 
+          await onUpdated();
+          return;
+      }
+
+      const idsToDelete = dbItems.map(i => i.id);
+
+      // 2. Deleta pelos IDs encontrados (Chave Primária) - Muito mais seguro
+      const { error: deleteError } = await supabase
+          .from('editais_materias')
+          .delete()
+          .in('id', idsToDelete);
+      
+      if (deleteError) {
+          // Tratamento específico e amigável para erro de permissão (RLS)
+          if (deleteError.code === '42501' || deleteError.message?.includes('row-level security')) {
+              throw new Error("PERMISSÃO NEGADA: O banco de dados bloqueou a exclusão. Verifique se a política de DELETE está habilitada para a tabela 'editais_materias' no Supabase.");
+          }
+          throw deleteError;
+      }
+      
+      if (missaoAtiva === concurso) setMissaoAtiva(''); 
+      await onUpdated();
+      
+    } catch (e: any) {
+      alert("Falha na exclusão: " + e.message);
+    } finally {
+      setRefreshing(false);
+    }
+  };
+
+  const filteredUsers = usersList.filter(u => 
+    u.email?.toLowerCase().includes(userSearch.toLowerCase())
+  );
+
+  return (
+    <div className="space-y-12 pb-20 animate-in fade-in duration-500">
+      {isAdmin && (
+        <div className="glass rounded-3xl p-8 border border-purple-500/30">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração</h3>
+            <div className="relative w-64">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+              <input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+            </div>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+            {loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (
+              <div key={u.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 flex items-center justify-between">
+                <span className="text-xs font-mono">{u.email}</span>
+                <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white'}`}>
+                    {u.approved ? 'Bloquear' : 'Aprovar'}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      <div className="glass rounded-3xl p-8 shadow-xl">
+        <div className="flex justify-between items-center mb-8">
+           <div className="flex items-center gap-4">
+              <h3 className="text-2xl font-black tracking-tight">Suas Missões</h3>
+              <button 
+                onClick={handleManualRefresh} 
+                disabled={refreshing}
+                className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all disabled:opacity-50"
+                title="Sincronizar Missões"
+              >
+                <RefreshCw size={18} className={refreshing ? "animate-spin text-cyan-400" : ""} />
+              </button>
+           </div>
+           <button onClick={handleOpenCreate} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all">
+              <PlusCircle size={16} /> Criar Edital
+           </button>
+        </div>
+
+        <div className="space-y-4">
+           {refreshing && groupedMissions.length === 0 ? (
+              <div className="flex flex-col items-center justify-center py-20 gap-4">
+                 <Loader2 className="animate-spin text-cyan-400" size={40} />
+                 <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Buscando dados no Supabase...</p>
+              </div>
+           ) : groupedMissions.length === 0 ? (
+              <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-3xl">
+                 <div className="text-5xl mb-4">📭</div>
+                 <h4 className="text-white font-bold mb-1">Nenhuma missão encontrada</h4>
+                 <p className="text-slate-500 text-sm mb-6">Crie seu primeiro edital para começar a monitorar.</p>
+                 <button onClick={handleOpenCreate} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 mx-auto">
+                    <PlusCircle size={18} /> Criar Agora
+                 </button>
+              </div>
+           ) : (
+             <div className="grid grid-cols-1 gap-4">
+               {groupedMissions.map(m => {
+                 const isActive = m.concurso === missaoAtiva;
+                 
+                 let provaFormatada = 'Data não definida';
+                 if (m.dataProva) {
+                     const [ano, mes, dia] = m.dataProva.split('-');
+                     provaFormatada = `${dia}/${mes}/${ano}`;
+                 }
+                 
+                 return (
+                   <div key={m.concurso} className={`p-6 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isActive ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-slate-900/40 border-white/5 hover:border-white/10'}`}>
+                     <div className="flex items-center gap-5">
+                        <div className={`w-3 h-3 rounded-full ${m.isPrincipal ? 'bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.4)]' : 'bg-slate-700'}`} />
+                        <div>
+                          <h4 className="font-black text-xl text-white tracking-tight">{m.concurso}</h4>
+                          <div className="flex items-center gap-3 mt-1">
+                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{m.cargo}</p>
+                             <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                <Calendar size={10} /> {provaFormatada}
+                             </p>
+                             <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                                {m.materiasCount} matérias
+                             </p>
+                          </div>
+                        </div>
+                     </div>
+                     <div className="flex items-center gap-2">
+                        <button onClick={() => setMissaoAtiva(m.concurso)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all ${isActive ? 'bg-cyan-500 text-white border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}>
+                          {isActive ? 'Missão Ativa' : 'Ativar Missão'}
+                        </button>
+                        <div className="w-px h-8 bg-white/5 mx-2" />
+                        <button onClick={() => handleOpenEdit(m.concurso)} className="p-2.5 text-slate-500 hover:text-cyan-400 bg-slate-800/50 rounded-xl hover:bg-cyan-400/10 transition-all" title="Editar Edital"><Edit size={16} /></button>
+                        <button onClick={() => handleDeleteMission(m.concurso)} className="p-2.5 text-slate-500 hover:text-red-400 bg-slate-800/50 rounded-xl hover:bg-red-400/10 transition-all" title="Apagar Edital"><Trash2 size={16} /></button>
+                     </div>
+                   </div>
+                 )
+               })}
+             </div>
+           )}
+        </div>
+      </div>
+
+      {isModalOpen && (
+        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
+           <div className="bg-[#0E1117] border border-white/10 w-full max-w-3xl rounded-3xl flex flex-col max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200">
+              <div className="p-8 border-b border-white/5 bg-slate-950/50 rounded-t-3xl flex justify-between items-center shrink-0">
+                 <h3 className="text-2xl font-black tracking-tight">{editingOldName ? 'Editar Edital' : 'Novo Edital'}</h3>
+                 <button onClick={() => setIsModalOpen(false)} className="p-2 text-slate-500 hover:text-white transition-colors"><X size={24} /></button>
+              </div>
+              
+              <div className="flex-1 overflow-y-auto custom-scrollbar p-8 space-y-8">
+                 {/* DADOS GERAIS */}
+                 <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Sigla / Concurso</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: TJ-SP" 
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:ring-1 focus:ring-cyan-500 outline-none" 
+                        value={formConcurso} 
+                        onChange={e => setFormConcurso(e.target.value)} 
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1">Cargo</label>
+                      <input 
+                        type="text" 
+                        placeholder="Ex: Escrevente" 
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:ring-1 focus:ring-cyan-500 outline-none" 
+                        value={formCargo} 
+                        onChange={e => setFormCargo(e.target.value)} 
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 flex items-center gap-1">Data da Prova <Calendar size={10} /></label>
+                      <input 
+                        type="date" 
+                        className="w-full bg-slate-950 border border-white/10 rounded-xl px-4 py-3 text-white font-bold focus:ring-1 focus:ring-cyan-500 outline-none uppercase" 
+                        value={formDataProva} 
+                        onChange={e => setFormDataProva(e.target.value)} 
+                      />
+                    </div>
+                 </div>
+
+                 {/* ADICIONAR MATÉRIAS */}
+                 <div className="bg-slate-900/30 p-6 rounded-2xl border border-dashed border-white/10 space-y-4">
+                    <div className="flex items-center gap-2 mb-2">
+                         <BookOpen size={16} className="text-cyan-400" />
+                         <h5 className="text-xs font-bold text-white uppercase tracking-widest">
+                            {editingSubjectIndex !== null ? 'Editar Disciplina' : 'Adicionar Disciplina ao Edital'}
+                         </h5>
+                    </div>
+                    
+                    <div className="grid grid-cols-1 gap-4">
+                        <input 
+                            type="text" 
+                            placeholder="Nome da Matéria (Ex: Direito Constitucional)" 
+                            className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-sm text-white font-bold focus:ring-1 focus:ring-cyan-500 outline-none transition-colors ${editingSubjectIndex !== null ? 'border-cyan-500/50' : 'border-white/10'}`} 
+                            value={newSubjectName} 
+                            onChange={e => setNewSubjectName(e.target.value)} 
+                        />
+                        <textarea 
+                            placeholder="Tópicos do edital (Copie e cole aqui - separe por linhas)" 
+                            className={`w-full bg-slate-950 border rounded-xl px-4 py-3 text-xs text-slate-400 h-24 resize-none font-mono focus:ring-1 focus:ring-cyan-500 outline-none transition-colors ${editingSubjectIndex !== null ? 'border-cyan-500/50' : 'border-white/10'}`} 
+                            value={newSubjectTopics} 
+                            onChange={e => setNewSubjectTopics(e.target.value)} 
+                        />
+                    </div>
+                    <div className="flex gap-2">
+                        {editingSubjectIndex !== null && (
+                            <button onClick={handleCancelSubjectEdit} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-400 py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all">
+                                Cancelar
+                            </button>
+                        )}
+                        <button onClick={handleAddSubject} className="flex-[2] bg-slate-800 hover:bg-slate-700 text-white py-3 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center justify-center gap-2">
+                            {editingSubjectIndex !== null ? <Save size={14} /> : <PlusCircle size={14} />}
+                            {editingSubjectIndex !== null ? 'Atualizar Disciplina' : 'Incluir na Grade'}
+                        </button>
+                    </div>
+                 </div>
+
+                 {/* LISTA DE MATÉRIAS ADICIONADAS */}
+                 <div className="space-y-3">
+                    <label className="text-[10px] font-bold text-slate-500 uppercase tracking-widest ml-1 flex justify-between">
+                        <span>Grade Curricular</span>
+                        <span>{formSubjects.length} disciplinas</span>
+                    </label>
+                    <div className="grid grid-cols-1 gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
+                      {formSubjects.map((sub, idx) => (
+                         <div key={idx} className={`bg-slate-950/50 p-4 rounded-xl border flex justify-between items-center group ${editingSubjectIndex === idx ? 'border-cyan-500/50 bg-cyan-500/5' : 'border-white/5'}`}>
+                            <div>
+                               <div className="flex items-center gap-2">
+                                  <span className={`w-1.5 h-1.5 rounded-full ${editingSubjectIndex === idx ? 'bg-cyan-300 animate-pulse' : 'bg-cyan-500'}`}></span>
+                                  <span className="text-sm font-bold text-slate-200">{sub.materia}</span>
+                               </div>
+                               <span className="text-[10px] text-slate-600 font-bold ml-3.5 uppercase">{sub.topicos.length} tópicos cadastrados</span>
+                            </div>
+                            <div className="flex items-center gap-1">
+                                <button onClick={() => handleEditSubject(idx)} className="text-slate-700 group-hover:text-cyan-400 transition-colors p-2 hover:bg-white/5 rounded-lg" title="Editar nome/tópicos">
+                                    <PenSquare size={16} />
+                                </button>
+                                <button onClick={() => handleRemoveSubject(idx)} className="text-slate-700 group-hover:text-red-500 transition-colors p-2 hover:bg-white/5 rounded-lg" title="Remover da lista">
+                                    <Trash2 size={16} />
+                                </button>
+                            </div>
+                         </div>
+                      ))}
+                      {formSubjects.length === 0 && (
+                          <div className="text-center py-8 text-slate-600 text-xs italic border border-white/5 rounded-xl bg-slate-900/20">
+                             Nenhuma matéria adicionada ainda.
+                          </div>
+                      )}
+                    </div>
+                 </div>
+              </div>
+
+              <div className="p-8 border-t border-white/5 bg-slate-950/50 rounded-b-3xl flex justify-end gap-4 shrink-0">
+                 <button onClick={() => setIsModalOpen(false)} className="px-6 py-3 text-slate-500 hover:text-white font-bold text-sm transition-colors">CANCELAR</button>
+                 <button onClick={handleSaveMission} disabled={loadingMission || formSubjects.length === 0} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white px-10 py-3 rounded-xl font-black text-sm shadow-lg shadow-cyan-500/20 disabled:opacity-50 transition-all flex items-center gap-2">
+                    {loadingMission ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                    {editingOldName ? 'ATUALIZAR' : 'SALVAR MISSÃO'}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default Configurar;
