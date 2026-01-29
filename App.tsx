@@ -18,7 +18,7 @@ import {
   Reports,
   Onboarding 
 } from './views';
-import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2 } from 'lucide-react';
+import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2, CheckCircle2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
@@ -40,6 +40,9 @@ const App: React.FC = () => {
   const [studyRecords, setStudyRecords] = useState<StudyRecord[]>([]);
   const [isAccessLocked, setIsAccessLocked] = useState(false);
   const [fetchError, setFetchError] = useState<string | null>(null);
+  
+  // Estado específico para feedback de verificação manual
+  const [verifyingAccess, setVerifyingAccess] = useState(false);
 
   // Ref para evitar chamadas duplicadas
   const isFetchingRef = useRef(false);
@@ -111,6 +114,8 @@ const App: React.FC = () => {
          if (profileError.message.includes('Invalid API key')) throw profileError;
       }
 
+      // Se profile existe e approved é EXPLICITAMENTE false, bloqueia.
+      // Se profile não existe ou approved é null/true, permite (comportamento padrão permissivo para evitar bloqueio acidental, ajuste se necessário)
       if (profile && profile.approved === false) {
         setIsAccessLocked(true);
         isFetchingRef.current = false;
@@ -167,6 +172,45 @@ const App: React.FC = () => {
       setDataLoading(false);
     }
   }, []);
+
+  // --- REALTIME LISTENER DE APROVAÇÃO ---
+  // Escuta alterações na tabela 'profiles' para desbloquear o usuário em tempo real
+  useEffect(() => {
+    if (!session?.user?.id) return;
+
+    const channel = supabase
+      .channel('profile_changes')
+      .on(
+        'postgres_changes',
+        {
+          event: 'UPDATE',
+          schema: 'public',
+          table: 'profiles',
+          filter: `id=eq.${session.user.id}`,
+        },
+        async (payload: any) => {
+          console.log("Alteração de perfil detectada:", payload);
+          // Se o campo approved mudou para true, recarrega os dados imediatamente
+          if (payload.new && payload.new.approved === true) {
+             console.log("Aprovação detectada! Desbloqueando...");
+             await fetchData(session);
+          }
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [session, fetchData]);
+
+  // Check manual de acesso (para o botão "Verificar Agora")
+  const handleCheckAccess = async () => {
+     if (!session) return;
+     setVerifyingAccess(true);
+     await fetchData(session);
+     setTimeout(() => setVerifyingAccess(false), 800);
+  };
 
   useEffect(() => {
     let mounted = true;
@@ -257,17 +301,37 @@ const App: React.FC = () => {
   // Se parou de checar e não tem sessão, aí sim mostra o Login
   if (!session) return <Login onConfigClick={() => setManualConfigMode(true)} />;
 
+  // TELA DE ACESSO PENDENTE (Melhorada)
   if (isAccessLocked) {
     return (
       <div className="min-h-screen bg-[#0E1117] flex items-center justify-center p-6 text-center">
-        <div className="glass max-w-md w-full p-10 rounded-3xl border border-yellow-500/20 space-y-6">
+        <div className="glass max-w-md w-full p-10 rounded-3xl border border-yellow-500/20 space-y-6 relative overflow-hidden">
+           {/* Background Pulse */}
+           <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500 animate-pulse"></div>
+           
            <Lock size={48} className="text-yellow-500 mx-auto" />
-           <h1 className="text-2xl font-bold text-white">Acesso Pendente</h1>
-           <p className="text-slate-400 text-sm">Aguarde a aprovação do administrador.</p>
-           <button onClick={() => window.location.reload()} className="bg-slate-800 py-3 w-full rounded-xl font-bold text-white flex items-center justify-center gap-2">
-              <RefreshCw size={16} /> Atualizar
+           
+           <div>
+             <h1 className="text-2xl font-bold text-white mb-2">Acesso Pendente</h1>
+             <p className="text-slate-400 text-sm">
+               Sua conta foi criada, mas precisa da aprovação do administrador para acessar o sistema.
+             </p>
+           </div>
+           
+           <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-xl text-xs text-yellow-200/70">
+              Não se preocupe! Assim que o admin aprovar, esta tela desbloqueará automaticamente.
+           </div>
+
+           <button 
+              onClick={handleCheckAccess} 
+              disabled={verifyingAccess}
+              className="bg-slate-800 hover:bg-slate-700 active:scale-95 transition-all py-3 w-full rounded-xl font-bold text-white flex items-center justify-center gap-2"
+           >
+              {verifyingAccess ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} 
+              {verifyingAccess ? 'Verificando...' : 'Verificar Agora'}
            </button>
-           <button onClick={() => supabase.auth.signOut()} className="text-red-400 font-bold text-sm hover:underline">Sair</button>
+           
+           <button onClick={() => supabase.auth.signOut()} className="text-red-400 font-bold text-sm hover:underline">Sair / Trocar Conta</button>
         </div>
       </div>
     );
