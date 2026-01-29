@@ -111,7 +111,8 @@ const App: React.FC = () => {
         .maybeSingle();
 
       if (profileError) {
-         if (profileError.message.includes('Invalid API key')) throw profileError;
+         // Ignora erro se for apenas RLS impedindo leitura inicial, mas avisa console
+         if (!profileError.message.includes('JSON')) console.warn("Erro ao buscar perfil:", profileError.message);
       }
 
       if (profile && profile.approved === false) {
@@ -175,27 +176,25 @@ const App: React.FC = () => {
   useEffect(() => {
     let mounted = true;
 
-    // Timeout de segurança: Se o Supabase demorar mais de 3s para responder, libera a interface
+    // Timeout de Segurança: Se o Supabase não responder em 3s, assume que não tem sessão ou falhou
+    // Isso evita o "loop infinito" na tela de carregamento.
     const safetyTimeout = setTimeout(() => {
-       if (mounted && authChecking) {
-          console.warn("Auth timeout - forçando liberação de UI");
-          setAuthChecking(false);
-       }
+        if (mounted && authChecking) {
+            console.warn("Auth check timed out - releasing UI");
+            setAuthChecking(false);
+        }
     }, 3000);
 
-    // A. Check manual imediato (Resolve F5 e Cache)
+    // A. Check manual imediato (Resolve F5)
     supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
        if (mounted && currentSession) {
-          console.log("Sessão recuperada via getSession");
+          console.log("Sessão recuperada manualmente");
           setSession(currentSession);
           fetchData(currentSession);
-          setAuthChecking(false);
+          setAuthChecking(false); // Libera a UI imediatamente se achou sessão
           clearTimeout(safetyTimeout);
        }
-    }).catch(err => {
-        console.error("Erro getSession:", err);
-        if (mounted) setAuthChecking(false);
-    });
+    }).catch(e => console.error("Erro getSession:", e));
 
     // B. Listener de Eventos (Resolve Login/Logout/Token)
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
@@ -277,7 +276,7 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Conectando...
+             Verificando credenciais...
            </p>
         </div>
       </div>

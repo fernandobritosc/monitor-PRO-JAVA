@@ -340,8 +340,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
                  topicos: sub.topicos,
                  data_prova: dateToSave,
                  is_principal: isPrincipal
-                 // Note: Policies must allow insert. 
-                 // If RLS is enabled, user must have 'insert' permission on 'editais_materias'
              });
           }
       }
@@ -515,7 +513,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
         </div>
       )}
 
-      {/* ... RESTO DO COMPONENTE ... */}
       <div className="glass rounded-3xl p-8 shadow-xl">
         <div className="flex justify-between items-center mb-8">
            <div className="flex items-center gap-4">
