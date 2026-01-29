@@ -114,8 +114,6 @@ const App: React.FC = () => {
          if (profileError.message.includes('Invalid API key')) throw profileError;
       }
 
-      // Se profile existe e approved é EXPLICITAMENTE false, bloqueia.
-      // Se profile não existe ou approved é null/true, permite (comportamento padrão permissivo para evitar bloqueio acidental, ajuste se necessário)
       if (profile && profile.approved === false) {
         setIsAccessLocked(true);
         isFetchingRef.current = false;
@@ -173,8 +171,47 @@ const App: React.FC = () => {
     }
   }, []);
 
-  // --- REALTIME LISTENER DE APROVAÇÃO ---
-  // Escuta alterações na tabela 'profiles' para desbloquear o usuário em tempo real
+  // Listener de Auth Robusto (Corrige o bug de refresh)
+  useEffect(() => {
+    let mounted = true;
+
+    // A. Check manual imediato (Resolve F5)
+    supabase.auth.getSession().then(({ data: { session: currentSession } }) => {
+       if (mounted && currentSession) {
+          console.log("Sessão recuperada manualmente");
+          setSession(currentSession);
+          fetchData(currentSession);
+          // Não paramos o authChecking aqui, deixamos o onAuthStateChange confirmar, 
+          // mas já iniciamos os dados para ser mais rápido.
+       }
+    });
+
+    // B. Listener de Eventos (Resolve Login/Logout/Token)
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
+        if (!mounted) return;
+        
+        console.log("Auth Event:", event);
+
+        if (event === 'INITIAL_SESSION' || event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED') {
+            setSession(newSession);
+            setAuthChecking(false);
+            if (newSession) fetchData(newSession);
+        } 
+        else if (event === 'SIGNED_OUT') {
+            setSession(null);
+            setStudyRecords([]);
+            setEditais([]);
+            setAuthChecking(false);
+        }
+    });
+
+    return () => { 
+        mounted = false;
+        subscription.unsubscribe();
+    };
+  }, [fetchData]);
+
+  // Listener de Aprovação em Tempo Real
   useEffect(() => {
     if (!session?.user?.id) return;
 
@@ -189,10 +226,8 @@ const App: React.FC = () => {
           filter: `id=eq.${session.user.id}`,
         },
         async (payload: any) => {
-          console.log("Alteração de perfil detectada:", payload);
-          // Se o campo approved mudou para true, recarrega os dados imediatamente
           if (payload.new && payload.new.approved === true) {
-             console.log("Aprovação detectada! Desbloqueando...");
+             console.log("Aprovação realtime detectada!");
              await fetchData(session);
           }
         }
@@ -204,75 +239,12 @@ const App: React.FC = () => {
     };
   }, [session, fetchData]);
 
-  // Check manual de acesso (para o botão "Verificar Agora")
   const handleCheckAccess = async () => {
      if (!session) return;
      setVerifyingAccess(true);
      await fetchData(session);
      setTimeout(() => setVerifyingAccess(false), 800);
   };
-
-  useEffect(() => {
-    let mounted = true;
-
-    const init = async () => {
-      try {
-         // Tenta recuperar sessão existente
-         const { data, error } = await supabase.auth.getSession();
-         
-         if (error) {
-             console.error("Erro na sessão:", error);
-         }
-
-         if (mounted) {
-            if (data?.session) {
-                setSession(data.session);
-                fetchData(data.session);
-            } else {
-                // Fallback: Se não retornou sessão, tenta checar se existe token no localstorage antes de desistir
-                const hasLocalToken = localStorage.getItem('monitorpro_auth_v9');
-                if (hasLocalToken) {
-                    console.log("Token local detectado, aguardando tentativa de refresh automático do Supabase...");
-                    setTimeout(() => {
-                        if (mounted && authChecking) setAuthChecking(false);
-                    }, 3000);
-                    return; 
-                }
-            }
-            // Se não tem sessão e não tem token local, encerra check
-            setAuthChecking(false);
-         }
-      } catch (e: any) {
-         console.error("Exceção na inicialização:", e);
-         if (mounted) setAuthChecking(false);
-      }
-    };
-
-    init();
-
-    // Listener para mudanças de auth (login, logout, refresh token)
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
-        if (!mounted) return;
-        
-        console.log("Auth event:", event);
-
-        if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
-            setSession(newSession);
-            setAuthChecking(false);
-            if (newSession) fetchData(newSession);
-        } else if (event === 'SIGNED_OUT') {
-            setSession(null);
-            setStudyRecords([]);
-            setEditais([]);
-            setAuthChecking(false);
-        }
-    });
-
-    return () => { 
-        mounted = false;
-        subscription.unsubscribe();
-    };
-  }, [fetchData]);
 
   // --- RENDERS ---
 
@@ -291,7 +263,7 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Conectando ao banco...
+             Verificando credenciais...
            </p>
         </div>
       </div>
@@ -301,27 +273,21 @@ const App: React.FC = () => {
   // Se parou de checar e não tem sessão, aí sim mostra o Login
   if (!session) return <Login onConfigClick={() => setManualConfigMode(true)} />;
 
-  // TELA DE ACESSO PENDENTE (Melhorada)
   if (isAccessLocked) {
     return (
       <div className="min-h-screen bg-[#0E1117] flex items-center justify-center p-6 text-center">
         <div className="glass max-w-md w-full p-10 rounded-3xl border border-yellow-500/20 space-y-6 relative overflow-hidden">
-           {/* Background Pulse */}
            <div className="absolute top-0 left-0 w-full h-1 bg-yellow-500 animate-pulse"></div>
-           
            <Lock size={48} className="text-yellow-500 mx-auto" />
-           
            <div>
              <h1 className="text-2xl font-bold text-white mb-2">Acesso Pendente</h1>
              <p className="text-slate-400 text-sm">
                Sua conta foi criada, mas precisa da aprovação do administrador para acessar o sistema.
              </p>
            </div>
-           
            <div className="bg-yellow-500/5 border border-yellow-500/10 p-4 rounded-xl text-xs text-yellow-200/70">
               Não se preocupe! Assim que o admin aprovar, esta tela desbloqueará automaticamente.
            </div>
-
            <button 
               onClick={handleCheckAccess} 
               disabled={verifyingAccess}
@@ -330,14 +296,12 @@ const App: React.FC = () => {
               {verifyingAccess ? <Loader2 size={16} className="animate-spin" /> : <RefreshCw size={16} />} 
               {verifyingAccess ? 'Verificando...' : 'Verificar Agora'}
            </button>
-           
            <button onClick={() => supabase.auth.signOut()} className="text-red-400 font-bold text-sm hover:underline">Sair / Trocar Conta</button>
         </div>
       </div>
     );
   }
 
-  // NOVA TELA DE ONBOARDING (SELEÇÃO DE EDITAL)
   if (showOnboarding) {
      return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={session.user.email} />;
   }
@@ -381,7 +345,6 @@ const App: React.FC = () => {
       {dataLoading && (
          <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-cyan-500 animate-pulse z-[60]" />
       )}
-
       {fetchError && (
         <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold animate-in fade-in">
            <div className="flex items-center gap-2">
