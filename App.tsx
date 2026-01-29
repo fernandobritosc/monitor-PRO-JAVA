@@ -21,7 +21,6 @@ import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
-  // INICIO IMPORTANTE: authChecking começa como TRUE para impedir renderização do Login antes da hora
   const [authChecking, setAuthChecking] = useState(true); 
   const [dataLoading, setDataLoading] = useState(false);
   
@@ -40,6 +39,17 @@ const App: React.FC = () => {
 
   // Ref para evitar chamadas duplicadas
   const isFetchingRef = useRef(false);
+
+  // Verificação de URL placeholder (Chaves não configuradas)
+  useEffect(() => {
+    // @ts-ignore - Acessando propriedade interna para verificação
+    const currentUrl = supabase.supabaseUrl || '';
+    if (currentUrl.includes('placeholder')) {
+      setIsConfigMisconfigured(true);
+      setConfigError("Chaves de API não detectadas. Configure as variáveis na Vercel ou use a configuração manual.");
+      setAuthChecking(false);
+    }
+  }, []);
 
   // Gamificação
   const gamificationStats = useMemo(() => {
@@ -138,22 +148,25 @@ const App: React.FC = () => {
          
          if (error) {
              console.error("Erro na sessão:", error);
-             if (error.message?.includes('Invalid API key')) {
-                 if (mounted) {
-                     setConfigError("Configuração Inválida. Verifique suas chaves.");
-                     setIsConfigMisconfigured(true);
-                     setAuthChecking(false);
-                 }
-                 return;
-             }
          }
 
          if (mounted) {
             if (data?.session) {
                 setSession(data.session);
                 fetchData(data.session);
+            } else {
+                // Fallback: Se não retornou sessão, tenta checar se existe token no localstorage antes de desistir
+                const hasLocalToken = localStorage.getItem('monitorpro_auth_v9');
+                if (hasLocalToken) {
+                    console.log("Token local detectado, aguardando tentativa de refresh automático do Supabase...");
+                    // Dá um pequeno tempo (aumentado para 3s) para o onAuthStateChange disparar
+                    setTimeout(() => {
+                        if (mounted && authChecking) setAuthChecking(false);
+                    }, 3000);
+                    return; 
+                }
             }
-            // CRÍTICO: Só paramos de checar a autenticação DEPOIS que o Supabase respondeu
+            // Se não tem sessão e não tem token local, encerra check
             setAuthChecking(false);
          }
       } catch (e: any) {
@@ -194,7 +207,7 @@ const App: React.FC = () => {
     return <ConfigScreen initialError={configError} />;
   }
 
-  // TELA DE CARREGAMENTO (Isso impede que o Login apareça enquanto o Supabase pensa)
+  // TELA DE CARREGAMENTO
   if (authChecking) {
     return (
       <div className="min-h-screen bg-[#0E1117] flex flex-col items-center justify-center gap-6">
@@ -205,7 +218,7 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Verificando Credenciais...
+             Conectando ao banco...
            </p>
         </div>
       </div>
