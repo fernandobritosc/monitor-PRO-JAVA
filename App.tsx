@@ -21,6 +21,7 @@ import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2 } from 'lucide-react';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any>(null);
+  // INICIO IMPORTANTE: authChecking começa como TRUE para impedir renderização do Login antes da hora
   const [authChecking, setAuthChecking] = useState(true); 
   const [dataLoading, setDataLoading] = useState(false);
   
@@ -152,7 +153,7 @@ const App: React.FC = () => {
                 setSession(data.session);
                 fetchData(data.session);
             }
-            // Importante: Apenas marca como 'verificado' após o getSession retornar
+            // CRÍTICO: Só paramos de checar a autenticação DEPOIS que o Supabase respondeu
             setAuthChecking(false);
          }
       } catch (e: any) {
@@ -167,6 +168,8 @@ const App: React.FC = () => {
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event, newSession) => {
         if (!mounted) return;
         
+        console.log("Auth event:", event);
+
         if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
             setSession(newSession);
             setAuthChecking(false);
@@ -191,6 +194,7 @@ const App: React.FC = () => {
     return <ConfigScreen initialError={configError} />;
   }
 
+  // TELA DE CARREGAMENTO (Isso impede que o Login apareça enquanto o Supabase pensa)
   if (authChecking) {
     return (
       <div className="min-h-screen bg-[#0E1117] flex flex-col items-center justify-center gap-6">
@@ -201,13 +205,14 @@ const App: React.FC = () => {
         <div className="text-center">
            <h1 className="text-white font-black text-2xl tracking-tighter mb-2">MONITORPRO</h1>
            <p className="text-slate-500 text-xs font-bold uppercase tracking-widest animate-pulse">
-             Conectando ao banco de dados...
+             Verificando Credenciais...
            </p>
         </div>
       </div>
     );
   }
   
+  // Se parou de checar e não tem sessão, aí sim mostra o Login
   if (!session) return <Login onConfigClick={() => setManualConfigMode(true)} />;
 
   if (isAccessLocked) {
