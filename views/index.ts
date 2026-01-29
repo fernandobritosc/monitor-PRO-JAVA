@@ -11,3 +11,4 @@ export { default as WeeklyGuide } from './WeeklyGuide';
 export { default as QuestionsBank } from './QuestionsBank';
 export { default as ConfigScreen } from './ConfigScreen';
 export { default as Reports } from './Reports';
+export { default as Onboarding } from './Onboarding';
