@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { saveAppConfig, resetAppConfig } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
@@ -22,7 +23,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
       }
     } catch (err) {
       console.error('Failed to read clipboard contents: ', err);
-      setError('Não foi possível colar. Verifique as permissões do navegador.');
+      setError('Não foi possível colar. Use Ctrl+V.');
     }
   };
 
@@ -35,19 +36,14 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
     const trimmedUrl = url.trim();
     const trimmedKey = key.trim();
 
-    // 1. Validação de Formato
+    // Validação Básica
     if (!trimmedUrl.startsWith('https://')) {
       setError('A URL deve começar com "https://".');
       setLoading(false);
       setTestStatus('idle');
       return;
     }
-    if (!trimmedUrl.includes('.supabase.co')) {
-      setError('A URL parece incorreta. Geralmente termina em ".supabase.co".');
-      setLoading(false);
-      setTestStatus('idle');
-      return;
-    }
+
     if (trimmedKey.length < 20) {
       setError('A Chave API parece muito curta.');
       setLoading(false);
@@ -55,38 +51,39 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
       return;
     }
 
-    // 2. Teste de Conexão Real
+    // Teste de Conexão
     try {
+      // Cria cliente temporário para testar
       const tempClient = createClient(trimmedUrl, trimmedKey, {
         auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
       });
 
-      // Tenta uma requisição pública leve. Se a chave for inválida, o Supabase retorna erro 401 ou mensagem específica.
-      // Usamos 'registros_estudos' apenas como alvo de ping. Se não existir, erro é 404, o que significa que a CONEXÃO funcionou.
-      const { error: pingError } = await tempClient.from('registros_estudos').select('count', { count: 'exact', head: true });
+      // Faz um ping leve no banco. 
+      // Se a chave estiver errada, retorna erro 401 ou similar.
+      const { error: pingError } = await tempClient.from('profiles').select('count', { count: 'exact', head: true });
 
       if (pingError) {
-        // Se o erro for de autenticação, bloqueia.
+        // Se for erro de autenticação, rejeita.
         if (pingError.message.includes('Invalid API key') || pingError.code === 'PGRST301' || pingError.code === '401') {
-           throw new Error('Chave API Inválida: O Supabase recusou a conexão.');
+           throw new Error('Chave API recusada pelo Supabase. Verifique se copiou a "anon" key corretamente.');
         }
+        // Se for erro de conexão (URL errada)
         if (pingError.message.includes('FetchError') || pingError.message.includes('Failed to fetch')) {
-           throw new Error('Erro de Rede: Não foi possível alcançar a URL do projeto.');
+           throw new Error('Não foi possível conectar nesta URL. Verifique o endereço.');
         }
-        // Outros erros (ex: tabela não existe) significam que a chave provavelmente é válida, mas o banco está vazio.
-        // Permitimos prosseguir.
+        // Outros erros (tabela não existe, RLS, etc) indicam que a CONEXÃO funcionou, então prosseguimos.
       }
 
       setTestStatus('success');
       
-      // Delay pequeno para mostrar o sucesso visualmente antes de recarregar
+      // Salva imediatamente
       setTimeout(() => {
         saveAppConfig(trimmedUrl, trimmedKey);
-      }, 500);
+      }, 800);
 
     } catch (err: any) {
       console.error("Connection Test Failed:", err);
-      setError(err.message || 'Falha ao conectar com estas credenciais.');
+      setError(err.message || 'Falha ao conectar. Verifique os dados.');
       setTestStatus('error');
       setLoading(false);
     }
@@ -114,11 +111,11 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight mb-2">
             <span className={`bg-gradient-to-r bg-clip-text text-transparent ${isErrorRecovery || testStatus === 'error' ? 'from-red-400 to-orange-400' : 'from-purple-400 to-cyan-400'}`}>
-              {testStatus === 'success' ? 'Conexão Aprovada!' : isErrorRecovery ? 'Erro de Conexão' : 'Configuração Inicial'}
+              {testStatus === 'success' ? 'Sucesso!' : isErrorRecovery ? 'Verifique a Conexão' : 'Configurar Acesso'}
             </span>
           </h1>
           <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">
-            {testStatus === 'success' ? 'Salvando e iniciando...' : isErrorRecovery ? 'Verifique suas credenciais' : 'Conecte seu Banco de Dados'}
+            {testStatus === 'success' ? 'Salvando no navegador...' : 'Conecte seu banco de dados'}
           </p>
         </div>
 
@@ -133,7 +130,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
           
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Link size={12} /> URL do Projeto Supabase
+              <Link size={12} /> URL do Projeto
             </label>
             <div className="relative">
               <Link size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
@@ -151,7 +148,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Key size={12} /> Chave Pública (anon key)
+              <Key size={12} /> API Key (anon/public)
             </label>
             <div className="relative flex items-center">
               <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10" />
@@ -168,7 +165,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
                 type="button" 
                 onClick={handlePasteKey} 
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors" 
-                title="Colar da área de transferência"
+                title="Colar"
                 disabled={loading}
               >
                 <ClipboardPaste size={16} />
@@ -177,9 +174,9 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
           </div>
           
           <div className="text-xs text-slate-500 bg-slate-900/30 p-3 rounded-lg border border-white/5">
-             <p>As chaves não são armazenadas em nossos servidores. Elas ficam salvas apenas no seu navegador.</p>
+             <p>Seus dados ficarão salvos neste navegador.</p>
              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-cyan-400 font-bold mt-2 inline-flex items-center gap-1 hover:underline">
-                Onde encontrar minhas chaves? <ExternalLink size={12} />
+                Pegar chaves no Supabase <ExternalLink size={12} />
              </a>
           </div>
 
@@ -195,22 +192,22 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
             {loading ? (
               <>
                  <Loader2 size={20} className="animate-spin" />
-                 {testStatus === 'testing' ? 'Testando Conexão...' : 'Salvando...'}
+                 {testStatus === 'testing' ? 'Testando...' : 'Salvando...'}
               </>
             ) : testStatus === 'success' ? (
               <>
                  <CheckCircle2 size={20} />
-                 Tudo Pronto!
+                 Salvo com Sucesso!
               </>
             ) : (
-              'Testar e Salvar'
+              'Salvar Conexão'
             )}
           </button>
         </form>
 
         <div className="text-center mt-8">
             <button onClick={resetAppConfig} className="text-xs text-slate-600 hover:text-red-400 transition-colors font-bold uppercase tracking-widest">
-                Limpar Dados Salvos
+                Limpar Dados e Reiniciar
             </button>
         </div>
       </div>
