@@ -2,7 +2,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria, UserProfile } from '../types';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText } from 'lucide-react';
 
 interface ConfigurarProps {
   editais: EditalMateria[];
@@ -18,6 +18,8 @@ interface SubjectDraft {
 }
 
 const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated, setMissaoAtiva }) => {
+  const [activeTab, setActiveTab] = useState<'mission' | 'admin' | 'diagnostics'>('mission');
+  
   const [isAdmin, setIsAdmin] = useState(false);
   const [currentUserEmail, setCurrentUserEmail] = useState('');
   const [usersList, setUsersList] = useState<UserProfile[]>([]);
@@ -28,6 +30,10 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   // Estado para Erro de RLS e Modal SQL
   const [permissionError, setPermissionError] = useState<boolean>(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
+
+  // Estados de Diagnóstico
+  const [diagLog, setDiagLog] = useState<string[]>([]);
+  const [diagLoading, setDiagLoading] = useState(false);
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [loadingMission, setLoadingMission] = useState(false);
@@ -69,98 +75,130 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
     } catch (e) {} finally { setLoadingUsers(false); }
   };
 
+  const runDiagnostics = async () => {
+    setDiagLoading(true);
+    const logs: string[] = [];
+    const log = (msg: string) => logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
+
+    try {
+        log("Iniciando diagnóstico...");
+        
+        // 1. Auth Check
+        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        if (authError) log(`❌ Erro Auth: ${authError.message}`);
+        else if (!session) log("❌ Sem sessão ativa.");
+        else log(`✅ Autenticado como: ${session.user.email} (ID: ${session.user.id.slice(0,5)}...)`);
+
+        if (session) {
+            // 2. Profile Check
+            const { data: profile, error: profError } = await supabase.from('profiles').select('*').eq('id', session.user.id).single();
+            if (profError) {
+                log(`⚠️ Erro Perfil: ${profError.message} (Código: ${profError.code})`);
+                if (profError.code === '42501') log("🚨 ALERTA: Permissão negada (RLS). Execute o SQL de configuração.");
+                if (profError.code === 'PGRST116') log("⚠️ Perfil não encontrado na tabela.");
+            } else {
+                log(`✅ Perfil carregado. Aprovado: ${profile.approved}, Admin: ${profile.is_admin}`);
+            }
+
+            // 3. Data Check (Editais)
+            const { count, error: countError } = await supabase.from('editais_materias').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
+            if (countError) log(`❌ Erro Contagem Editais: ${countError.message}`);
+            else log(`✅ Editais encontrados: ${count}`);
+
+            // 4. Data Check (Registros)
+            const { count: recCount, error: recError } = await supabase.from('registros_estudos').select('*', { count: 'exact', head: true }).eq('user_id', session.user.id);
+            if (recError) log(`❌ Erro Contagem Registros: ${recError.message}`);
+            else log(`✅ Registros encontrados: ${recCount}`);
+        }
+
+        log("Diagnóstico concluído.");
+    } catch (e: any) {
+        log(`❌ Erro Fatal: ${e.message}`);
+    } finally {
+        setDiagLog(logs);
+        setDiagLoading(false);
+    }
+  };
+
   const toggleUserApproval = async (userId: string, currentStatus: boolean | undefined) => {
     const newStatus = !currentStatus;
-    
-    // Otimistic Update
     setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: newStatus } : u));
-    
-    // Feedback rápido
     setApprovalMsg(newStatus ? 'Usuário APROVADO com sucesso!' : 'Acesso do usuário BLOQUEADO.');
     setTimeout(() => setApprovalMsg(null), 3000);
 
     const { error } = await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
     if (error) {
         console.error("Erro no update de perfil:", error);
-        // Se for erro de permissão (RLS), mostra o modal de ajuda
         if (error.code === '42501' || error.message.includes('permission') || error.message.includes('row-level security')) {
              setPermissionError(true);
         } else {
              alert('Erro ao atualizar: ' + error.message);
         }
-        // Revert
         setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: !newStatus } : u));
     }
   };
 
-  // GERAÇÃO DO SCRIPT SQL
   const sqlScript = useMemo(() => {
-     return `-- 1. HABILITA A SEGURANÇA (RLS) NAS TABELAS
-ALTER TABLE profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE editais_materias ENABLE ROW LEVEL SECURITY;
-ALTER TABLE registros_estudos ENABLE ROW LEVEL SECURITY;
-ALTER TABLE questoes_revisao ENABLE ROW LEVEL SECURITY;
-
--- 2. LIMPA POLÍTICAS ANTIGAS (PARA EVITAR ERRO DE DUPLICIDADE)
-DROP POLICY IF EXISTS "Public profiles are viewable by everyone" ON profiles;
-DROP POLICY IF EXISTS "Users can insert their own profile" ON profiles;
-DROP POLICY IF EXISTS "Users can update own profile" ON profiles;
-DROP POLICY IF EXISTS "Admins can update any profile" ON profiles;
-
-DROP POLICY IF EXISTS "Editais viewable by everyone" ON editais_materias;
-DROP POLICY IF EXISTS "Users manage own editais" ON editais_materias;
-
-DROP POLICY IF EXISTS "Users manage own records" ON registros_estudos;
-DROP POLICY IF EXISTS "Users manage own questions" ON questoes_revisao;
-
--- 3. PERMISSÕES DE PERFIL (FUNDAMENTAL PARA LOGIN E APROVAÇÃO)
--- Todo mundo pode ler perfis (necessário para checar se está aprovado)
-CREATE POLICY "Public profiles are viewable by everyone" 
-ON profiles FOR SELECT USING (true);
-
--- Usuário pode criar seu próprio perfil (ao se cadastrar)
-CREATE POLICY "Users can insert their own profile" 
-ON profiles FOR INSERT WITH CHECK (auth.uid() = id);
-
--- Usuário pode editar seus próprios dados
-CREATE POLICY "Users can update own profile" 
-ON profiles FOR UPDATE USING (auth.uid() = id);
-
--- *** CRÍTICO: ADMINS PODEM APROVAR OUTROS ***
-CREATE POLICY "Admins can update any profile" 
-ON profiles FOR UPDATE USING (
-  (SELECT is_admin FROM profiles WHERE id = auth.uid()) = true
+     return `-- 1. ESTRUTURA E TRIGGER DE CRIAÇÃO AUTOMÁTICA
+create table if not exists public.profiles (
+  id uuid references auth.users on delete cascade not null primary key,
+  email text,
+  approved boolean default false,
+  is_admin boolean default false,
+  created_at timestamp with time zone default timezone('utc'::text, now())
 );
 
--- 4. PERMISSÕES DA BIBLIOTECA DE EDITAIS
--- Todo mundo vê os editais (para a tela de Onboarding funcionar com modelos de outros)
-CREATE POLICY "Editais viewable by everyone" 
-ON editais_materias FOR SELECT USING (true);
+create or replace function public.handle_new_user()
+returns trigger as $$
+begin
+  insert into public.profiles (id, email, approved, is_admin)
+  values (new.id, new.email, false, false)
+  on conflict (id) do nothing;
+  return new;
+end;
+$$ language plpgsql security definer;
 
--- Usuário só edita/apaga os seus
-CREATE POLICY "Users manage own editais" 
-ON editais_materias FOR ALL USING (auth.uid() = user_id);
+drop trigger if exists on_auth_user_created on auth.users;
+create trigger on_auth_user_created
+  after insert on auth.users
+  for each row execute procedure public.handle_new_user();
 
--- 5. PERMISSÕES DE ESTUDO (DADOS PESSOAIS)
--- Cada um só vê e mexe no seu
-CREATE POLICY "Users manage own records" 
-ON registros_estudos FOR ALL USING (auth.uid() = user_id);
+-- 2. CORREÇÃO DE DADOS (IMPORTANTE)
+insert into public.profiles (id, email, approved)
+select id, email, false from auth.users
+where id not in (select id from public.profiles);
 
-CREATE POLICY "Users manage own questions" 
-ON questoes_revisao FOR ALL USING (auth.uid() = user_id);
+-- 3. PERMISSÕES DE SEGURANÇA (RLS)
+alter table profiles enable row level security;
+alter table editais_materias enable row level security;
+alter table registros_estudos enable row level security;
 
--- 6. GARANTIR QUE VOCÊ É ADMIN
-UPDATE profiles 
-SET is_admin = true, approved = true 
-WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
+drop policy if exists "Public profiles" on profiles;
+drop policy if exists "Users update own" on profiles;
+drop policy if exists "Admins update all" on profiles;
+drop policy if exists "Public editais" on editais_materias;
+drop policy if exists "Users manage editais" on editais_materias;
+drop policy if exists "Users manage records" on registros_estudos;
+
+create policy "Public profiles" on profiles for select using (true);
+create policy "Users update own" on profiles for update using (auth.uid() = id);
+create policy "Admins update all" on profiles for update using (
+  (select is_admin from profiles where id = auth.uid()) = true
+);
+
+create policy "Public editais" on editais_materias for select using (true);
+create policy "Users manage editais" on editais_materias for all using (auth.uid() = user_id);
+create policy "Users manage records" on registros_estudos for all using (auth.uid() = user_id);
+
+-- 4. GARANTIR SEU ADMIN
+update profiles set is_admin = true, approved = true where email = '${currentUserEmail || 'fernandobritosc@gmail.com'}';`;
   }, [currentUserEmail]);
 
   const copyToClipboard = () => {
      navigator.clipboard.writeText(sqlScript);
-     alert("Script copiado! Cole no SQL Editor do Supabase.");
+     alert("Script SQL copiado! Cole no SQL Editor do Supabase e clique em RUN.");
   };
 
-  // ... (RESTO DO COMPONENTE MANTIDO IGUAL) ...
   const groupedMissions = useMemo(() => {
     const groups: Record<string, { cargo: string, materiasCount: number, isPrincipal: boolean, dataProva?: string }> = {};
     if (!editais || !Array.isArray(editais)) return [];
@@ -228,7 +266,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
   
   const handleAddSubject = () => {
     if (!newSubjectName.trim()) return;
-    
     let finalName = newSubjectName.trim();
     let topicsArray = processTopicsText(newSubjectTopics);
     if (topicsArray.length === 0) topicsArray = ['Geral'];
@@ -243,7 +280,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
     } else {
       setFormSubjects(prev => [...prev, { materia: finalName, topicos: topicsArray }]);
     }
-    
     setNewSubjectName('');
     setNewSubjectTopics('');
   };
@@ -313,7 +349,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
           usedNames.add(safeName.toLowerCase());
 
           let match = sub.id ? dbItems.find(d => d.id === sub.id) : null;
-          
           if (!match) {
              match = dbItems.find(d => d.materia.toLowerCase() === safeName.toLowerCase() && !idsToKeep.has(d.id));
           }
@@ -387,13 +422,7 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
 
     try {
       setRefreshing(true); 
-      
-      const { data: dbItems, error: fetchError } = await supabase
-        .from('editais_materias')
-        .select('id')
-        .eq('user_id', user.id)
-        .eq('concurso', concurso);
-
+      const { data: dbItems, error: fetchError } = await supabase.from('editais_materias').select('id').eq('user_id', user.id).eq('concurso', concurso);
       if (fetchError) throw new Error("Erro ao buscar dados: " + fetchError.message);
 
       if (!dbItems || dbItems.length === 0) {
@@ -403,7 +432,6 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
       }
 
       const idsToDelete = dbItems.map(i => i.id);
-
       const { error: deleteError } = await supabase.from('editais_materias').delete().in('id', idsToDelete);
       
       if (deleteError) {
@@ -423,13 +451,181 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
     }
   };
 
-  const filteredUsers = usersList.filter(u => 
-    u.email?.toLowerCase().includes(userSearch.toLowerCase())
-  );
+  const filteredUsers = usersList.filter(u => u.email?.toLowerCase().includes(userSearch.toLowerCase()));
 
   return (
-    <div className="space-y-12 pb-20 animate-in fade-in duration-500">
+    <div className="space-y-8 pb-20 animate-in fade-in duration-500">
       
+      {/* TABS HEADER */}
+      <div className="flex gap-4 border-b border-white/10 pb-4 overflow-x-auto">
+         <button onClick={() => setActiveTab('mission')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'mission' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white'}`}>
+            🎯 Missões & Editais
+         </button>
+         <button onClick={() => setActiveTab('diagnostics')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'diagnostics' ? 'bg-purple-500 text-white shadow-lg shadow-purple-500/20' : 'text-slate-400 hover:text-white'}`}>
+            <Activity size={14} /> Diagnóstico
+         </button>
+         {isAdmin && (
+            <button onClick={() => setActiveTab('admin')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap flex items-center gap-2 ${activeTab === 'admin' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'text-slate-400 hover:text-white'}`}>
+               <Shield size={14} /> Admin
+            </button>
+         )}
+      </div>
+
+      {/* CONTEÚDO TAB: MISSÕES (PADRÃO) */}
+      {activeTab === 'mission' && (
+        <div className="glass rounded-3xl p-8 shadow-xl animate-in slide-in-from-right-2">
+            <div className="flex justify-between items-center mb-8">
+            <div className="flex items-center gap-4">
+                <h3 className="text-2xl font-black tracking-tight">Suas Missões</h3>
+                <button 
+                    onClick={handleManualRefresh} 
+                    disabled={refreshing}
+                    className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all disabled:opacity-50"
+                    title="Sincronizar Missões"
+                >
+                    <RefreshCw size={18} className={refreshing ? "animate-spin text-cyan-400" : ""} />
+                </button>
+            </div>
+            <button onClick={handleOpenCreate} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all">
+                <PlusCircle size={16} /> Criar Edital
+            </button>
+            </div>
+
+            <div className="space-y-4">
+            {refreshing && groupedMissions.length === 0 ? (
+                <div className="flex flex-col items-center justify-center py-20 gap-4">
+                    <Loader2 className="animate-spin text-cyan-400" size={40} />
+                    <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Buscando dados no Supabase...</p>
+                </div>
+            ) : groupedMissions.length === 0 ? (
+                <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-3xl">
+                    <div className="text-5xl mb-4">📭</div>
+                    <h4 className="text-white font-bold mb-1">Nenhuma missão encontrada</h4>
+                    <p className="text-slate-500 text-sm mb-6">Crie seu primeiro edital para começar a monitorar.</p>
+                    <button onClick={handleOpenCreate} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 mx-auto">
+                        <PlusCircle size={18} /> Criar Agora
+                    </button>
+                </div>
+            ) : (
+                <div className="grid grid-cols-1 gap-4">
+                {groupedMissions.map(m => {
+                    const isActive = m.concurso === missaoAtiva;
+                    let provaFormatada = 'Data não definida';
+                    if (m.dataProva) {
+                        const [ano, mes, dia] = m.dataProva.split('-');
+                        provaFormatada = `${dia}/${mes}/${ano}`;
+                    }
+                    
+                    return (
+                    <div key={m.concurso} className={`p-6 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isActive ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-slate-900/40 border-white/5 hover:border-white/10'}`}>
+                        <div className="flex items-center gap-5">
+                            <div className={`w-3 h-3 rounded-full ${m.isPrincipal ? 'bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.4)]' : 'bg-slate-700'}`} />
+                            <div>
+                            <h4 className="font-black text-xl text-white tracking-tight">{m.concurso}</h4>
+                            <div className="flex items-center gap-3 mt-1">
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{m.cargo}</p>
+                                <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1">
+                                    <Calendar size={10} /> {provaFormatada}
+                                </p>
+                                <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
+                                <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
+                                    {m.materiasCount} matérias
+                                </p>
+                            </div>
+                            </div>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => setMissaoAtiva(m.concurso)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all ${isActive ? 'bg-cyan-500 text-white border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}>
+                            {isActive ? 'Missão Ativa' : 'Ativar Missão'}
+                            </button>
+                            <div className="w-px h-8 bg-white/5 mx-2" />
+                            <button onClick={() => handleOpenEdit(m.concurso)} className="p-2.5 text-slate-500 hover:text-cyan-400 bg-slate-800/50 rounded-xl hover:bg-cyan-400/10 transition-all" title="Editar Edital"><Edit size={16} /></button>
+                            <button onClick={() => handleDeleteMission(m.concurso)} className="p-2.5 text-slate-500 hover:text-red-400 bg-slate-800/50 rounded-xl hover:bg-red-400/10 transition-all" title="Apagar Edital"><Trash2 size={16} /></button>
+                        </div>
+                    </div>
+                    )
+                })}
+                </div>
+            )}
+            </div>
+        </div>
+      )}
+
+      {/* CONTEÚDO TAB: DIAGNÓSTICO */}
+      {activeTab === 'diagnostics' && (
+         <div className="glass rounded-3xl p-8 shadow-xl animate-in slide-in-from-right-2 space-y-6">
+             <div className="flex justify-between items-start">
+                 <div>
+                    <h3 className="text-xl font-bold flex items-center gap-2"><Activity className="text-purple-400"/> Central de Diagnóstico</h3>
+                    <p className="text-slate-400 text-sm mt-1">Use esta ferramenta se você estiver tendo problemas para salvar ou visualizar dados.</p>
+                 </div>
+                 <button onClick={runDiagnostics} disabled={diagLoading} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg shadow-purple-500/20 flex items-center gap-2">
+                    {diagLoading ? <Loader2 className="animate-spin" size={16} /> : "Executar Teste Completo"}
+                 </button>
+             </div>
+
+             <div className="bg-black/50 rounded-xl border border-white/10 p-4 font-mono text-xs text-green-400 h-64 overflow-y-auto custom-scrollbar relative">
+                 {diagLog.length === 0 ? (
+                     <div className="absolute inset-0 flex items-center justify-center text-slate-600 italic pointer-events-none">
+                        Clique em "Executar Teste Completo" para ver os logs.
+                     </div>
+                 ) : (
+                     diagLog.map((log, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0">{log}</div>)
+                 )}
+             </div>
+
+             <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex gap-4 items-start">
+                 <AlertTriangle className="text-yellow-500 shrink-0 mt-1" />
+                 <div>
+                     <h4 className="font-bold text-yellow-200 text-sm">Problemas com Permissões?</h4>
+                     <p className="text-xs text-yellow-200/70 mt-1 mb-3">Se o log mostrar erros "42501" ou "Permission denied", você precisa rodar o script de correção no Supabase.</p>
+                     <button onClick={() => setShowSqlModal(true)} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-yellow-500/20">
+                        Ver Script de Correção
+                     </button>
+                 </div>
+             </div>
+         </div>
+      )}
+
+      {/* CONTEÚDO TAB: ADMIN */}
+      {activeTab === 'admin' && isAdmin && (
+        <div className="glass rounded-3xl p-8 border border-purple-500/30 relative overflow-hidden animate-in slide-in-from-right-2">
+          {approvalMsg && (
+             <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top-4 z-50">
+                {approvalMsg}
+             </div>
+          )}
+
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
+            <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração de Usuários</h3>
+            
+            <div className="flex items-center gap-3 w-full md:w-auto">
+                <button 
+                    onClick={() => setShowSqlModal(true)} 
+                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-500/20 flex items-center gap-2 transition-all"
+                >
+                    <Database size={14} /> Permissões (SQL)
+                </button>
+                <div className="relative flex-1 md:w-64">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
+                    <input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
+                </div>
+            </div>
+          </div>
+          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
+            {loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (
+              <div key={u.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 flex items-center justify-between">
+                <span className="text-xs font-mono">{u.email} {u.email === currentUserEmail && '(Você)'}</span>
+                <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white shadow-lg shadow-green-600/20'}`}>
+                    {u.approved ? 'Bloquear' : <><CheckCircle2 size={12}/> Aprovar</>}
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* MODAL DE SQL (GERAL) ou ERRO DE PERMISSÃO */}
       {(permissionError || showSqlModal) && (
          <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4">
@@ -476,122 +672,7 @@ WHERE email = '${currentUserEmail || 'seu@email.com'}';`;
          </div>
       )}
 
-      {isAdmin && (
-        <div className="glass rounded-3xl p-8 border border-purple-500/30 relative overflow-hidden">
-          {approvalMsg && (
-             <div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top-4 z-50">
-                {approvalMsg}
-             </div>
-          )}
-
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração</h3>
-            
-            <div className="flex items-center gap-3 w-full md:w-auto">
-                <button 
-                    onClick={() => setShowSqlModal(true)} 
-                    className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-500/20 flex items-center gap-2 transition-all"
-                >
-                    <Database size={14} /> Permissões (SQL)
-                </button>
-                <div className="relative flex-1 md:w-64">
-                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} />
-                    <input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900 border border-white/10 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} />
-                </div>
-            </div>
-          </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">
-            {loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (
-              <div key={u.id} className="bg-slate-950/50 p-3 rounded-xl border border-white/5 flex items-center justify-between">
-                <span className="text-xs font-mono">{u.email} {u.email === currentUserEmail && '(Você)'}</span>
-                <button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white shadow-lg shadow-green-600/20'}`}>
-                    {u.approved ? 'Bloquear' : <><CheckCircle2 size={12}/> Aprovar</>}
-                </button>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
-      <div className="glass rounded-3xl p-8 shadow-xl">
-        <div className="flex justify-between items-center mb-8">
-           <div className="flex items-center gap-4">
-              <h3 className="text-2xl font-black tracking-tight">Suas Missões</h3>
-              <button 
-                onClick={handleManualRefresh} 
-                disabled={refreshing}
-                className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all disabled:opacity-50"
-                title="Sincronizar Missões"
-              >
-                <RefreshCw size={18} className={refreshing ? "animate-spin text-cyan-400" : ""} />
-              </button>
-           </div>
-           <button onClick={handleOpenCreate} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all">
-              <PlusCircle size={16} /> Criar Edital
-           </button>
-        </div>
-
-        <div className="space-y-4">
-           {refreshing && groupedMissions.length === 0 ? (
-              <div className="flex flex-col items-center justify-center py-20 gap-4">
-                 <Loader2 className="animate-spin text-cyan-400" size={40} />
-                 <p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Buscando dados no Supabase...</p>
-              </div>
-           ) : groupedMissions.length === 0 ? (
-              <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-3xl">
-                 <div className="text-5xl mb-4">📭</div>
-                 <h4 className="text-white font-bold mb-1">Nenhuma missão encontrada</h4>
-                 <p className="text-slate-500 text-sm mb-6">Crie seu primeiro edital para começar a monitorar.</p>
-                 <button onClick={handleOpenCreate} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 mx-auto">
-                    <PlusCircle size={18} /> Criar Agora
-                 </button>
-              </div>
-           ) : (
-             <div className="grid grid-cols-1 gap-4">
-               {groupedMissions.map(m => {
-                 const isActive = m.concurso === missaoAtiva;
-                 
-                 let provaFormatada = 'Data não definida';
-                 if (m.dataProva) {
-                     const [ano, mes, dia] = m.dataProva.split('-');
-                     provaFormatada = `${dia}/${mes}/${ano}`;
-                 }
-                 
-                 return (
-                   <div key={m.concurso} className={`p-6 rounded-2xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isActive ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-slate-900/40 border-white/5 hover:border-white/10'}`}>
-                     <div className="flex items-center gap-5">
-                        <div className={`w-3 h-3 rounded-full ${m.isPrincipal ? 'bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.4)]' : 'bg-slate-700'}`} />
-                        <div>
-                          <h4 className="font-black text-xl text-white tracking-tight">{m.concurso}</h4>
-                          <div className="flex items-center gap-3 mt-1">
-                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{m.cargo}</p>
-                             <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1">
-                                <Calendar size={10} /> {provaFormatada}
-                             </p>
-                             <span className="w-1 h-1 bg-slate-600 rounded-full"></span>
-                             <p className="text-xs text-slate-500 font-bold uppercase tracking-widest">
-                                {m.materiasCount} matérias
-                             </p>
-                          </div>
-                        </div>
-                     </div>
-                     <div className="flex items-center gap-2">
-                        <button onClick={() => setMissaoAtiva(m.concurso)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all ${isActive ? 'bg-cyan-500 text-white border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}>
-                          {isActive ? 'Missão Ativa' : 'Ativar Missão'}
-                        </button>
-                        <div className="w-px h-8 bg-white/5 mx-2" />
-                        <button onClick={() => handleOpenEdit(m.concurso)} className="p-2.5 text-slate-500 hover:text-cyan-400 bg-slate-800/50 rounded-xl hover:bg-cyan-400/10 transition-all" title="Editar Edital"><Edit size={16} /></button>
-                        <button onClick={() => handleDeleteMission(m.concurso)} className="p-2.5 text-slate-500 hover:text-red-400 bg-slate-800/50 rounded-xl hover:bg-red-400/10 transition-all" title="Apagar Edital"><Trash2 size={16} /></button>
-                     </div>
-                   </div>
-                 )
-               })}
-             </div>
-           )}
-        </div>
-      </div>
-
+      {/* MODAL EDITAR MISSÃO */}
       {isModalOpen && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[100] flex items-center justify-center p-4">
            <div className="bg-[#0E1117] border border-white/10 w-full max-w-3xl rounded-3xl flex flex-col max-h-[90vh] shadow-2xl animate-in zoom-in-95 duration-200">
