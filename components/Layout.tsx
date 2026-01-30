@@ -1,3 +1,4 @@
+
 import React, { useState } from 'react';
 import { 
   Home, 
@@ -14,7 +15,8 @@ import {
   Zap,
   ChevronLeft,
   ChevronRight,
-  FileText
+  FileText,
+  Map
 } from 'lucide-react';
 import { ViewType } from '../types';
 
@@ -47,6 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   const menuItems = [
     { id: 'HOME', label: 'Home', icon: Home },
+    { id: 'EDITAL', label: 'Meu Edital', icon: Map },
     { id: 'GUIA_SEMANAL', label: 'Guia Semanal', icon: CalendarCheck },
     { id: 'REVISOES', label: 'Revisões', icon: RotateCcw },
     { id: 'QUESTOES', label: 'Banco de Questões', icon: FileQuestion },
@@ -210,7 +213,7 @@ const Layout: React.FC<LayoutProps> = ({
                     {missaoAtiva || 'Selecione uma Missão'}
                   </h2>
                   <p className="text-slate-400 font-medium uppercase tracking-widest text-xs mt-1 flex items-center gap-2">
-                    {activeView.replace('_', ' ')} <span className="w-1 h-1 bg-slate-500 rounded-full"/> {new Date().toLocaleDateString('pt-BR')}
+                    {activeView.replace('_', ' ').replace('EDITAL', 'MEU EDITAL')} <span className="w-1 h-1 bg-slate-500 rounded-full"/> {new Date().toLocaleDateString('pt-BR')}
                   </p>
                 </div>
              </div>

@@ -12,3 +12,4 @@ export { default as QuestionsBank } from './QuestionsBank';
 export { default as ConfigScreen } from './ConfigScreen';
 export { default as Reports } from './Reports';
 export { default as Onboarding } from './Onboarding';
+export { default as EditalProgress } from './EditalProgress';
