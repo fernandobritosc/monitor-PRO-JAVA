@@ -3,7 +3,7 @@ import React, { useMemo, useState } from 'react';
 import { StudyRecord, EditalMateria, ViewType } from '../types';
 import CircularProgress from '../components/CircularProgress';
 import { 
-  LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
+  AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, ReferenceLine,
   BarChart, Bar, Cell, PieChart, Pie, Legend
 } from 'recharts';
 import { 
@@ -20,21 +20,29 @@ interface HomeViewProps {
 
 const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setActiveView }) => {
   const [analysisTab, setAnalysisTab] = useState<'time' | 'errors'>('time');
+  const [filterPeriod, setFilterPeriod] = useState<number>(30); // 0 for All, 7 for Week, 30 for Month
 
   // --- Cálculos de Dados ---
-  const activeRecords = useMemo(() => 
-    records.filter(r => r.concurso === missaoAtiva)
-           .sort((a, b) => a.data_estudo.localeCompare(b.data_estudo)), 
-    [records, missaoAtiva]
-  );
+  const activeRecords = useMemo(() => {
+    const baseRecords = records
+      .filter(r => r.concurso === missaoAtiva)
+      .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
+    
+    if (filterPeriod === 0) return baseRecords;
+
+    const limitDate = new Date();
+    limitDate.setDate(limitDate.getDate() - filterPeriod);
+    
+    return baseRecords.filter(r => new Date(r.data_estudo) >= limitDate);
+  }, [records, missaoAtiva, filterPeriod]);
   
   // Stats do Dia
   const todayStr = new Date().toISOString().split('T')[0];
-  const todayRecords = activeRecords.filter(r => r.data_estudo === todayStr);
+  const todayRecords = records.filter(r => r.concurso === missaoAtiva && r.data_estudo === todayStr);
   const todayMinutes = todayRecords.reduce((acc, r) => acc + r.tempo, 0);
   const todayQuestions = todayRecords.reduce((acc, r) => acc + r.total, 0);
 
-  // Stats Gerais (KPIs)
+  // Stats Gerais (KPIs) - AGORA FILTRADOS
   const totalQuestions = activeRecords.reduce((acc, r) => acc + r.total, 0);
   const totalCorrect = activeRecords.reduce((acc, r) => acc + r.acertos, 0);
   const precision = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
@@ -50,7 +58,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
     return Math.max(0, Math.ceil(diffTime / (1000 * 3600 * 24)));
   }, [editais, missaoAtiva]);
 
-  // Gráfico de Evolução (Linha)
+  // Gráfico de Evolução (Linha) - AGORA FILTRADO
   const evolutionData = useMemo(() => {
     return activeRecords.reduce((acc: any[], r) => {
       const existing = acc.find(i => i.date === r.data_estudo);
@@ -65,7 +73,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
     }, []);
   }, [activeRecords]);
   
-  // Gráfico de Erros (Barras)
+  // Gráfico de Erros (Barras) - AGORA FILTRADO
   const errorData = useMemo(() => {
     const errorsBySubject = activeRecords.reduce((acc: Record<string, number>, r) => {
       acc[r.materia] = (acc[r.materia] || 0) + (r.total - r.acertos);
@@ -76,7 +84,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
       .sort((a, b) => b.errors - a.errors).slice(0, 5);
   }, [activeRecords]);
 
-  // Gráfico de Tempo (Pizza)
+  // Gráfico de Tempo (Pizza) - AGORA FILTRADO
   const timeData = useMemo(() => {
     const timeBySubject = activeRecords.reduce((acc: Record<string, number>, r) => {
       acc[r.materia] = (acc[r.materia] || 0) + r.tempo;
@@ -89,9 +97,10 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
 
   // Heatmap
   const heatmapData = useMemo(() => {
+    const allMissionRecords = records.filter(r => r.concurso === missaoAtiva);
     const days: { date: string, minutes: number, intensity: number }[] = [];
     const studyMap = new Map<string, number>();
-    activeRecords.forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
+    allMissionRecords.forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
     for (let i = 119; i >= 0; i--) {
       const d = new Date(); d.setDate(new Date().getDate() - i);
       const dateStr = d.toISOString().split('T')[0];
@@ -102,11 +111,21 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
       days.push({ date: dateStr, minutes, intensity });
     }
     return days;
-  }, [activeRecords]);
+  }, [records, missaoAtiva]);
 
   return (
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-10">
       
+      {/* FILTROS DE PERÍODO */}
+      <div className="flex justify-end items-center gap-2">
+         <span className="text-xs font-bold text-slate-500 uppercase">Período:</span>
+         {[ {label: '7 dias', val: 7}, {label: '30 dias', val: 30}, {label: 'Tudo', val: 0} ].map(p => (
+            <button key={p.val} onClick={() => setFilterPeriod(p.val)} className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-all ${filterPeriod === p.val ? 'bg-purple-500/20 text-white shadow' : 'bg-slate-800/50 text-slate-400 hover:bg-white/5'}`}>
+               {p.label}
+            </button>
+         ))}
+      </div>
+
       {/* ROW 1: Welcome & KPIs */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <div className="lg:col-span-1 glass rounded-2xl p-6 border-l-2 border-cyan-500 flex flex-col justify-between">
@@ -126,9 +145,9 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
           </div>
         </div>
         <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-4 gap-4">
-          <CircularProgress percentage={precision} label="Precisão Geral" value={`${precision.toFixed(0)}%`} icon="🎯" colorStart={precision >= 80 ? '#10B981' : '#EF4444'} />
-          <CircularProgress percentage={Math.min((totalHours / 200) * 100, 100)} label="Horas Totais" value={`${totalHours.toFixed(0)}h`} icon="⏱️" />
-          <CircularProgress percentage={Math.min((totalQuestions / 1000) * 100, 100)} label="Questões Totais" value={totalQuestions.toString()} icon="📚" />
+          <CircularProgress percentage={precision} label="Precisão (Período)" value={`${precision.toFixed(0)}%`} icon="🎯" colorStart={precision >= 80 ? '#10B981' : '#EF4444'} />
+          <CircularProgress percentage={Math.min((totalHours / 200) * 100, 100)} label="Horas (Período)" value={`${totalHours.toFixed(0)}h`} icon="⏱️" />
+          <CircularProgress percentage={Math.min((totalQuestions / 1000) * 100, 100)} label="Questões (Período)" value={totalQuestions.toString()} icon="📚" />
           <CircularProgress percentage={daysUntilExam ? Math.max(0, Math.min(100, (daysUntilExam / 90) * 100)) : 0} label="Dias p/ Prova" value={daysUntilExam !== null ? daysUntilExam.toString() : "--"} icon="📅" />
         </div>
       </div>
@@ -153,13 +172,30 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
           <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><TrendingUp className="text-purple-400" /> Evolução de Precisão</h3>
           <div className="h-[250px] w-full">
             <ResponsiveContainer width="100%" height="100%">
-              <LineChart data={evolutionData}>
+              <AreaChart data={evolutionData} margin={{ top: 5, right: 20, left: -10, bottom: 5 }}>
+                <defs>
+                  <linearGradient id="colorPrecision" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset="5%" stopColor="#8B5CF6" stopOpacity={0.4}/>
+                    <stop offset="95%" stopColor="#8B5CF6" stopOpacity={0}/>
+                  </linearGradient>
+                </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="#ffffff05" vertical={false} />
                 <XAxis dataKey="date" stroke="#64748b" fontSize={10} tickFormatter={(str) => { const d = new Date(str); return `${d.getDate()}/${d.getMonth()+1}`; }} minTickGap={30} />
                 <YAxis stroke="#64748b" fontSize={10} domain={[0, 100]} />
-                <Tooltip contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10', borderRadius: '12px' }} formatter={(v: number) => [`${v.toFixed(1)}%`, 'Precisão']} />
-                <Line type="monotone" dataKey="precision" stroke="#8B5CF6" strokeWidth={3} dot={false} activeDot={{ r: 6, fill: '#8B5CF6', stroke: '#fff', strokeWidth: 2 }} />
-              </LineChart>
+                <Tooltip 
+                  contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10', borderRadius: '12px' }} 
+                  labelStyle={{ color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}
+                  itemStyle={{ color: '#c4b5fd', fontWeight: 'bold' }}
+                  formatter={(v: number) => [`${v.toFixed(1)}%`, 'Precisão']} 
+                />
+                <Area type="monotone" dataKey="precision" stroke="#8B5CF6" strokeWidth={3} fillOpacity={1} fill="url(#colorPrecision)" activeDot={{ r: 6, fill: '#8B5CF6', stroke: '#fff', strokeWidth: 2 }} />
+                <ReferenceLine y={80} stroke="#10B981" strokeDasharray="4 4" strokeWidth={1.5}>
+                  <Legend content={() => <text x="10" y={35} fill="#10B981" fontSize="10" fontWeight="bold">80%</text>} />
+                </ReferenceLine>
+                <ReferenceLine y={60} stroke="#F59E0B" strokeDasharray="4 4" strokeWidth={1.5}>
+                   <Legend content={() => <text x="10" y={75} fill="#F59E0B" fontSize="10" fontWeight="bold">60%</text>} />
+                </ReferenceLine>
+              </AreaChart>
             </ResponsiveContainer>
           </div>
         </div>
@@ -168,7 +204,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
       {/* ROW 3: Heatmap & Analysis Tabs */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <div className="glass rounded-2xl p-6">
-          <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><Calendar className="text-cyan-400"/> Consistência de Estudos</h3>
+          <h3 className="text-lg font-bold flex items-center gap-2 mb-4"><Calendar className="text-cyan-400"/> Consistência de Estudos (120 dias)</h3>
           <div className="flex flex-wrap gap-1.5 justify-center">
             {heatmapData.map((day) => (
               <div key={day.date} className="w-3 h-3 md:w-3.5 md:h-3.5 rounded-sm transition-all duration-300 hover:scale-125 relative group" title={`${new Date(day.date).toLocaleDateString('pt-BR')} • ${Math.floor(day.minutes/60)}h${day.minutes%60}m`}>
@@ -187,10 +223,18 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
             {analysisTab === 'time' ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={timeData} cx="50%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
+                  <Pie data={timeData} cx="40%" cy="50%" innerRadius={50} outerRadius={70} paddingAngle={5} dataKey="value">
                     {timeData.map((e, i) => <Cell key={`c-${i}`} fill={COLORS[i % COLORS.length]} stroke="none" />)}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10' }} formatter={(v: number) => [`${Math.floor(v/60)}h${v%60}m`, 'Tempo']} />
+                  <Legend 
+                     iconSize={10}
+                     layout="vertical" 
+                     verticalAlign="middle" 
+                     align="right" 
+                     wrapperStyle={{ fontSize: '12px', color: '#94a3b8', lineHeight: '1.5em' }}
+                     formatter={(value, entry) => <span className="text-slate-300 truncate" title={value}>{value}</span>}
+                  />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
