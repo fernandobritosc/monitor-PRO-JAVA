@@ -16,7 +16,8 @@ import {
   QuestionsBank, 
   ConfigScreen,
   Reports,
-  Onboarding 
+  Onboarding,
+  EditalProgress
 } from './views';
 import { RefreshCw, Lock, AlertOctagon, WifiOff, Loader2, CheckCircle2 } from 'lucide-react';
 
@@ -103,16 +104,25 @@ const App: React.FC = () => {
     try {
       const userId = currentSession.user.id;
 
-      // 1. Profile (Acesso)
-      const { data: profile, error: profileError } = await supabase
+      // 1. Profile (Acesso e Auto-Correção)
+      let { data: profile, error: profileError } = await supabase
         .from('profiles')
         .select('approved')
         .eq('id', userId)
         .maybeSingle();
 
-      if (profileError) {
-         // Ignora erro se for apenas RLS impedindo leitura inicial, mas avisa console
-         if (!profileError.message.includes('JSON')) console.warn("Erro ao buscar perfil:", profileError.message);
+      // AUTO-CORREÇÃO: Se não existir perfil, cria um na hora
+      if (!profile && (!profileError || profileError.code === 'PGRST116')) {
+         console.warn("Perfil não encontrado. Tentando criar automaticamente...");
+         const { error: insertError } = await supabase.from('profiles').insert([
+            { id: userId, email: currentSession.user.email, approved: false }
+         ]);
+         
+         if (!insertError) {
+            // Tenta buscar de novo
+            const { data: newProfile } = await supabase.from('profiles').select('approved').eq('id', userId).maybeSingle();
+            profile = newProfile;
+         }
       }
 
       if (profile && profile.approved === false) {
@@ -322,6 +332,7 @@ const App: React.FC = () => {
   const renderView = () => {
     switch (activeView) {
       case 'HOME': return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
+      case 'EDITAL': return <EditalProgress records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />;
       case 'GUIA_SEMANAL': return <WeeklyGuide records={studyRecords} missaoAtiva={missaoAtiva} />;
       case 'QUESTOES': return <QuestionsBank missaoAtiva={missaoAtiva} editais={editais} />;
       case 'REGISTRAR': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => fetchData(session)} />;
