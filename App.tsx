@@ -1,8 +1,9 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useState, useEffect } from 'react';
 import { supabase } from './services/supabase';
 import { ViewType, StudyRecord, EditalMateria } from './types';
 import Layout from './components/Layout';
 import Login from './views/Login';
+import ConfigScreen from './components/ConfigScreen';
 import HomeView from './views/HomeView';
 import { StudyForm } from './views/StudyForm';
 import History from './views/History';
@@ -14,12 +15,13 @@ import { QuestionsBank } from './views/QuestionsBank';
 import Reports from './views/Reports';
 import Onboarding from './views/Onboarding';
 import EditalProgress from './views/EditalProgress';
-import { WifiOff, Loader2, AlertOctagon } from 'lucide-react';
+import { WifiOff, Loader2 } from 'lucide-react';
 import { Session, AuthChangeEvent } from '@supabase/supabase-js';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<Session | null>(null);
   const [loading, setLoading] = useState(true);
+  const [needsConfig, setNeedsConfig] = useState(false);
   
   const [isOffline, setIsOffline] = useState(false);
   
@@ -32,9 +34,28 @@ const App: React.FC = () => {
   const [dataLoading, setDataLoading] = useState(false);
 
   useEffect(() => {
+    // Verifica se as credenciais são válidas
+    const url = localStorage.getItem('monitorpro_supabase_url') || '';
+    const key = localStorage.getItem('monitorpro_supabase_key') || '';
+    
+    const isUrlValid = url && url.startsWith('https://') && url.length > 10 && !url.includes('placeholder');
+    const isKeyValid = key && key.length > 20 && key !== 'placeholder';
+    
+    if (!isUrlValid || !isKeyValid) {
+      setNeedsConfig(true);
+      setLoading(false);
+      return;
+    }
+
     (supabase.auth as any).getSession().then(({ data: { session: currentSession } }: { data: { session: Session | null } }) => {
       setSession(currentSession);
       if (currentSession) fetchData(currentSession.user.id);
+      setLoading(false);
+    }).catch((error: any) => {
+      console.error('Erro ao obter sessão:', error);
+      if (error.message?.includes('fetch') || error.message?.includes('Invalid')) {
+        setNeedsConfig(true);
+      }
       setLoading(false);
     });
 
@@ -84,6 +105,9 @@ const App: React.FC = () => {
       console.error("Erro ao buscar dados:", error);
       if (error.message?.includes('fetch') || error.message?.includes('network')) {
          setIsOffline(true);
+      }
+      if (error.message?.includes('Invalid API key') || error.message?.includes('JWT')) {
+         setNeedsConfig(true);
       }
     } finally {
       setDataLoading(false);
@@ -142,13 +166,15 @@ const App: React.FC = () => {
     }
   };
 
-
   if (loading) return (
     <div className="min-h-screen bg-[#12151D] flex flex-col items-center justify-center gap-4">
       <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
       <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Carregando Sistema...</p>
     </div>
   );
+
+  // Se precisa configurar credenciais
+  if (needsConfig) return <ConfigScreen initialError="Credenciais não configuradas. Por favor, configure o acesso ao Supabase." />;
 
   if (!session) return <Login />;
   if (showOnboarding) return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={session.user.email ?? ''} />;
