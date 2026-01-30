@@ -6,7 +6,7 @@ import {
 } from 'recharts';
 import { 
   CheckCircle2, Circle, ChevronDown, ChevronUp, CalendarDays, 
-  TrendingUp, Clock, AlertTriangle, Target 
+  TrendingUp, AlertTriangle, Target, Info
 } from 'lucide-react';
 
 interface EditalProgressProps {
@@ -42,13 +42,8 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         .map(r => r.assunto.toLowerCase().trim())
     );
 
-    // Também consideramos Match por "Matéria" se o tópico estiver vazio no cadastro (estudo generalista)
-    // Mas o ideal é granular. Aqui vamos fazer match fuzzy simples:
-    // Se o nome do tópico do edital estiver contido no assunto do registro OU vice-versa.
-
     activeEditais.forEach(ed => {
         const materiaTopics = ed.topicos || [];
-        const studiedInMateria = [];
         
         const topicsStatus = materiaTopics.map(topic => {
             const topicNorm = topic.toLowerCase().trim();
@@ -80,33 +75,33 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
     };
   }, [activeEditais, records, missaoAtiva]);
 
-  // 3. Algoritmo de Previsão (Forecasting)
+  // 3. Algoritmo de Previsão (Forecasting) - AJUSTADO PARA MOSTRAR MESMO COM POUCOS DADOS
   const forecast = useMemo(() => {
     // A. Encontrar data de início (primeiro registro desta missão)
     const missionRecords = records
         .filter(r => r.concurso === missaoAtiva)
         .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
 
-    if (missionRecords.length < 5) return null; // Precisa de dados mínimos
+    if (missionRecords.length === 0) return null; // Só retorna null se não houver NENHUM registro
 
     const startDate = new Date(missionRecords[0].data_estudo);
     const today = new Date();
+    // Garante pelo menos 1 dia para evitar divisão por zero
     const daysPassed = Math.max(1, Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)));
 
     // B. Velocidade (Tópicos Novos / Dia)
-    // Usamos coverageAnalysis.global.studied pois representa tópicos ÚNICOS do edital batidos
     const uniqueTopicsStudied = coverageAnalysis.global.studied;
     const velocity = uniqueTopicsStudied / daysPassed; // tópicos por dia
 
     // C. Projeção
     const remainingTopics = coverageAnalysis.global.total - uniqueTopicsStudied;
-    const daysToFinish = velocity > 0 ? Math.ceil(remainingTopics / velocity) : 9999;
+    // Se velocidade for muito baixa (ex: 0), assume 9999 dias
+    const daysToFinish = velocity > 0.01 ? Math.ceil(remainingTopics / velocity) : 999;
     
     const projectedDate = new Date();
     projectedDate.setDate(today.getDate() + daysToFinish);
 
     // D. Burn-up Chart Data
-    // Vamos reconstruir a evolução dos tópicos únicos ao longo do tempo
     const chartData = [];
     const uniqueAccumulator = new Set<string>();
     
@@ -126,7 +121,6 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         // Verifica quais tópicos do edital foram batidos neste dia
         dayRecords.forEach(r => {
             const rAssunto = r.assunto.toLowerCase();
-            // Procura match nos editais
             activeEditais.forEach(ed => {
                 ed.topicos.forEach(t => {
                     const tNorm = t.toLowerCase();
@@ -146,9 +140,8 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         iterDate.setDate(iterDate.getDate() + 1);
     }
 
-    // Adiciona projeção futura no gráfico (linha pontilhada simplificada ou apenas estende)
-    if (remainingTopics > 0 && velocity > 0) {
-        // Ponto final projetado
+    // Adiciona projeção futura simples
+    if (remainingTopics > 0 && velocity > 0.01 && daysToFinish < 1000) {
         chartData.push({
             date: projectedDate.toISOString().split('T')[0],
             topics: coverageAnalysis.global.total,
@@ -157,7 +150,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         });
     }
 
-    return { velocity, daysToFinish, projectedDate, chartData, remainingTopics };
+    return { velocity, daysToFinish, projectedDate, chartData, remainingTopics, daysPassed };
   }, [coverageAnalysis, records, missaoAtiva, activeEditais]);
 
 
@@ -180,10 +173,12 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
 
   if (activeEditais.length === 0) {
       return (
-          <div className="text-center py-20">
-              <div className="text-4xl mb-4">🗺️</div>
-              <h3 className="text-xl font-bold text-white">Edital não configurado</h3>
-              <p className="text-slate-400">Vá em Configurar e adicione as matérias e tópicos para ver sua análise.</p>
+          <div className="text-center py-20 flex flex-col items-center">
+              <div className="text-6xl mb-4 opacity-50">🗺️</div>
+              <h3 className="text-xl font-bold text-white mb-2">Edital não configurado</h3>
+              <p className="text-slate-400 max-w-md">
+                 Você precisa cadastrar as matérias e seus tópicos na tela de <strong>Configurar</strong> para que o sistema possa calcular seu progresso.
+              </p>
           </div>
       );
   }
@@ -202,18 +197,24 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
              </div>
 
              {!forecast ? (
-                 <p className="text-slate-400">
-                    Estude mais alguns dias para que nosso algoritmo possa calcular sua velocidade média e projetar o término.
-                 </p>
+                 <div className="flex items-start gap-3 bg-white/5 p-4 rounded-xl">
+                    <Info className="text-cyan-400 shrink-0 mt-1" size={20} />
+                    <div>
+                        <p className="font-bold text-white mb-1">Dados insuficientes</p>
+                        <p className="text-slate-400 text-sm">
+                            Registre sua primeira sessão de estudo na aba <strong>Registrar</strong> para ativar o algoritmo de previsão.
+                        </p>
+                    </div>
+                 </div>
              ) : (
                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                      <div>
                          <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-1">Data Estimada</p>
                          <div className="text-4xl font-extrabold text-white">
-                             {forecast.projectedDate.toLocaleDateString('pt-BR')}
+                             {forecast.daysToFinish > 1000 ? '--/--/----' : forecast.projectedDate.toLocaleDateString('pt-BR')}
                          </div>
                          <p className="text-sm text-cyan-400 font-bold mt-2">
-                             Daqui a {forecast.daysToFinish} dias
+                             {forecast.daysToFinish > 1000 ? 'Ritmo insuficiente' : `Daqui a ${forecast.daysToFinish} dias`}
                          </p>
                      </div>
 
@@ -333,18 +334,22 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
 
                       {isExpanded && (
                           <div className="bg-slate-900/50 border-t border-white/5 p-6 animate-in slide-in-from-top-2">
-                              <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-                                  {stat.topics.map((topic, idx) => (
-                                      <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${topic.done ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-800/30 border-white/5'}`}>
-                                          <div className={`mt-0.5 ${topic.done ? 'text-green-400' : 'text-slate-600'}`}>
-                                              {topic.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
-                                          </div>
-                                          <span className={`text-sm ${topic.done ? 'text-slate-300 font-medium' : 'text-slate-500'}`}>
-                                              {topic.name}
-                                          </span>
-                                      </div>
-                                  ))}
-                              </div>
+                              {stat.topics.length === 0 ? (
+                                  <p className="text-sm text-slate-500 italic">Nenhum tópico cadastrado para esta matéria.</p>
+                              ) : (
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                    {stat.topics.map((topic, idx) => (
+                                        <div key={idx} className={`flex items-start gap-3 p-3 rounded-xl border transition-colors ${topic.done ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-800/30 border-white/5'}`}>
+                                            <div className={`mt-0.5 ${topic.done ? 'text-green-400' : 'text-slate-600'}`}>
+                                                {topic.done ? <CheckCircle2 size={16} /> : <Circle size={16} />}
+                                            </div>
+                                            <span className={`text-sm ${topic.done ? 'text-slate-300 font-medium' : 'text-slate-500'}`}>
+                                                {topic.name}
+                                            </span>
+                                        </div>
+                                    ))}
+                                </div>
+                              )}
                           </div>
                       )}
                   </div>
