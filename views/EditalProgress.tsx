@@ -30,13 +30,15 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
 
   // 2. Análise de Cobertura (O que foi estudado vs O que existe)
   const coverageAnalysis = useMemo(() => {
+    // Fix: Explicitly type the analysis object
     const analysis: Record<string, { total: number, studied: number, topics: { name: string, done: boolean }[] }> = {};
     let totalTopicsGlobal = 0;
     let studiedTopicsGlobal = 0;
     
     // Set de tópicos estudados (normalizados para minúsculo para comparação flexível)
     // Filtramos apenas registros desta missão
-    const studiedSet = new Set(
+    // Fix: Ensure Set generic is string
+    const studiedSet = new Set<string>(
         records
         .filter(r => r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO')
         .map(r => r.assunto.toLowerCase().trim())
@@ -80,7 +82,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
     // A. Encontrar data de início (primeiro registro desta missão)
     const missionRecords = records
         .filter(r => r.concurso === missaoAtiva)
-        .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
+        .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(a.data_estudo).getTime());
 
     if (missionRecords.length === 0) return null; // Só retorna null se não houver NENHUM registro
 
@@ -302,7 +304,8 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
               <Target className="text-slate-400" /> Detalhamento do Conteúdo
           </h3>
 
-          {Object.entries(coverageAnalysis.bySubject).map(([materia, stat]) => {
+          {/* Fix: Object.entries with typed record ensures correct property access */}
+          {(Object.entries(coverageAnalysis.bySubject) as [string, { total: number, studied: number, topics: { name: string, done: boolean }[] }][]).map(([materia, stat]) => {
               const percent = stat.total > 0 ? (stat.studied / stat.total) * 100 : 0;
               const isExpanded = expandedSubjects[materia];
 
