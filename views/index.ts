@@ -1,0 +1,17 @@
+
+
+export { default as Login } from './Login';
+export { default as HomeView } from './HomeView';
+// FIX: Changed to a named export to match the updated StudyForm.tsx
+export { StudyForm } from './StudyForm';
+// export { default as Dashboard } from './Dashboard'; // Removido
+export { default as History } from './History';
+export { default as Revisoes } from './Revisoes';
+export { default as Simulados } from './Simulados';
+export { default as Configurar } from './Configurar';
+export { default as WeeklyGuide } from './WeeklyGuide';
+// FIX: Changed to a named export to match the updated QuestionsBank.tsx
+export { QuestionsBank } from './QuestionsBank';
+export { default as Reports } from './Reports';
+export { default as Onboarding } from './Onboarding';
+export { default as EditalProgress } from './EditalProgress';
