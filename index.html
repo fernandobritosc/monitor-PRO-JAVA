@@ -10,7 +10,7 @@
     <style>
         body {
             font-family: 'Montserrat', 'Inter', sans-serif;
-            background-color: #0E1117;
+            background-color: #12151D; /* Mais claro que #0E1117 para um visual menos opressor */
             color: white;
             margin: 0;
             overflow-x: hidden;
@@ -20,17 +20,18 @@
             height: 8px;
         }
         ::-webkit-scrollbar-track {
-            background: rgba(15, 15, 35, 0.5);
+            background: rgba(25, 29, 36, 0.5); /* Ajustado para nova cor de fundo */
         }
         ::-webkit-scrollbar-thumb {
             background: linear-gradient(135deg, #8B5CF6, #06B6D4);
             border-radius: 4px;
         }
         .glass {
-            background: rgba(15, 15, 35, 0.7);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(139, 92, 246, 0.15);
+            /* Ajustado para ser mais leve e etéreo */
+            background: rgba(18, 21, 29, 0.6); 
+            backdrop-filter: blur(15px); /* Menos blur para sensação mais "snappy" */
+            -webkit-backdrop-filter: blur(15px);
+            border: 1px solid rgba(139, 92, 246, 0.1); /* Borda mais sutil */
         }
     </style>
     <!-- Bibliotecas de PDF carregadas globalmente para evitar erros de build no Vite -->
