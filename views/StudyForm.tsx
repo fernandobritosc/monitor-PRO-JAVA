@@ -434,7 +434,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     <div className="space-y-1">
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Assunto / Tópico</label>
                         <input type="text" required list="topicos-options" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium placeholder-slate-600" value={assunto} onChange={(e) => setAssunto(e.target.value)} placeholder="Ex: Crase" />
-                        {materia && <datalist id="topicos-options">{topicosDisponiveis.map((t, index) => <option key={index} value={t} />)}</datalist>}
+                        {materia && <datalist id="topicos-options">{topicosDisponiveis.map((t: string, index: number) => <option key={index} value={t} />)}</datalist>}
                     </div>
                 </div>
 
