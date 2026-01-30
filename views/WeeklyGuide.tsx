@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from 'react';
 import { StudyRecord } from '../types';
 import { AlertTriangle, CheckSquare, Target, Clock, BookOpen, Settings, Zap } from 'lucide-react';
@@ -88,6 +89,7 @@ const WeeklyGuide: React.FC<WeeklyGuideProps> = ({ records, missaoAtiva }) => {
   const topicosNovos = new Set(registrosSemana.map(r => r.assunto)).size;
 
   // 4. Identificar Gargalos Críticos (Priority Engine)
+  // Fix: Explicitly type the accumulator to fix unknown property errors
   const statsPorMateria = activeRecords.reduce((acc, r) => {
     if (!acc[r.materia]) {
       acc[r.materia] = { acertos: 0, total: 0, relevanciaSoma: 0, count: 0 };
@@ -97,9 +99,10 @@ const WeeklyGuide: React.FC<WeeklyGuideProps> = ({ records, missaoAtiva }) => {
     acc[r.materia].relevanciaSoma += r.relevancia || 5;
     acc[r.materia].count += 1;
     return acc;
-  }, {} as Record<string, any>);
+  }, {} as Record<string, { acertos: number, total: number, relevanciaSoma: number, count: number }>);
 
-  const criticos = Object.entries(statsPorMateria)
+  // Fix: Object.entries with typed record ensures correct property access
+  const criticos = (Object.entries(statsPorMateria) as [string, { acertos: number, total: number, relevanciaSoma: number, count: number }][])
     .map(([materia, stat]) => ({
       materia,
       taxa: stat.total > 0 ? (stat.acertos / stat.total) * 100 : 0,
