@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { Question, EditalMateria } from '../types';
@@ -481,118 +482,70 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
              </select>
          </div>
       </div>
-
+      
       {/* Lista de Questões */}
-      {loading ? (
-        <div className="text-center py-20">
-           <div className="w-10 h-10 border-4 border-cyan-500 border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-           <p className="text-slate-500">Carregando seu banco...</p>
-        </div>
-      ) : filteredQuestions.length === 0 ? (
-        <div className="text-center py-20 opacity-50">
-           <div className="text-6xl mb-4">📭</div>
-           <p className="text-slate-400">Nenhuma questão encontrada com estes filtros.</p>
-        </div>
-      ) : (
-        <div className="space-y-4">
-           {filteredQuestions.map(q => (
-              <div key={q.id} className={`glass rounded-2xl p-6 border-l-4 transition-all group ${q.status === 'Concluída' ? 'border-green-500 opacity-70 hover:opacity-100' : q.relevancia >= 8 ? 'border-red-500' : 'border-purple-500'}`}>
-                 <div className="flex flex-col md:flex-row justify-between items-start gap-4 mb-4">
-                    <div className="flex-1">
-                       <div className="flex flex-wrap items-center gap-2 mb-2">
-                          <span className={`px-2 py-1 rounded text-[10px] font-bold uppercase ${q.status === 'Concluída' ? 'bg-green-500/20 text-green-400' : q.status === 'Em andamento' ? 'bg-yellow-500/20 text-yellow-400' : 'bg-slate-700 text-slate-300'}`}>
-                             {q.status}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-bold bg-slate-800 px-2 py-1 rounded">
-                             {new Date(q.data).toLocaleDateString('pt-BR')}
-                          </span>
-                          {q.simulado && (
-                             <span className="text-[10px] text-cyan-400 font-bold bg-cyan-900/20 px-2 py-1 rounded border border-cyan-500/20">
-                                📝 {q.simulado}
-                             </span>
-                          )}
-                          {/* Display de Performance no Card */}
-                          {q.total !== undefined && q.total > 0 && (
-                             <span className="text-[10px] text-white font-bold bg-slate-800 px-2 py-1 rounded flex items-center gap-1 border border-white/5">
-                                <Zap size={10} className="text-yellow-400" />
-                                {q.acertos}/{q.total} ({(q.acertos!/q.total!*100).toFixed(0)}%)
-                             </span>
-                          )}
-                       </div>
-                       <h4 className="text-lg font-bold text-white mb-1">{q.materia}</h4>
-                       <p className="text-sm text-slate-300 font-medium">{q.assunto}</p>
-                    </div>
+      <div className="space-y-4">
+        {loading ? (
+          <p className="text-center text-slate-500">Carregando banco...</p>
+        ) : filteredQuestions.length === 0 ? (
+          <div className="text-center py-10 text-slate-500">
+             <Zap size={32} className="mx-auto mb-4" />
+             <p className="font-bold">Nenhuma questão encontrada.</p>
+             <p className="text-sm">Salve questões a partir do formulário de registro para revisá-las aqui.</p>
+          </div>
+        ) : (
+          filteredQuestions.map(q => {
+            const statusColor = {
+              'Pendente': 'border-yellow-500',
+              'Em andamento': 'border-blue-500',
+              'Concluída': 'border-green-500'
+            }[q.status];
+            return (
+              <div key={q.id} className={`glass p-5 rounded-2xl border-l-4 ${statusColor} transition-all`}>
+                <div className="flex flex-col md:flex-row gap-4 justify-between">
+                   <div className="flex-1 min-w-0">
+                     <div className="flex items-center gap-3 mb-2">
+                        <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{q.materia}</span>
+                        {q.simulado && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">{q.simulado}</span>}
+                     </div>
+                     <h4 className="text-lg font-bold text-white truncate">{q.assunto}</h4>
+                     {q.anotacoes && <p className="text-sm text-slate-400 mt-2 line-clamp-2">{formatTextWithLinks(q.anotacoes)}</p>}
+                   </div>
+                   
+                   <div className="flex items-center gap-4 self-start md:self-center">
+                     <div className="text-center">
+                        <div className="text-[10px] text-slate-500 uppercase font-bold">Relevância</div>
+                        <div className={`text-lg font-extrabold ${q.relevancia >= 8 ? 'text-red-400' : 'text-slate-300'}`}>{q.relevancia}</div>
+                     </div>
+                     <div className="flex gap-2">
+                        <button onClick={() => handleEdit(q)} className="p-2.5 bg-slate-800/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"><Edit size={16}/></button>
+                        <button onClick={() => handleDelete(q.id)} className="p-2.5 bg-slate-800/50 rounded-lg text-slate-400 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
+                     </div>
+                   </div>
+                </div>
+                
+                <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 mt-4 pt-4 border-t border-white/5">
+                   <div className="flex flex-wrap gap-2">
+                      {q.tags.map((tag, i) => (
+                        <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded">{tag}</span>
+                      ))}
+                   </div>
 
-                    <div className="flex items-center gap-3">
-                       <div className="text-right hidden md:block">
-                          <div className="text-[10px] text-slate-500 uppercase font-bold">Relevância</div>
-                          <div className={`font-bold ${q.relevancia >= 8 ? 'text-red-400' : 'text-slate-300'}`}>{q.relevancia}/10</div>
-                       </div>
-                       <div className="flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                          <button onClick={() => handleEdit(q)} className="p-2 hover:bg-white/10 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors" title="Editar">
-                             <Edit size={16} />
-                          </button>
-                          <button onClick={() => handleDelete(q.id)} className="p-2 hover:bg-red-500/10 rounded-lg text-slate-400 hover:text-red-400 transition-colors" title="Excluir">
-                             <Trash2 size={16} />
-                          </button>
-                       </div>
-                    </div>
-                 </div>
-
-                 {q.anotacoes && (
-                    <div className="bg-slate-900/50 p-4 rounded-xl text-sm text-slate-400 italic mb-4 border border-white/5 whitespace-pre-wrap">
-                       {formatTextWithLinks(q.anotacoes)}
-                    </div>
-                 )}
-
-                 <div className="pt-4 border-t border-white/5 flex flex-wrap items-center justify-between gap-4">
-                    <div className="flex gap-2">
-                       {q.tags?.map(tag => (
-                          <span key={tag} className="text-[10px] px-2 py-1 bg-slate-800 rounded text-slate-400 font-bold">#{tag}</span>
-                       ))}
-                       {q.meta > 0 && (
-                          <span className="text-[10px] px-2 py-1 bg-slate-800 rounded text-slate-400 font-bold flex items-center gap-1">
-                             <Clock size={10} /> Meta de Rev: {q.meta}min
-                          </span>
-                       )}
-                       {q.tempo && q.tempo > 0 && (
-                          <span className="text-[10px] px-2 py-1 bg-slate-800 rounded text-slate-400 font-bold flex items-center gap-1">
-                             <Clock size={10} className="text-cyan-400"/> Gasto: {Math.floor(q.tempo/60)}h{q.tempo%60}m
-                          </span>
-                       )}
-                    </div>
-                    
-                    <div className="flex bg-slate-900 rounded-lg p-1 gap-1">
-                       {/* Added type="button" for explicit button behavior. */}
-                       <button 
-                        type="button"
-                        onClick={() => handleStatusChange(q.id, 'Pendente')} 
-                        className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${q.status === 'Pendente' ? 'bg-slate-700 text-white' : 'text-slate-500 hover:text-white'}`}
-                       >
-                          Pendente
-                       </button>
-                       {/* Added type="button" for explicit button behavior. */}
-                       <button 
-                        type="button"
-                        onClick={() => handleStatusChange(q.id, 'Em andamento')} 
-                        className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${q.status === 'Em andamento' ? 'bg-yellow-600 text-white' : 'text-slate-500 hover:text-yellow-400'}`}
-                       >
-                          Andamento
-                       </button>
-                       {/* Added type="button" for explicit button behavior. */}
-                       <button 
-                        type="button"
-                        onClick={() => handleStatusChange(q.id, 'Concluída')} 
-                        className={`px-3 py-1 rounded text-[10px] font-bold transition-colors ${q.status === 'Concluída' ? 'bg-green-600 text-white' : 'text-slate-500 hover:text-green-400'}`}
-                       >
-                          Concluída
-                       </button>
-                    </div>
-                 </div>
+                   <select 
+                      className="bg-slate-800/50 border border-white/10 rounded-lg px-3 py-1 text-xs font-bold text-slate-300 focus:outline-none focus:ring-1 focus:ring-purple-500"
+                      value={q.status}
+                      onChange={(e) => handleStatusChange(q.id, e.target.value)}
+                   >
+                      <option value="Pendente">Pendente</option>
+                      <option value="Em andamento">Em Andamento</option>
+                      <option value="Concluída">Concluída</option>
+                   </select>
+                </div>
               </div>
-           ))}
-        </div>
-      )}
+            );
+          })
+        )}
+      </div>
     </div>
   );
 };
