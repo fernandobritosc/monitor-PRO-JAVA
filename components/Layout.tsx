@@ -16,7 +16,8 @@ import {
   ChevronLeft,
   ChevronRight,
   FileText,
-  Map
+  Map,
+  Activity
 } from 'lucide-react';
 import { ViewType } from '../types';
 
@@ -48,7 +49,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   const menuItems = [
     { id: 'HOME', label: 'Home', icon: Home },
-    { id: 'EDITAL', label: 'Meu Edital', icon: Map, isNew: true }, // Badge NOVO adicionado
+    { id: 'EDITAL', label: 'MEU EDITAL', icon: Map, isNew: true },
     { id: 'GUIA_SEMANAL', label: 'Guia Semanal', icon: CalendarCheck },
     { id: 'REVISOES', label: 'Revisões', icon: RotateCcw },
     { id: 'QUESTOES', label: 'Banco de Questões', icon: FileQuestion },
@@ -189,17 +190,24 @@ const Layout: React.FC<LayoutProps> = ({
             })}
           </nav>
 
-          {/* Logout */}
-          <button
-            onClick={onLogout}
-            title={isCollapsed ? "Sair" : undefined}
-            className={`mt-4 flex items-center gap-4 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all text-sm font-medium shrink-0
-              ${isCollapsed ? 'justify-center p-3' : 'px-5 py-3'}
-            `}
-          >
-            <LogOut size={isCollapsed ? 20 : 18} />
-            {!isCollapsed && <span className="animate-in fade-in">Sair</span>}
-          </button>
+          {/* Logout & Version */}
+          <div className="mt-4 shrink-0">
+            <button
+              onClick={onLogout}
+              title={isCollapsed ? "Sair" : undefined}
+              className={`flex items-center gap-4 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all text-sm font-medium w-full
+                ${isCollapsed ? 'justify-center p-3' : 'px-5 py-3'}
+              `}
+            >
+              <LogOut size={isCollapsed ? 20 : 18} />
+              {!isCollapsed && <span className="animate-in fade-in">Sair</span>}
+            </button>
+            {!isCollapsed && (
+               <div className="text-[10px] text-slate-600 text-center mt-2 font-mono opacity-50">
+                  v1.2 (Debug)
+               </div>
+            )}
+          </div>
         </div>
       </aside>
 
