@@ -107,16 +107,6 @@ const App: React.FC = () => {
     }
   };
 
-  // Gamificação Simples
-  const gamificationStats = useMemo(() => {
-    const minutesXP = studyRecords.reduce((acc, r) => acc + r.tempo, 0);
-    const questionsXP = studyRecords.reduce((acc, r) => acc + (r.total * 2), 0);
-    const totalXP = minutesXP + questionsXP;
-    const level = Math.floor(Math.sqrt(totalXP / 100)) + 1;
-    const progress = Math.min(( (totalXP - (Math.pow(level - 1, 2) * 100)) / ((Math.pow(level, 2) * 100) - (Math.pow(level - 1, 2) * 100)) ) * 100, 100);
-    return { totalXP, level, progress: isNaN(progress) ? 0 : progress };
-  }, [studyRecords]);
-
   // Handler de Onboarding
   const handleTemplateSelection = async (templateData: any[]) => {
      if (!session?.user?.id) return;
@@ -190,9 +180,6 @@ const App: React.FC = () => {
       userEmail={session.user.email} 
       onLogout={() => supabase.auth.signOut()}
       missaoAtiva={missaoAtiva}
-      xp={gamificationStats.totalXP}
-      level={gamificationStats.level}
-      progressToNextLevel={gamificationStats.progress}
     >
       {dataLoading && (
          <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-cyan-500 animate-pulse z-[60]" />
