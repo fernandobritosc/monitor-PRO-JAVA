@@ -27,7 +27,6 @@ interface LayoutProps {
   userEmail: string;
   onLogout: () => void;
   missaoAtiva?: string;
-  // Novos props de Gamificação
   xp?: number;
   level?: number;
   progressToNextLevel?: number;
@@ -49,7 +48,7 @@ const Layout: React.FC<LayoutProps> = ({
 
   const menuItems = [
     { id: 'HOME', label: 'Home', icon: Home },
-    { id: 'EDITAL', label: 'Meu Edital', icon: Map },
+    { id: 'EDITAL', label: 'Meu Edital', icon: Map, isNew: true }, // Badge NOVO adicionado
     { id: 'GUIA_SEMANAL', label: 'Guia Semanal', icon: CalendarCheck },
     { id: 'REVISOES', label: 'Revisões', icon: RotateCcw },
     { id: 'QUESTOES', label: 'Banco de Questões', icon: FileQuestion },
@@ -146,7 +145,7 @@ const Layout: React.FC<LayoutProps> = ({
 
           {/* Navigation */}
           <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar">
-            {menuItems.map((item) => {
+            {menuItems.map((item: any) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
               return (
@@ -168,10 +167,22 @@ const Layout: React.FC<LayoutProps> = ({
                   {isActive && !isCollapsed && <div className="absolute left-0 top-0 bottom-0 w-1 bg-purple-500 rounded-l-xl" />}
                   {isActive && isCollapsed && <div className="absolute inset-0 border border-purple-500/50 rounded-xl" />}
                   
-                  <Icon size={isCollapsed ? 20 : 18} className={`${isActive ? 'text-purple-400' : 'text-slate-500 group-hover:text-white'} transition-colors shrink-0`} />
+                  <div className="relative shrink-0">
+                    <Icon size={isCollapsed ? 20 : 18} className={`${isActive ? 'text-purple-400' : 'text-slate-500 group-hover:text-white'} transition-colors`} />
+                    {item.isNew && !isActive && (
+                      <span className="absolute -top-1 -right-1 w-2 h-2 bg-cyan-400 rounded-full animate-pulse lg:hidden" />
+                    )}
+                  </div>
                   
                   {!isCollapsed && (
-                    <span className="truncate animate-in fade-in duration-200">{item.label}</span>
+                    <div className="flex-1 flex justify-between items-center animate-in fade-in duration-200">
+                      <span className="truncate">{item.label}</span>
+                      {item.isNew && (
+                        <span className="text-[9px] font-bold bg-cyan-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest shadow-lg shadow-cyan-500/20">
+                          Novo
+                        </span>
+                      )}
+                    </div>
                   )}
                 </button>
               );
