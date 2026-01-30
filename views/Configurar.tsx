@@ -1,4 +1,5 @@
 
+
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria, UserProfile } from '../types';
@@ -59,7 +60,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
+      const { data: { user } } = await (supabase.auth as any).getUser();
       if (!user) return;
       setCurrentUserEmail(user.email || '');
       try {
@@ -120,7 +122,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
   const handleImportTemplate = async (template: any) => {
       setImportingId(template.id);
       try {
-          const { data: { user } } = await supabase.auth.getUser();
+          // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
+          const { data: { user } } = await (supabase.auth as any).getUser();
           if (!user) throw new Error("Usuário não logado");
 
           // Prepara payload para o usuário atual
@@ -171,7 +174,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, missaoAtiva, onUpdated
         log("Iniciando diagnóstico...");
         
         // 1. Auth Check
-        const { data: { session }, error: authError } = await supabase.auth.getSession();
+        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getSession' property.
+        const { data: { session }, error: authError } = await (supabase.auth as any).getSession();
         if (authError) log(`❌ Erro Auth: ${authError.message}`);
         else if (!session) log("❌ Sem sessão ativa.");
         else log(`✅ Autenticado como: ${session.user.email} (ID: ${session.user.id.slice(0,5)}...)`);
@@ -386,7 +390,8 @@ create policy "Insert profile" on profiles for insert with check (auth.uid() = i
 
     setLoadingMission(true);
     try {
-      const { data: { user } } = await supabase.auth.getUser();
+      // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
+      const { data: { user } } = await (supabase.auth as any).getUser();
       if (!user) throw new Error("Sessão expirada.");
 
       const isPrincipal = editais.length === 0 || editais.some(e => e.concurso === editingOldName && e.is_principal);
@@ -461,7 +466,8 @@ create policy "Insert profile" on profiles for insert with check (auth.uid() = i
         return;
     }
 
-    const { data: { user } } = await supabase.auth.getUser();
+    // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
+    const { data: { user } } = await (supabase.auth as any).getUser();
     if (!user) return;
 
     try {
