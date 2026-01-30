@@ -1,22 +1,18 @@
-
 import React, { useState } from 'react';
-// Removed: saveAppConfig and resetAppConfig are no longer exported from supabase.ts
-// import { saveAppConfig, resetAppConfig } from '../services/supabase'; 
+import { saveAppConfig, resetAppConfig } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Settings, Link, Key, AlertTriangle, ExternalLink, ClipboardPaste, CheckCircle2, Loader2 } from 'lucide-react';
 
-// Removed: This interface is no longer needed as ConfigScreen is removed from usage in App.tsx
-// interface ConfigScreenProps {
-//   initialError?: string | null;
-// }
+interface ConfigScreenProps {
+  initialError?: string | null;
+}
 
-// Changed to accept no props, as ConfigScreenProps is removed
-const ConfigScreen: React.FC = () => { // Removed { initialError }
+const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
-  const [error, setError] = useState<string | null>(null); // Changed to null, initialError removed
+  const [error, setError] = useState<string | null>(initialError || null);
 
   const handlePasteKey = async () => {
     try {
@@ -79,10 +75,10 @@ const ConfigScreen: React.FC = () => { // Removed { initialError }
 
       setTestStatus('success');
       
-      // Removed: saveAppConfig is no longer available. Configuration is handled by environment variables.
-      // setTimeout(() => {
-      //   saveAppConfig(trimmedUrl, trimmedKey);
-      // }, 800);
+      // Salva as credenciais e recarrega
+      setTimeout(() => {
+        saveAppConfig(trimmedUrl, trimmedKey);
+      }, 800);
 
     } catch (err: any) {
       console.error("Connection Test Failed:", err);
@@ -92,9 +88,7 @@ const ConfigScreen: React.FC = () => { // Removed { initialError }
     }
   };
 
-  // Removed: initialError prop no longer exists
-  // const isErrorRecovery = !!initialError;
-  const isErrorRecovery = !!error; // Adjusted to use local error state
+  const isErrorRecovery = !!initialError || !!error;
 
   return (
     <div className="min-h-screen bg-[#0E1117] flex items-center justify-center p-6 relative overflow-hidden font-['Montserrat']">
@@ -211,10 +205,9 @@ const ConfigScreen: React.FC = () => { // Removed { initialError }
         </form>
 
         <div className="text-center mt-8">
-            {/* Removed: resetAppConfig is no longer available. */}
-            {/* <button onClick={resetAppConfig} className="text-xs text-slate-600 hover:text-red-400 transition-colors font-bold uppercase tracking-widest">
+            <button onClick={resetAppConfig} className="text-xs text-slate-600 hover:text-red-400 transition-colors font-bold uppercase tracking-widest">
                 Limpar Dados e Reiniciar
-            </button> */}
+            </button>
         </div>
       </div>
     </div>
