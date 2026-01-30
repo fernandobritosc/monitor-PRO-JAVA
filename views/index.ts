@@ -1,6 +1,10 @@
+
+
 export { default as Login } from './Login';
 export { default as HomeView } from './HomeView';
-export { StudyForm } from './StudyForm'; // Named export ao invés de default
+// FIX: Changed to a named export to match the updated StudyForm.tsx
+export { StudyForm } from './StudyForm';
+// export { default as Dashboard } from './Dashboard'; // Removido
 export { default as History } from './History';
 export { default as Revisoes } from './Revisoes';
 export { default as Simulados } from './Simulados';
