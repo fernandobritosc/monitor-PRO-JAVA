@@ -1,9 +1,10 @@
+
 import React, { useState, useMemo, useEffect } from 'react';
 import { StudyRecord, EditalMateria } from '../types';
 import { RefreshCcw, Calendar, CheckCircle2, Clock, ChevronDown, ChevronUp, AlertCircle, X, Filter, Search, SlidersHorizontal, Trash2, FileText, Target, Zap, BarChart2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
-export interface RevisoesProps {
+interface RevisoesProps {
   records: StudyRecord[];
   missaoAtiva: string;
   editais: EditalMateria[];
