@@ -47,7 +47,6 @@ const Layout: React.FC<LayoutProps> = ({
     { id: 'REVISOES', label: 'Revisões', icon: RotateCcw },
     { id: 'QUESTOES', label: 'Banco de Questões', icon: FileQuestion },
     { id: 'REGISTRAR', label: 'Registrar', icon: PencilLine },
-    { id: 'DASHBOARD', label: 'Dashboard', icon: BarChart3 },
     { id: 'RELATORIOS', label: 'Relatórios PDF', icon: FileText },
     { id: 'SIMULADOS', label: 'Simulados', icon: Trophy },
     { id: 'HISTORICO', label: 'Histórico', icon: HistoryIcon },
