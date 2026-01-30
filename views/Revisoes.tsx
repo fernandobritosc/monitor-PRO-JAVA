@@ -60,7 +60,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, isOverdue, isExpanded, on
   const showExpandButton = hasLongContent || hasNotes;
 
   return (
-    <div className={`glass rounded-2xl p-5 border-l-4 transition-all hover:bg-white/[0.02] ${isOverdue ? 'border-red-500' : 'border-green-500'}`}>
+    <div className={`glass rounded-xl p-4 border-l-2 transition-all hover:bg-white/[0.02] ${isOverdue ? 'border-red-500' : 'border-green-500'}`}> {/* Reduzido de 2xl p-5 border-l-4 */}
       <div className="flex justify-between items-start mb-3">
         <div className="flex gap-2 items-center">
           <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded border ${badgeColor}`}>
@@ -84,7 +84,7 @@ const ReviewCard: React.FC<ReviewCardProps> = ({ item, isOverdue, isExpanded, on
 
         {/* Seção de Anotações - Só aparece se expandido e se houver conteúdo */}
         {hasNotes && isExpanded && (
-           <div className="mt-4 p-3 bg-slate-900/50 rounded-xl border border-white/5 animate-in fade-in">
+           <div className="mt-4 p-3 bg-slate-900/30 rounded-xl border border-white/5 animate-in fade-in"> {/* Ajustado de /50 */}
               <div className="flex items-center gap-2 mb-1 text-xs font-bold text-purple-400 uppercase tracking-wide">
                  <FileText size={12} /> Anotações
               </div>
@@ -430,7 +430,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
 
         {/* Área de Filtros Expansível */}
         {showFilters && (
-          <div className="glass p-6 rounded-2xl border border-white/10 animate-in slide-in-from-top-2">
+          <div className="glass p-5 rounded-xl border border-white/10 animate-in slide-in-from-top-2"> {/* Reduzido de p-6 2xl */}
             <div className="flex justify-between items-center mb-4">
                <h4 className="text-sm font-bold text-slate-300 flex items-center gap-2">
                  <Filter size={14} /> Filtrar Revisões
@@ -448,7 +448,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                  <label className="text-[10px] font-bold text-slate-500 uppercase">Matéria</label>
                  <div className="relative">
                    <select 
-                     className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 appearance-none text-slate-300"
+                     className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-10 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500 appearance-none text-slate-300" {/* Ajustado de /900 e /10 */}
                      value={filterMateria}
                      onChange={(e) => setFilterMateria(e.target.value)}
                    >
@@ -469,7 +469,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                    <input 
                      type="text" 
                      placeholder="Ex: Atos Administrativos..."
-                     className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500"
+                     className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500" {/* Ajustado de /900 e /10 */}
                      value={filterAssunto}
                      onChange={(e) => setFilterAssunto(e.target.value)}
                    />
@@ -503,7 +503,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
 
       {/* Empty State */}
       {overdue.length === 0 && today.length === 0 ? (
-        <div className="glass rounded-3xl p-16 text-center space-y-4 border-dashed border-2 border-slate-800">
+        <div className="glass rounded-2xl p-16 text-center space-y-4 border-dashed border-2 border-slate-800"> {/* Reduzido de 3xl */}
            <div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto text-slate-500 mb-4">
              {hasActiveFilters ? <Filter size={40} /> : <CheckCircle2 size={40} className="text-green-500" />}
            </div>
@@ -571,7 +571,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
       {/* Modal de Conclusão Atualizado */}
       {selectedReview && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#0E1117] border border-slate-700 w-full max-w-md rounded-3xl p-6 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+          <div className="bg-[#12151D] border border-slate-800 w-full max-w-sm rounded-2xl p-5 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]"> {/* Ajustado de #0E1117 slate-700 md 3xl p-6 */}
             <button 
               onClick={() => setSelectedReview(null)}
               className="absolute top-4 right-4 text-slate-500 hover:text-white z-10"
@@ -588,7 +588,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
             </div>
 
             <div className="overflow-y-auto pr-2 custom-scrollbar space-y-6">
-              <div className="bg-slate-900/50 p-4 rounded-xl border border-white/5">
+              <div className="bg-slate-900/30 p-4 rounded-xl border border-white/5"> {/* Ajustado de /50 */}
                 <p className="text-sm text-slate-300 font-medium line-clamp-3 italic">
                   "{selectedReview.assunto}"
                 </p>
@@ -607,7 +607,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                     </label>
                     <input
                         type="date"
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold"
+                        className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold" {/* Ajustado de /50 */}
                         value={reviewDate}
                         onChange={(e) => setReviewDate(e.target.value)}
                     />
@@ -623,7 +623,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                         type="text"
                         placeholder="HH:MM"
                         maxLength={5}
-                        className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-center"
+                        className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-center" {/* Ajustado de /50 */}
                         value={tempoHHMM}
                         onChange={handleTimeChange}
                       />
@@ -647,7 +647,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                       min="0"
                       value={reviewQuestions}
                       onChange={(e) => setReviewQuestions(parseInt(e.target.value) || 0)}
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" {/* Ajustado de /50 */}
                     />
                   </div>
                   <div className="relative">
@@ -658,7 +658,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onUp
                       max={reviewQuestions}
                       value={reviewCorrect}
                       onChange={(e) => setReviewCorrect(parseInt(e.target.value) || 0)}
-                      className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-14 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                      className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-14 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" {/* Ajustado de /50 */}
                     />
                   </div>
                 </div>
