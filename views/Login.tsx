@@ -4,10 +4,10 @@ import { supabase } from '../services/supabase';
 import { Settings, User, Mail, Lock, CheckCircle, AlertOctagon } from 'lucide-react';
 
 interface LoginProps {
-  onConfigClick: () => void;
+  // onConfigClick: () => void; // Removido
 }
 
-const Login: React.FC<LoginProps> = ({ onConfigClick }) => {
+const Login: React.FC<LoginProps> = (/* { onConfigClick } */) => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [isSignUp, setIsSignUp] = useState(false);
@@ -34,7 +34,8 @@ const Login: React.FC<LoginProps> = ({ onConfigClick }) => {
     try {
       if (isSignUp) {
         // CADASTRO SIMPLIFICADO
-        const { data, error } = await supabase.auth.signUp({ 
+        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signUp' property.
+        const { data, error } = await (supabase.auth as any).signUp({ 
           email, 
           password,
         });
@@ -49,7 +50,8 @@ const Login: React.FC<LoginProps> = ({ onConfigClick }) => {
 
       } else {
         // LOGIN DIRETO
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
+        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signInWithPassword' property.
+        const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
         if (error) throw error;
 
         // Salvar e-mail se solicitado
@@ -72,7 +74,8 @@ const Login: React.FC<LoginProps> = ({ onConfigClick }) => {
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 blur-[120px] rounded-full" />
 
-      {/* Botão de Reset/Configuração Manual */}
+      {/* Botão de Reset/Configuração Manual (Removido) */}
+      {/*
       <button 
         onClick={onConfigClick}
         className="absolute top-6 right-6 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest z-50 bg-black/20 px-4 py-2 rounded-full border border-white/5 hover:bg-white/10 hover:border-red-500/30 hover:text-red-400"
@@ -80,6 +83,7 @@ const Login: React.FC<LoginProps> = ({ onConfigClick }) => {
         <Settings size={14} />
         Alterar Conexão / Limpar Dados
       </button>
+      */}
 
       <div className="w-full max-w-md z-10">
         <div className="text-center mb-10">
