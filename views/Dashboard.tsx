@@ -150,7 +150,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
 
       {/* Painel de Filtros */}
       {showFilters && (
-         <div className="glass p-6 rounded-2xl border border-white/10 animate-in slide-in-from-top-2 grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-900/40">
+         <div className="glass p-5 rounded-xl border border-white/10 animate-in slide-in-from-top-2 grid grid-cols-1 md:grid-cols-4 gap-4 items-end bg-slate-900/40"> {/* Reduzido de p-6 2xl */}
              <div className="space-y-1">
                  <label className="text-[10px] font-bold text-slate-500 uppercase flex items-center gap-1">
                    <Calendar size={12} /> Data Início
@@ -159,7 +159,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                    type="date" 
                    value={dateStart} 
                    onChange={e => setDateStart(e.target.value)} 
-                   className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                   className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500" {/* Ajustado de /80 e /10 */}
                  />
              </div>
              <div className="space-y-1">
@@ -170,7 +170,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                    type="date" 
                    value={dateEnd} 
                    onChange={e => setDateEnd(e.target.value)} 
-                   className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                   className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500" {/* Ajustado de /80 e /10 */}
                  />
              </div>
              <div className="space-y-1">
@@ -180,7 +180,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                  <select 
                    value={selectedMateria} 
                    onChange={e => setSelectedMateria(e.target.value)} 
-                   className="w-full bg-slate-900/80 border border-white/10 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500"
+                   className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-3 py-2 text-sm text-white focus:outline-none focus:ring-1 focus:ring-purple-500" {/* Ajustado de /80 e /10 */}
                  >
                      <option value="">Todas as matérias</option>
                      {availableSubjects.map(s => <option key={s} value={s}>{s}</option>)}
@@ -225,7 +225,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
       ) : (
         <>
           {/* 1. HEATMAP (Frequency) */}
-          <div className="glass rounded-3xl p-8 border border-white/5">
+          <div className="glass rounded-2xl p-6 border border-white/5"> {/* Reduzido de 3xl p-8 */}
             <div className="flex items-center gap-3 mb-6">
                 <CalendarDays className="text-cyan-400" size={24} />
                 <div>
@@ -240,7 +240,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                 {heatmapData.map((day) => (
                   <div 
                   key={day.date} 
-                  className={`w-3 h-3 md:w-4 md:h-4 rounded-sm transition-all duration-300 hover:scale-125 hover:z-10 relative group
+                  className={`w-3 h-3 md:w-3.5 md:h-3.5 rounded-sm transition-all duration-300 hover:scale-125 hover:z-10 relative group {/* Ajustado md:w/h */}
                     ${day.intensity === 0 ? 'bg-slate-800/50' : ''}
                     ${day.intensity === 1 ? 'bg-purple-900/60' : ''}
                     ${day.intensity === 2 ? 'bg-purple-700/70' : ''}
@@ -264,7 +264,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
 
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
             {/* 2. EVOLUTION (Line) */}
-            <div className="glass rounded-3xl p-8">
+            <div className="glass rounded-2xl p-6"> {/* Reduzido de 3xl p-8 */}
               <div className="mb-6 flex items-center gap-3">
                   <TrendingUp className="text-purple-400" size={24} />
                   <div>
@@ -288,7 +288,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                         />
                         <YAxis stroke="#64748b" fontSize={10} domain={[0, 100]} />
                         <Tooltip 
-                          contentStyle={{ backgroundColor: '#0E1117', border: '1px solid #ffffff10', borderRadius: '12px', color: '#fff' }}
+                          contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10', borderRadius: '12px', color: '#fff' }} {/* Ajustado background */}
                           itemStyle={{ color: '#fff' }}
                           labelStyle={{ color: '#94a3b8', marginBottom: '0.5rem', fontSize: '12px' }}
                           formatter={(value: number) => [`${value.toFixed(1)}%`, 'Precisão']}
@@ -308,7 +308,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
             </div>
 
             {/* 3. TIME DISTRIBUTION (Pie) */}
-            <div className="glass rounded-3xl p-8">
+            <div className="glass rounded-2xl p-6"> {/* Reduzido de 3xl p-8 */}
               <div className="mb-6 flex items-center gap-3">
                   <PieIcon className="text-green-400" size={24} />
                   <div>
@@ -333,7 +333,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                           ))}
                         </Pie>
                         <Tooltip 
-                          contentStyle={{ backgroundColor: '#0E1117', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                          contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10', borderRadius: '12px' }} {/* Ajustado background */}
                           itemStyle={{ color: '#fff' }}
                           formatter={(value: number) => [`${Math.floor(value/60)}h${value%60}m`, 'Tempo']}
                         />
@@ -351,7 +351,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
             </div>
 
             {/* 4. ERRORS (Bar) */}
-            <div className="glass rounded-3xl p-8 lg:col-span-2">
+            <div className="glass rounded-2xl p-6 lg:col-span-2"> {/* Reduzido de 3xl p-8 */}
               <div className="mb-6 flex items-center gap-3">
                   <AlertTriangle className="text-red-400" size={24} />
                   <div>
@@ -367,7 +367,7 @@ const Dashboard: React.FC<DashboardProps> = ({ records, missaoAtiva }) => {
                         <YAxis dataKey="materia" type="category" stroke="#fff" fontSize={11} width={100} tick={{fill: '#cbd5e1'}} />
                         <Tooltip 
                           cursor={{ fill: '#ffffff05' }}
-                          contentStyle={{ backgroundColor: '#0E1117', border: '1px solid #ffffff10', borderRadius: '12px' }}
+                          contentStyle={{ backgroundColor: '#12151D', border: '1px solid #ffffff10', borderRadius: '12px' }} {/* Ajustado background */}
                           itemStyle={{ color: '#F87171' }}
                           formatter={(value: number) => [value, 'Erros']}
                         />
