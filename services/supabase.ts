@@ -70,4 +70,4 @@ export const resetAppConfig = () => {
   
   window.location.reload();
 };
-//for
+//force
