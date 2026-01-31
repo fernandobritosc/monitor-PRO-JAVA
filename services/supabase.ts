@@ -13,7 +13,7 @@ const getSupabaseConfig = () => {
       url = env.VITE_SUPABASE_URL;
   }
   if (!key || key === 'placeholder') {
-      // Tenta as duas variações comuns de nome para não ter erro
+      // Tenta as duas variações  comuns de nome para não ter erro
       key = env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_KEY;
   }
 
