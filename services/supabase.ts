@@ -27,6 +27,8 @@ const getSupabaseConfig = () => {
   return { url, key };
 };
 
+
+
 const { url, key } = getSupabaseConfig();
 
 export const supabase = createClient(
