@@ -25,7 +25,7 @@ export const saveAppConfig = (newUrl: string, newKey: string) => {
   localStorage.setItem('monitorpro_supabase_url', newUrl.trim());
   localStorage.setItem('monitorpro_supabase_key', newKey.trim());
   window.location.reload();
-};
+}; 
 
 export const resetAppConfig = () => {
   localStorage.removeItem('monitorpro_supabase_url');
