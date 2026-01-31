@@ -4,30 +4,24 @@ import { createClient } from '@supabase/supabase-js';
 const getSupabaseConfig = () => {
   const env = import.meta.env || ({} as any);
   
-  // 1. Tenta pegar do LocalStorage (Config Manual)
-  let url = localStorage.getItem('monitorpro_supabase_url');
-  let key = localStorage.getItem('monitorpro_supabase_key');
+  // 1. FORÇA A LEITURA DA VERCEL PRIMEIRO (Prioridade Total)
+  let url = env.VITE_SUPABASE_URL;
+  let key = env.VITE_SUPABASE_ANON_KEY;
 
-// 2. Se não tiver no LocalStorage, tenta pegar das Variáveis de Ambiente (Vercel/Vite)
+  // 2. SE A VERCEL FALHAR, TENTA O LOCALSTORAGE
   if (!url || url.includes('placeholder')) {
-      url = env.VITE_SUPABASE_URL;
+      url = localStorage.getItem('monitorpro_supabase_url');
   }
   if (!key || key === 'placeholder') {
-      // Tenta as duas variações  comuns de nome para não ter erro
-      key = env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_KEY;
+      key = localStorage.getItem('monitorpro_supabase_key');
   }
 
-  // 3. Validação Relaxada (Correção do Bug de Persistência)
-  // Antes exigia .supabase.co, agora aceita qualquer HTTPS válido para evitar rejeição acidental
+  // 3. VALIDAÇÃO FINAL
   const isUrlValid = url && url.startsWith('https://') && url.length > 10;
   const isKeyValid = key && key.length > 20;
 
   if (!isUrlValid || !isKeyValid) {
-    console.warn("MonitorPro: Nenhuma credencial válida encontrada. Aguardando configuração manual.");
-    return { 
-        url: 'https://placeholder.supabase.co', 
-        key: 'placeholder' 
-    };
+    return { url: 'https://placeholder.supabase.co', key: 'placeholder' };
   }
 
   return { url, key };
