@@ -27,7 +27,7 @@ const getSupabaseConfig = () => {
   return { url, key };
 };
 
-
+https://monitor-pro-java.vercel.app/?v=106
 
 const { url, key } = getSupabaseConfig();
 
