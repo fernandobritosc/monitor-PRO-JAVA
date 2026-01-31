@@ -8,12 +8,13 @@ const getSupabaseConfig = () => {
   let url = localStorage.getItem('monitorpro_supabase_url');
   let key = localStorage.getItem('monitorpro_supabase_key');
 
-  // 2. Se não tiver no LocalStorage, tenta pegar das Variáveis de Ambiente (Vercel)
+// 2. Se não tiver no LocalStorage, tenta pegar das Variáveis de Ambiente (Vercel/Vite)
   if (!url || url.includes('placeholder')) {
-     url = env.VITE_SUPABASE_URL;
+      url = env.VITE_SUPABASE_URL;
   }
   if (!key || key === 'placeholder') {
-     key = env.VITE_SUPABASE_KEY;
+      // Tenta as duas variações comuns de nome para não ter erro
+      key = env.VITE_SUPABASE_ANON_KEY || env.VITE_SUPABASE_KEY;
   }
 
   // 3. Validação Relaxada (Correção do Bug de Persistência)
