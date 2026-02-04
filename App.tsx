@@ -54,56 +54,59 @@ const App: React.FC = () => {
 
     let mounted = true;
 
-    // Timeout de segurança: se em 4s não resolver a sessão, libera o login
-    // Isso evita o "loop infinito" de loading se o Supabase demorar
+    // Timeout de segurança AUMENTADO para 8s
+    // Se a conexão estiver lenta, isso evita o logout prematuro
     const safetyTimeout = setTimeout(() => {
         if (mounted && loading) {
-            console.warn("Sessão demorou para responder. Liberando UI.");
-            setLoading(false);
+            console.warn("Timeout de sessão atingido (8s). Verificando token local...");
+            // Última checagem: se tem token, não derruba ainda, deixa o onAuthStateChange tentar
+            const hasLocalToken = localStorage.getItem('monitorpro-auth-token');
+            if (!hasLocalToken) {
+              setLoading(false);
+            }
         }
-    }, 4000);
+    }, 8000);
 
     const initializeSession = async () => {
       try {
         // Tenta recuperar sessão existente
         const { data: { session: initialSession }, error } = await supabase.auth.getSession();
         
-        if (error) throw error;
-
         if (mounted) {
           if (initialSession) {
             setSession(initialSession);
             setLoading(false); 
           } else {
-             // Se não achou sessão de imediato, verifica localStorage para evitar falso negativo
-             const hasLocalToken = localStorage.getItem('monitorpro-auth-token');
-             if (!hasLocalToken) {
-                 setLoading(false); // Realmente não tem nada, libera para login
-             }
-             // Se tem token local mas getSession retornou null, o onAuthStateChange vai pegar ou vai falhar depois
+             // Se não veio sessão do getSession, ainda não marcamos loading=false
+             // Esperamos o evento onAuthStateChange confirmar ou o timeout
+             console.log("Nenhuma sessão inicial encontrada via getSession. Aguardando listener...");
           }
         }
       } catch (error) {
-        console.error("Erro ao verificar sessão:", error);
-        if (mounted) setLoading(false);
+        console.error("Erro crítico ao verificar sessão:", error);
+        // Em caso de erro de rede, não desloga imediatamente se tiver token
       }
     };
 
     initializeSession();
 
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, newSession) => {
+      console.log("Auth Event:", _event);
       if (mounted) {
         if (newSession) {
              setSession(newSession);
-             setLoading(false); // Garante que saia do loading
+             setLoading(false); 
         } else if (_event === 'SIGNED_OUT') {
              setSession(null);
              setLoading(false);
              localStorage.removeItem('monitorpro_last_view');
              setActiveView('HOME');
         } else if (_event === 'INITIAL_SESSION' && !newSession) {
-             // Evento final de inicialização sem sessão, mas só liberamos se não tiver token local (tratado acima)
-             // ou se já passou pelo check inicial
+             // Se o evento inicial diz que não tem sessão, verificamos o token local uma última vez
+             const hasLocalToken = localStorage.getItem('monitorpro-auth-token');
+             if (!hasLocalToken) {
+                setLoading(false);
+             }
         }
       }
     });
@@ -206,6 +209,7 @@ const App: React.FC = () => {
     <div className="min-h-screen bg-[#12151D] flex flex-col items-center justify-center gap-4">
       <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
       <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">Carregando MonitorPro...</p>
+      <p className="text-slate-600 text-[10px] animate-pulse">Autenticando sessão segura</p>
     </div>
   );
 
