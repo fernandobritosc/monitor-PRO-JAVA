@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from 'react';
 import { supabase, isConfigured } from './services/supabase';
 import { ViewType, StudyRecord, EditalMateria } from './types';
@@ -19,19 +18,17 @@ import EditalProgress from './views/EditalProgress';
 import Flashcards from './views/Flashcards';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 
-// Safe version check
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.24';
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any | null>(null);
-  const [userEmail, setUserEmail] = useState<string>(''); // Novo estado para email (independente da sessão para offline)
+  const [userEmail, setUserEmail] = useState<string>('');
   const [loading, setLoading] = useState(true);
   const [needsConfig, setNeedsConfig] = useState(!isConfigured);
   const [isError, setIsError] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [backgroundSyncing, setBackgroundSyncing] = useState(false);
 
-  // PERSISTÊNCIA DE VIEW
   const [activeView, setActiveView] = useState<ViewType>(() => {
     if (typeof window !== 'undefined') {
       const saved = localStorage.getItem('monitorpro_last_view');
@@ -50,7 +47,6 @@ const App: React.FC = () => {
     if (activeView) localStorage.setItem('monitorpro_last_view', activeView);
   }, [activeView]);
 
-  // --- FUNÇÃO DE CARREGAMENTO DE CACHE (Hoistada para uso no init) ---
   const loadFromCache = () => {
       try {
           const cachedEditais = localStorage.getItem('monitorpro_cache_editais');
@@ -72,13 +68,10 @@ const App: React.FC = () => {
                       setMissaoAtiva(principal ? principal.concurso : parsedEditais[0].concurso);
                   }
 
-                  // Tenta recuperar o email salvo para exibir na UI
                   const savedEmail = localStorage.getItem('monitorpro_saved_email');
                   if (savedEmail) setUserEmail(savedEmail);
                   
-                  setIsOfflineMode(true);
-                  setIsError(false);
-                  setShowOnboarding(false);
+                  // IMPORTANTE: Retorna true para sinalizar que o cache foi carregado com sucesso
                   return true;
               }
           }
@@ -88,7 +81,6 @@ const App: React.FC = () => {
       return false;
   };
 
-  // --- GERENCIAMENTO DE SESSÃO ---
   useEffect(() => {
     if (!isConfigured) {
       setNeedsConfig(true);
@@ -96,21 +88,21 @@ const App: React.FC = () => {
       return;
     }
 
-    // ESTRATÉGIA CACHE-FIRST: Tenta carregar dados locais antes de tudo
-    // Isso garante que a UI apareça instantaneamente no celular
-    const hasCache = loadFromCache();
-    if (hasCache) {
-        setLoading(false); // Remove spinner global imediatamente se tiver cache
-    }
-
     let mounted = true;
 
     const initializeSession = async () => {
+      // 1. Tenta carregar do cache primeiro (Síncrono para evitar flash de login)
+      const hasCache = loadFromCache();
+      if (hasCache) {
+          setIsOfflineMode(true); 
+          // Não tiramos o loading ainda se quisermos tentar conectar no fundo, 
+          // mas para UX rápida, podemos liberar a UI já
+      }
+
       try {
         const localToken = localStorage.getItem('monitorpro-auth-token');
         
-        // Tenta obter sessão. Se a rede estiver lenta, isso pode demorar.
-        // Como já setamos loading(false) se tiver cache, o usuário não fica travado.
+        // 2. Busca sessão no Supabase
         const { data: { session: initialSession } } = await (supabase.auth as any).getSession();
         
         if (!mounted) return;
@@ -118,21 +110,19 @@ const App: React.FC = () => {
         if (initialSession) {
           setSession(initialSession);
           setUserEmail(initialSession.user.email || '');
-          if (!hasCache) setLoading(false); 
+          setIsOfflineMode(false); // Temos sessão real
         } else if (localToken) {
            const { data: { session: refreshedSession }, error: refreshError } = await (supabase.auth as any).refreshSession();
            if (refreshedSession && !refreshError) {
                setSession(refreshedSession);
                setUserEmail(refreshedSession.user.email || '');
+               setIsOfflineMode(false);
            }
-           if (!hasCache) setLoading(false);
-        } else {
-           setSession(null);
-           setLoading(false);
-        }
+        } 
       } catch (error) {
         console.error("❌ Erro sessão:", error);
-        if (!hasCache) setLoading(false);
+      } finally {
+        if (mounted) setLoading(false);
       }
     };
 
@@ -143,16 +133,13 @@ const App: React.FC = () => {
         if (newSession) {
              setSession(newSession);
              setUserEmail(newSession.user.email || '');
-             // Se não tinha cache, tira o loading agora
              setLoading(false); 
         } else if (_event === 'SIGNED_OUT') {
              setSession(null);
              setUserEmail('');
              setLoading(false);
              localStorage.removeItem('monitorpro_last_view');
-             
-             // CRÍTICO: Se o usuário fez logout explícito, saímos do modo offline para mostrar o Login
-             setIsOfflineMode(false);
+             setIsOfflineMode(false); // Força tela de login
              setActiveView('HOME');
         }
       }
@@ -164,7 +151,6 @@ const App: React.FC = () => {
     };
   }, []);
 
-  // --- RECONEXÃO AUTOMÁTICA ---
   useEffect(() => {
     const handleOnline = () => {
         console.log("🌐 Online. Sincronizando...");
@@ -174,12 +160,10 @@ const App: React.FC = () => {
     return () => window.removeEventListener('online', handleOnline);
   }, [session]);
 
-  // --- CARREGAMENTO DE DADOS ---
   useEffect(() => {
     if (session?.user?.id) {
       fetchData(session.user.id);
     } else if (!session && !loading && !isOfflineMode) {
-       // Só limpa se não estiver carregando e NÃO estiver em modo offline
        if (!editais.length) {
            setEditais([]);
            setStudyRecords([]);
@@ -190,30 +174,16 @@ const App: React.FC = () => {
   }, [session?.user?.id]); 
 
   const fetchData = async (userId: string, retryCount = 0) => {
-    // Se já temos dados (do cache ou anterior), usamos 'backgroundSyncing' para não travar a tela
-    // Se não temos dados nenhum, usamos 'dataLoading' para mostrar spinner
     const hasData = editais.length > 0;
     
     if (!hasData && retryCount === 0) setDataLoading(true);
     if (hasData) setBackgroundSyncing(true);
     
     try {
-      // 1. Busca Editais
-      const { data: loadedEditais, error: editaisError } = await supabase
-        .from('editais_materias')
-        .select('*')
-        .eq('user_id', userId);
-
+      const { data: loadedEditais, error: editaisError } = await supabase.from('editais_materias').select('*').eq('user_id', userId);
       if (editaisError) throw editaisError;
 
-      // 2. Busca Registros
-      const { data: loadedRecords, error: recordsError } = await supabase
-        .from('registros_estudos')
-        .select('*')
-        .eq('user_id', userId)
-        .order('data_estudo', { ascending: false })
-        .limit(2000);
-
+      const { data: loadedRecords, error: recordsError } = await supabase.from('registros_estudos').select('*').eq('user_id', userId).order('data_estudo', { ascending: false }).limit(2000);
       if (recordsError) throw recordsError;
 
       const finalEditais = loadedEditais || [];
@@ -233,7 +203,6 @@ const App: React.FC = () => {
         setShowOnboarding(true);
       }
       
-      // SUCESSO: Atualiza Cache e Estado
       localStorage.setItem('monitorpro_cache_editais', JSON.stringify(finalEditais));
       localStorage.setItem('monitorpro_cache_records', JSON.stringify(finalRecords));
       localStorage.setItem('monitorpro_cache_missao', missaoAtiva);
@@ -243,17 +212,13 @@ const App: React.FC = () => {
 
     } catch (error: any) {
       console.error(`Erro sync (Tentativa ${retryCount + 1}):`, error);
-      
-      // Se falhar e não tivermos dados, tenta retry. Se tiver dados, falha silenciosamente e mantem offline mode.
       if (retryCount < 2) {
           setTimeout(() => fetchData(userId, retryCount + 1), 2000);
       } else {
-          // Se falhou tudo e não temos dados visualizáveis, aí sim mostra erro
           if (!hasData) {
               const loaded = loadFromCache();
               if (!loaded) setIsError(true);
           } else {
-              // Se temos dados, apenas marca como offline (amarelo)
               setIsOfflineMode(true);
           }
       }
@@ -267,10 +232,7 @@ const App: React.FC = () => {
      if (!session?.user?.id) return;
      try {
         const payload = templateData.map(t => ({ ...t, user_id: session.user.id }));
-        const { error } = await supabase.from('editais_materias').upsert(payload, { 
-            onConflict: 'user_id,concurso,materia',
-            ignoreDuplicates: true 
-        });
+        const { error } = await supabase.from('editais_materias').upsert(payload, { onConflict: 'user_id,concurso,materia', ignoreDuplicates: true });
         if (error) throw error;
         await fetchData(session.user.id);
         setShowOnboarding(false);
@@ -281,17 +243,9 @@ const App: React.FC = () => {
 
   const handleRecordUpdate = async (updatedRecord: StudyRecord) => {
     setStudyRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-    
-    if (isOfflineMode) {
-        alert("Modo Offline: Alteração salva localmente (visualização). Conecte-se para salvar no servidor.");
-        return;
-    }
-
+    if (isOfflineMode) { alert("Modo Offline: Alteração salva localmente (visualização). Conecte-se para salvar no servidor."); return; }
     const { error } = await supabase.from('registros_estudos').update(updatedRecord).eq('id', updatedRecord.id);
-    if (error) { 
-        alert("Erro ao salvar online."); 
-        if (session?.user?.id) fetchData(session.user.id); 
-    }
+    if (error) { alert("Erro ao salvar online."); if (session?.user?.id) fetchData(session.user.id); }
   };
 
   const handleRecordDelete = async (recordId: string) => {
@@ -318,7 +272,7 @@ const App: React.FC = () => {
 
   if (needsConfig) return <ConfigScreen initialError={!isConfigured ? "Ambiente não configurado." : "Sessão expirada."} />;
 
-  // CRÍTICO: Permite renderizar o App se estiver offline E tiver dados, mesmo sem sessão ativa
+  // Se não tem sessão E não está em modo offline (com cache), mostra login
   if (!session && !isOfflineMode) return <Login />;
   
   if (showOnboarding && !dataLoading && !isOfflineMode) return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={userEmail} />;
@@ -344,61 +298,14 @@ const App: React.FC = () => {
   return (
     <Layout activeView={activeView} setActiveView={setActiveView} userEmail={userEmail || 'Usuário Offline'} onLogout={() => (supabase.auth as any).signOut()} missaoAtiva={missaoAtiva}>
       {dataLoading && <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-cyan-500 animate-pulse z-[60]" />}
-      
-      {/* Indicador de Sync Background */}
-      {backgroundSyncing && !isOfflineMode && (
-          <div className="fixed bottom-4 right-4 bg-slate-800 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg border border-white/5 z-[100] animate-in fade-in">
-              <RefreshCw size={10} className="animate-spin" /> Atualizando...
-          </div>
-      )}
-
-      {/* BANNER DE MODO OFFLINE (AMARELO) - Permite uso */}
+      {backgroundSyncing && !isOfflineMode && (<div className="fixed bottom-4 right-4 bg-slate-800 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg border border-white/5 z-[100] animate-in fade-in"><RefreshCw size={10} className="animate-spin" /> Atualizando...</div>)}
       {isOfflineMode && !isError && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-3 rounded-xl mb-6 flex items-center justify-between gap-4 text-xs font-bold shadow-lg animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-2">
-                <Database size={16} />
-                <span>Modo Offline.</span>
-                <span className="hidden md:inline font-normal opacity-70">Exibindo dados do cache. Algumas funções podem estar limitadas.</span>
-            </div>
-            {session ? (
-                <button 
-                    onClick={() => session?.user?.id && fetchData(session.user.id)} 
-                    className="underline hover:text-white flex items-center gap-1"
-                >
-                    <RefreshCw size={12} /> Tentar Conectar
-                </button>
-            ) : (
-                <button 
-                    onClick={() => (supabase.auth as any).signOut()} 
-                    className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all"
-                >
-                    <LogIn size={12} /> Fazer Login
-                </button>
-            )}
+            <div className="flex items-center gap-2"><Database size={16} /><span>Modo Offline.</span><span className="hidden md:inline font-normal opacity-70">Exibindo dados do cache. Algumas funções podem estar limitadas.</span></div>
+            {session ? (<button onClick={() => session?.user?.id && fetchData(session.user.id)} className="underline hover:text-white flex items-center gap-1"><RefreshCw size={12} /> Tentar Conectar</button>) : (<button onClick={() => (supabase.auth as any).signOut()} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all"><LogIn size={12} /> Fazer Login</button>)}
         </div>
       )}
-
-      {/* BANNER DE ERRO CRÍTICO (VERMELHO) - Só aparece se não tiver cache */}
-      {isError && (
-        <div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold shadow-lg animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-3">
-                <div className="p-2 bg-red-500/20 rounded-full animate-pulse">
-                    <WifiOff size={20} />
-                </div>
-                <div className="flex flex-col">
-                    <span>Falha na Conexão.</span>
-                    <span className="text-[10px] opacity-70 font-normal">Não foi possível baixar seus dados e não há cópia local.</span>
-                </div>
-            </div>
-            <button 
-                onClick={() => session?.user?.id && fetchData(session.user.id)} 
-                className="md:ml-auto flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all active:scale-95"
-            >
-                <RefreshCw size={14} /> Tentar Novamente
-            </button>
-        </div>
-      )}
-      
+      {isError && (<div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold shadow-lg animate-in slide-in-from-top-2"><div className="flex items-center gap-3"><div className="p-2 bg-red-500/20 rounded-full animate-pulse"><WifiOff size={20} /></div><div className="flex flex-col"><span>Falha na Conexão.</span><span className="text-[10px] opacity-70 font-normal">Não foi possível baixar seus dados e não há cópia local.</span></div></div><button onClick={() => session?.user?.id && fetchData(session.user.id)} className="md:ml-auto flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all active:scale-95"><RefreshCw size={14} /> Tentar Novamente</button></div>)}
       {!isError && renderView()}
     </Layout>
   );
