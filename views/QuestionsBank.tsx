@@ -555,4 +555,4 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
   );
 };
 
-export default History;
+export default QuestionsBank;
