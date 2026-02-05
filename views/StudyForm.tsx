@@ -1,1 +1,0 @@
-Tem como finalidade monitorar o desempenho, comparar o real com o planejado e assegurar o alcance dos objetivos.
