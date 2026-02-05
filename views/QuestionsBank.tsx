@@ -3,7 +3,7 @@ import { supabase } from '../services/supabase';
 import { StudyRecord, EditalMateria } from '../types';
 import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp } from 'lucide-react';
 
-interface QuestionsBanProps {
+interface QuestionsBankProps {
   records: StudyRecord[];
   missaoAtiva: string;
   editais: EditalMateria[];
