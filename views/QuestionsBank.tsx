@@ -556,4 +556,3 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
 };
 
 export default History;
-// teste de push
