@@ -11,7 +11,7 @@ const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '
 const Login: React.FC<LoginProps> = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
+  const [showPassword, setShowPassword] = useState(false); // NOVO STATE
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -145,19 +145,20 @@ const Login: React.FC<LoginProps> = () => {
             </label>
             <div className="relative">
                 <input
-                type={showPassword ? "text" : "password"}
-                autoComplete={isSignUp ? "new-password" : "current-password"}
-                required
-                className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    required
+                    className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
                 />
                 <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-0 top-0 h-full px-4 text-slate-500 hover:text-white transition-colors"
+                    className="absolute right-0 top-0 h-full px-4 text-slate-500 hover:text-white transition-colors flex items-center justify-center z-20"
                     tabIndex={-1}
+                    title={showPassword ? "Ocultar senha" : "Ver senha"}
                 >
                     {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
