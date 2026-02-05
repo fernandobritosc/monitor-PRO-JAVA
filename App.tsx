@@ -11,6 +11,7 @@ import Revisoes from './views/Revisoes';
 import Simulados from './views/Simulados';
 import Configurar from './views/Configurar';
 import WeeklyGuide from './views/WeeklyGuide';
+
 import Reports from './views/Reports';
 import Onboarding from './views/Onboarding';
 import EditalProgress from './views/EditalProgress';
