@@ -5,6 +5,9 @@ import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Load
 
 interface LoginProps {}
 
+// Safe version check
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.17';
+
 const Login: React.FC<LoginProps> = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -115,7 +118,7 @@ const Login: React.FC<LoginProps> = () => {
           <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white">
             MONITOR<span className="text-cyan-400">PRO</span>
           </h1>
-          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">Acesso Independente v{__APP_VERSION__}</p>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">Acesso Independente v{APP_VERSION}</p>
         </div>
 
         <form onSubmit={handleAuth} className="glass rounded-3xl p-8 space-y-5 shadow-2xl border-white/5 relative">
@@ -218,7 +221,7 @@ const Login: React.FC<LoginProps> = () => {
 
       {/* DEBUG FOOTER */}
       <div className="absolute bottom-2 right-2 text-[9px] text-slate-700 font-mono text-right opacity-50 hover:opacity-100 transition-opacity pointer-events-none flex flex-col gap-1">
-        <div className="font-bold text-white">v{__APP_VERSION__}</div>
+        <div className="font-bold text-white">v{APP_VERSION}</div>
         <div className="flex items-center justify-end gap-2">
             <span className={configSource === 'MISSING' ? 'text-red-500 font-bold' : 'text-green-500 font-bold'}>
                 Cfg Source: {configSource}
