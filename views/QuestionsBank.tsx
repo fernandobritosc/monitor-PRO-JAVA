@@ -1,486 +1,559 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
-import { Question, EditalMateria } from '../types';
-import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X } from 'lucide-react';
+import { StudyRecord, EditalMateria } from '../types';
+import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp } from 'lucide-react';
 
-interface QuestionsBankProps {
+interface HistoryProps {
+  records: StudyRecord[];
   missaoAtiva: string;
   editais: EditalMateria[];
+  onRecordUpdate: (record: StudyRecord) => void;
+  onRecordDelete: (recordId: string) => void;
 }
 
-// Helper para pegar data local YYYY-MM-DD
-const getLocalToday = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+// Helper para exibição de data local sem conversão UTC
+const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '--/--/----';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
 };
 
-// Helper para links
-const formatTextWithLinks = (text: string | undefined) => {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, index) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/30 hover:decoration-cyan-300 transition-colors inline-flex items-center gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part} <ExternalLink size={10} />
-        </a>
-      );
-    }
-    return part;
-  });
-};
-
-const QuestionCard: React.FC<{ 
-    q: Question;
-    isExpanded: boolean;
-    onToggle: (id: string) => void;
-    onEdit: (q: Question) => void;
-    onDelete: (id: string) => void;
-    onStatusChange: (id: string, status: 'Pendente' | 'Em andamento' | 'Concluída') => void;
-}> = ({ q, isExpanded, onToggle, onEdit, onDelete, onStatusChange }) => {
-    
-    const statusInfo = {
-        'Pendente': { color: 'border-yellow-500', text: 'Pendente' },
-        'Em andamento': { color: 'border-blue-500', text: 'Em Andamento' },
-        'Concluída': { color: 'border-green-500', text: 'Concluída' },
-    }[q.status];
-
-    return (
-        <div className={`glass rounded-2xl overflow-hidden border-l-4 transition-all duration-300 ${statusInfo.color} ${isExpanded ? 'bg-slate-900/50' : 'bg-transparent'}`}>
-            <div className="p-5 cursor-pointer" onClick={() => onToggle(q.id)}>
-                <div className="flex justify-between items-start">
-                    <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-3 mb-2">
-                            <span className="text-xs font-bold text-slate-400 uppercase tracking-widest">{q.materia}</span>
-                            {q.simulado && <span className="text-[10px] bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded border border-purple-500/20">{q.simulado}</span>}
-                        </div>
-                        <h4 className="text-lg font-bold text-white truncate">{q.assunto}</h4>
-                    </div>
-                    <div className="text-center ml-4">
-                        <div className="text-[10px] text-slate-500 uppercase font-bold">Relevância</div>
-                        <div className={`text-lg font-extrabold ${q.relevancia >= 8 ? 'text-red-400' : 'text-slate-300'}`}>{q.relevancia}</div>
-                    </div>
-                </div>
-                {!isExpanded && q.tags?.length > 0 && (
-                     <div className="flex flex-wrap gap-2 mt-3">
-                        {q.tags.slice(0,3).map((tag, i) => (
-                           <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded">{tag}</span>
-                        ))}
-                     </div>
-                )}
-            </div>
-            
-            {isExpanded && (
-                <div className="bg-slate-900/50 border-t border-white/5 p-5 space-y-4 animate-in fade-in">
-                    {q.anotacoes && (
-                        <div>
-                            <h5 className="text-xs font-bold text-slate-500 uppercase mb-2">Anotações / Link</h5>
-                            <div className="prose prose-sm prose-invert prose-p:text-slate-300 prose-a:text-cyan-400 text-slate-300 whitespace-pre-wrap">
-                                {formatTextWithLinks(q.anotacoes)}
-                            </div>
-                        </div>
-                    )}
-                    {q.tags?.length > 0 && (
-                        <div className="flex flex-wrap gap-2 pt-3 border-t border-white/10">
-                            {q.tags.map((tag, i) => (
-                                <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded">{tag}</span>
-                            ))}
-                        </div>
-                    )}
-                    <div className="flex justify-between items-center gap-4 pt-4 border-t border-white/10">
-                        <div className="flex gap-2">
-                            <button onClick={() => onEdit(q)} className="p-2.5 bg-slate-800/50 rounded-lg text-slate-400 hover:text-cyan-400 transition-colors"><Edit size={16}/></button>
-                            <button onClick={() => onDelete(q.id)} className="p-2.5 bg-slate-800/50 rounded-lg text-slate-400 hover:text-red-400 transition-colors"><Trash2 size={16}/></button>
-                        </div>
-                        <div className="flex gap-2">
-                            <button onClick={() => onStatusChange(q.id, 'Pendente')} className="px-4 py-2 bg-yellow-500/10 hover:bg-yellow-500/20 text-yellow-300 text-xs font-bold rounded-xl transition-all">
-                                🔁 Revisar de Novo
-                            </button>
-                            <button onClick={() => onStatusChange(q.id, 'Concluída')} className="px-4 py-2 bg-green-500/10 hover:bg-green-500/20 text-green-300 text-xs font-bold rounded-xl transition-all">
-                                ✅ Revisado
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
-        </div>
-    );
-};
-
-export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) => {
-  const [questions, setQuestions] = useState<Question[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [showForm, setShowForm] = useState(false);
-  const [isEditing, setIsEditing] = useState<string | null>(null);
-  const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
-  
+const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onRecordDelete }) => {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
-  const [filterMateria, setFilterMateria] = useState<string>('Todas');
+  const [dateStart, setDateStart] = useState('');
+  const [dateEnd, setDateEnd] = useState('');
+  const [showFilters, setShowFilters] = useState(false);
 
-  // Form States
-  const initialFormState = {
-    data: getLocalToday(), // Usar data local em vez de UTC
-    materia: '',
-    assunto: '',
-    simulado: '',
-    relevancia: 5,
-    meta: 3, 
-    anotacoes: '',
-    tags: '',
-    status: 'Pendente' as Question['status'],
-  };
+  // Accordion State
+  const [openGroups, setOpenGroups] = useState<Record<string, boolean>>({});
 
-  const [formData, setFormData] = useState(initialFormState);
-
-  const materiasDisponiveis = useMemo(() => ['Todas', ...editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort()], [editais, missaoAtiva]);
+  // Edição
+  const [editingRecord, setEditingRecord] = useState<StudyRecord | null>(null);
   
-  const topicosDisponiveis = useMemo(() => {
-     const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === formData.materia);
-     return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
-  }, [editais, missaoAtiva, formData.materia]);
-
-  const fetchQuestions = async () => {
-    setLoading(true);
-    const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
-
-    const { data, error } = await supabase
-      .from('questoes_revisao')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('concurso', missaoAtiva);
-
-    if (error) {
-      console.error('Erro ao buscar questões:', error);
-      setLoading(false);
-      return;
-    }
-
-    setQuestions(data || []);
-    setLoading(false);
-  };
+  // Custom Dropdown State
+  const [showHistoryTopicsDropdown, setShowHistoryTopicsDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    fetchQuestions();
-  }, [missaoAtiva]);
+    const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setShowHistoryTopicsDropdown(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+  
+  // State Completo do Form de Edição (Igual ao StudyForm)
+  const [editForm, setEditForm] = useState<{
+    materia: string;
+    assunto: string;
+    data_estudo: string;
+    tempoHHMM: string;
+    acertos: number | string;
+    total: number | string;
+    relevancia: number;
+    comentarios: string;
+    dificuldade: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' | 'Simulado';
+  }>({
+    materia: '',
+    assunto: '',
+    data_estudo: '',
+    tempoHHMM: '',
+    acertos: '',
+    total: '',
+    relevancia: 5,
+    comentarios: '',
+    dificuldade: '🟡 Médio'
+  });
+  
+  const [saveToBank, setSaveToBank] = useState(false); // Novo estado para salvar no banco
+  const [loading, setLoading] = useState(false);
+  const [msg, setMsg] = useState<{ type: 'success' | 'error', text: string } | null>(null);
 
-  // Filtrar questões com base nos filtros
-  const reviewQueue = useMemo(() => {
-    let filtered = questions;
+  // Opções para o dropdown de matérias
+  const materiasDisponiveis = useMemo(() => {
+    return editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort();
+  }, [editais, missaoAtiva]);
 
-    // Filtrar por termo de busca
-    if (searchTerm) {
-      filtered = filtered.filter(q => 
-        q.assunto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.materia.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.anotacoes?.toLowerCase().includes(searchTerm.toLowerCase())
-      );
+  // Tópicos disponíveis baseado na matéria selecionada no form de edição
+  const topicosDisponiveis = useMemo(() => {
+    if (!editForm.materia) return [];
+    const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === editForm.materia);
+    // Ordenação natural (numérica)
+    return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+  }, [editais, missaoAtiva, editForm.materia]);
+
+  // Cálculo Automático de Porcentagem e Dificuldade Sugerida
+  const numericAcertos = Number(editForm.acertos) || 0;
+  const numericTotal = Number(editForm.total) || 0;
+  const percentage = numericTotal > 0 ? (numericAcertos / numericTotal) * 100 : 0;
+
+  useEffect(() => {
+    // Atualiza a dificuldade sugerida se estiver editando (exceto Simulados)
+    if (editingRecord && editingRecord.dificuldade !== 'Simulado' && numericTotal > 0) {
+       let suggested: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' = '🟡 Médio';
+       if (percentage >= 80) suggested = '🟢 Fácil';
+       else if (percentage < 60) suggested = '🔴 Difícil';
     }
+  }, [percentage, numericTotal, editingRecord]);
 
-    // Filtrar por matéria
-    if (filterMateria !== 'Todas') {
-      filtered = filtered.filter(q => q.materia === filterMateria);
-    }
 
-    // Ordenar por relevância (maior primeiro) e data (mais recente primeiro)
-    return filtered.sort((a, b) => {
-      if (b.relevancia !== a.relevancia) {
-        return Number(b.relevancia) - Number(a.relevancia);
-      }
-      const timeB = new Date(b.data).getTime();
-      const timeA = new Date(a.data).getTime();
-      return (timeB as number) - (timeA as number);
+  // --- FILTROS ---
+  const filteredRecords = useMemo(() => {
+    return records
+      .filter(r => r.concurso === missaoAtiva)
+      .filter(r => {
+        const searchMatch = 
+          r.materia.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          r.assunto.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          (r.comentarios && r.comentarios.toLowerCase().includes(searchTerm.toLowerCase()));
+
+        let dateMatch = true;
+        if (dateStart) dateMatch = dateMatch && r.data_estudo >= dateStart;
+        if (dateEnd) dateMatch = dateMatch && r.data_estudo <= dateEnd;
+
+        return searchMatch && dateMatch;
+      });
+  }, [records, missaoAtiva, searchTerm, dateStart, dateEnd]);
+
+  // --- AGRUPAMENTO POR MATÉRIA ---
+  const groupedRecords = useMemo(() => {
+    const groups: Record<string, StudyRecord[]> = {};
+    filteredRecords.forEach(r => {
+       const key = r.materia;
+       if (!groups[key]) groups[key] = [];
+       groups[key].push(r);
     });
-  }, [questions, searchTerm, filterMateria]);
+    return groups;
+  }, [filteredRecords]);
 
-  // Calcular pontos fracos (matérias com mais questões pendentes)
-  const weakPoints = useMemo(() => {
-    const pendentes = questions.filter(q => q.status === 'Pendente');
-    const grouped = pendentes.reduce((acc, q) => {
-      const current = acc[q.materia] || 0;
-      acc[q.materia] = current + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  const sortedMateriaKeys = useMemo(() => Object.keys(groupedRecords).sort(), [groupedRecords]);
 
-    return Object.entries(grouped)
-      .map(([materia, count]) => ({ materia, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3); // Top 3 pontos fracos
-  }, [questions]);
-
-  const handleEdit = (q: Question) => {
-    setIsEditing(q.id);
-    setFormData({
-      data: q.data,
-      materia: q.materia,
-      assunto: q.assunto,
-      simulado: q.simulado || '',
-      relevancia: q.relevancia,
-      meta: q.meta || 3,
-      anotacoes: q.anotacoes || '',
-      tags: Array.isArray(q.tags) ? q.tags.join(', ') : '',
-      status: q.status,
-    });
-    setShowForm(true);
+  const toggleGroup = (materia: string) => {
+    setOpenGroups(prev => ({ ...prev, [materia]: !prev[materia] }));
   };
 
-  const handleCancel = () => {
-    setShowForm(false);
-    setIsEditing(null);
-    setFormData(initialFormState);
+  // --- HELPERS ---
+  const minutesToHHMM = (mins: number) => {
+    const h = Math.floor(mins / 60);
+    const m = mins % 60;
+    return `${h.toString().padStart(2, '0')}:${m.toString().padStart(2, '0')}`;
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user || !isEditing) return;
+  const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    let value = e.target.value.replace(/\D/g, '');
+    if (value.length > 4) value = value.slice(0, 4);
+    if (value.length >= 3) {
+      value = `${value.slice(0, 2)}:${value.slice(2)}`;
+    }
+    setEditForm({...editForm, tempoHHMM: value});
+  };
 
-    if (!formData.materia && !formData.simulado) {
-      alert("Validação: Preencha a Matéria OU identifique o Simulado.");
+  const validateTimeInput = (val: string): number => {
+    const cleaned = val.replace(/\D/g, '');
+    if (cleaned.length === 0) return 0;
+    let hours = 0, minutes = 0;
+    if (cleaned.length <= 2) minutes = parseInt(cleaned);
+    else if (cleaned.length === 3) {
+       hours = parseInt(cleaned.substring(0, 1));
+       minutes = parseInt(cleaned.substring(1));
+    } else {
+       hours = parseInt(cleaned.substring(0, 2));
+       minutes = parseInt(cleaned.substring(2));
+    }
+    return hours * 60 + minutes;
+  };
+
+  // --- AÇÕES ---
+  const handleDelete = (id: string) => {
+    if (!confirm('Excluir este registro permanentemente?')) return;
+    onRecordDelete(id); // Chama a função otimista do App.tsx
+  };
+
+  const openEditModal = (r: StudyRecord) => {
+    setEditingRecord(r);
+    setSaveToBank(false); // Resetar checkbox ao abrir
+    setEditForm({
+      materia: r.materia,
+      assunto: r.assunto,
+      data_estudo: r.data_estudo,
+      tempoHHMM: minutesToHHMM(r.tempo),
+      acertos: r.acertos,
+      total: r.total,
+      relevancia: r.relevancia,
+      comentarios: r.comentarios || '',
+      dificuldade: r.dificuldade
+    });
+  };
+
+  const handleSaveEdit = async () => {
+    if (!editingRecord) return;
+    
+    const acertos = Number(editForm.acertos);
+    const total = Number(editForm.total);
+
+    if (acertos > total) {
+      setMsg({ type: 'error', text: "Erro: Acertos > Total." });
       return;
     }
+
+    setLoading(true);
+    setMsg(null);
+
+    const tempo = validateTimeInput(editForm.tempoHHMM);
+    const taxa = total > 0 ? (acertos / total) * 100 : 0;
     
-    const tagsArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
-
-    const questionPayload = {
-      user_id: user.id,
-      concurso: missaoAtiva,
-      data: formData.data,
-      materia: formData.materia || 'Simulado',
-      assunto: formData.assunto,
-      simulado: formData.simulado,
-      relevancia: formData.relevancia,
-      meta: formData.meta,
-      anotacoes: formData.anotacoes,
-      status: formData.status,
-      tags: tagsArray
+    const updatedRecord: StudyRecord = {
+        ...editingRecord, // Mantém IDs e outras props não editáveis
+        materia: editForm.materia,
+        assunto: editForm.assunto,
+        data_estudo: editForm.data_estudo,
+        acertos,
+        total,
+        taxa,
+        tempo,
+        relevancia: editForm.relevancia,
+        comentarios: editForm.comentarios,
+        dificuldade: editForm.dificuldade
     };
+    
+    // ATUALIZAÇÃO OTIMISTA: A UI atualiza instantaneamente
+    onRecordUpdate(updatedRecord); 
+    setEditingRecord(null); // Fecha o modal
+    setLoading(false);
 
-    const { error } = await supabase
-      .from('questoes_revisao')
-      .update(questionPayload)
-      .eq('id', isEditing);
-
-    if (error) {
-      alert('Erro ao salvar: ' + error.message);
-    } else {
-      handleCancel();
-      fetchQuestions();
+    // Salvar no banco de questões é uma operação secundária (não precisa ser otimista)
+    if (saveToBank && editingRecord.dificuldade !== 'Simulado') {
+        const { data: { user } } = await (supabase.auth as any).getUser();
+        if (user) {
+            const questionPayload = {
+               user_id: user.id,
+               concurso: missaoAtiva,
+               data: editForm.data_estudo,
+               materia: editForm.materia,
+               assunto: editForm.assunto,
+               relevancia: editForm.relevancia,
+               anotacoes: editForm.comentarios,
+               status: 'Pendente',
+               tags: [], 
+               meta: 3
+            };
+            await supabase.from('questoes_revisao').insert(questionPayload);
+        }
     }
   };
 
-  const handleDelete = async (id: string) => {
-    if(!confirm("Tem certeza que deseja excluir esta questão do banco?")) return;
-    await supabase.from('questoes_revisao').delete().eq('id', id);
-    fetchQuestions();
-  };
-
-  const handleStatusChange = async (id: string, newStatus: 'Pendente' | 'Em andamento' | 'Concluída') => {
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: newStatus } : q));
-    await supabase.from('questoes_revisao').update({ status: newStatus }).eq('id', id);
-  };
-  
-  const toggleCard = (id: string) => {
-      setExpandedCards(prev => ({...prev, [id]: !prev[id]}));
-  };
+  const isSimuladoEdit = editingRecord?.dificuldade === 'Simulado';
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
+    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+      <style>{`
+        input[type=number]::-webkit-inner-spin-button, input[type=number]::-webkit-outer-spin-button { -webkit-appearance: none; margin: 0; }
+        input[type=number] { -moz-appearance: textfield; }
+      `}</style>
+
+      {/* Busca e Filtros */}
+      <div className="glass p-4 rounded-xl border border-white/10 flex flex-col md:flex-row gap-4 items-center">
+         <div className="relative flex-1 w-full">
+            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={18} />
+            <input type="text" placeholder="Filtrar histórico por assunto ou nota..." className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-12 pr-4 py-3 text-sm focus:ring-2 focus:ring-purple-500/50" value={searchTerm} onChange={e => setSearchTerm(e.target.value)} />
+         </div>
+         <button onClick={() => setShowFilters(!showFilters)} className={`p-3 rounded-xl border border-white/5 ${showFilters ? 'bg-purple-500/20 text-white' : 'bg-slate-800 text-slate-400'}`}>
+            <Filter size={20} />
+         </button>
+      </div>
+
+      {showFilters && (
+        <div className="grid grid-cols-2 gap-4 animate-in slide-in-from-top-2">
+           <input type="date" className="bg-slate-900/30 border border-white/5 rounded-xl p-3 text-sm" value={dateStart} onChange={e => setDateStart(e.target.value)} />
+           <input type="date" className="bg-slate-900/30 border border-white/5 rounded-xl p-3 text-sm" value={dateEnd} onChange={e => setDateEnd(e.target.value)} />
+        </div>
+      )}
       
-      {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-           Banco de Questões Inteligente
-        </h2>
-        <p className="text-slate-400 text-sm mt-1">
-           Repositório de falhas e questões chave, priorizado para você.
-        </p>
-      </div>
-
-      {/* Radar de Fraquezas */}
-      <div className="glass p-6 rounded-2xl border border-white/5">
-        <h3 className="flex items-center gap-2 text-sm font-bold uppercase tracking-widest text-red-400 mb-4">
-           <AlertOctagon size={16} /> Radar de Fraquezas
-        </h3>
-        {weakPoints.length > 0 ? (
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-               {weakPoints.map(p => (
-                  <div key={p.materia} className="bg-red-500/10 p-4 rounded-xl border border-red-500/20">
-                     <div className="font-bold text-white truncate">{p.materia}</div>
-                     <div className="text-xs text-red-300">{p.count} questões pendentes</div>
-                  </div>
-               ))}
-            </div>
-        ) : (
-            <div className="text-center py-4">
-               <CheckCircle2 size={24} className="mx-auto text-green-500 mb-2"/>
-               <p className="text-sm font-bold text-slate-300">Nenhum ponto crítico detectado.</p>
-               <p className="text-xs text-slate-500">Continue estudando para manter tudo em dia!</p>
-            </div>
-        )}
-      </div>
-
-      {/* Formulário (Edit Only) */}
-      {showForm && (
-        <div className="glass p-8 rounded-3xl border border-white/10 animate-in slide-in-from-top-4 relative">
-          <button onClick={handleCancel} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
-          <h3 className="font-bold mb-6 flex items-center gap-2 text-xl"><Edit className="text-cyan-400" /> Editar Questão</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="text-xs text-slate-400">Matéria</label>
-                  <select 
-                    className="w-full bg-slate-900 p-2 rounded-lg border border-white/5 mt-1" 
-                    value={formData.materia} 
-                    onChange={e => setFormData({...formData, materia: e.target.value})}
-                  >
-                    <option value="">Selecione</option>
-                    {editais
-                      .filter(e => e.concurso === missaoAtiva)
-                      .map(e => e.materia)
-                      .sort()
-                      .map(m => <option key={m}>{m}</option>)
-                    }
-                  </select>
-                </div>
-                <div>
-                  <label className="text-xs text-slate-400">Assunto</label>
-                  <input 
-                    type="text" 
-                    list="topicos-list" 
-                    className="w-full bg-slate-900 p-2 rounded-lg border border-white/5 mt-1" 
-                    value={formData.assunto} 
-                    onChange={e => setFormData({...formData, assunto: e.target.value})} 
-                  />
-                  <datalist id="topicos-list">
-                    {topicosDisponiveis.map(t => <option key={t} value={t}/>)}
-                  </datalist>
-                </div>
-             </div>
-             <div>
-               <label className="text-xs text-slate-400">Anotações / Link</label>
-               <textarea 
-                 className="w-full bg-slate-900 p-2 rounded-lg border border-white/5 mt-1 h-24" 
-                 value={formData.anotacoes} 
-                 onChange={e => setFormData({...formData, anotacoes: e.target.value})} 
-               />
-             </div>
-             <div className="grid grid-cols-3 gap-4">
-                 <div>
-                   <label className="text-xs text-slate-400">Relevância: {formData.relevancia}</label>
-                   <input 
-                     type="range" 
-                     min="1" 
-                     max="10" 
-                     className="w-full mt-1 accent-cyan-500" 
-                     value={formData.relevancia} 
-                     onChange={e => setFormData({...formData, relevancia: Number(e.target.value)})} 
-                   />
-                 </div>
-                 <div>
-                   <label className="text-xs text-slate-400">Status</label>
-                   <select 
-                     className="w-full bg-slate-900 p-2 rounded-lg border border-white/5 mt-1" 
-                     value={formData.status} 
-                     onChange={e => setFormData({...formData, status: e.target.value as Question['status']})}
-                   >
-                     <option>Pendente</option>
-                     <option>Em andamento</option>
-                     <option>Concluída</option>
-                   </select>
-                 </div>
-                 <div>
-                   <label className="text-xs text-slate-400">Tags</label>
-                   <input 
-                     type="text" 
-                     placeholder="erro, lei, jurisprudência" 
-                     className="w-full bg-slate-900 p-2 rounded-lg border border-white/5 mt-1" 
-                     value={formData.tags} 
-                     onChange={e => setFormData({...formData, tags: e.target.value})} 
-                   />
-                 </div>
-             </div>
-             <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
-               <button 
-                 type="button" 
-                 onClick={handleCancel} 
-                 className="px-4 py-2 rounded-lg border border-white/10 text-sm font-bold"
-               >
-                 Cancelar
-               </button>
-               <button 
-                 type="submit" 
-                 className="px-4 py-2 rounded-lg bg-cyan-600 text-sm font-bold"
-               >
-                 Salvar
-               </button>
-             </div>
-          </form>
+      {/* Alerta de Erro/Sucesso */}
+      {msg && (
+        <div className={`my-4 p-3 rounded-xl text-sm font-bold border flex items-center gap-2 animate-in fade-in ${msg.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
+          {msg.type === 'success' ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+          {msg.text}
         </div>
       )}
 
-      {/* Fila de Revisão */}
-      <div className="space-y-6">
-        <div className="flex flex-col md:flex-row gap-4 justify-between items-center">
-            <h3 className="text-xl font-bold">Fila de Revisão ({reviewQueue.length})</h3>
-            <div className="flex gap-2 items-center w-full md:w-auto">
-               <div className="relative flex-1">
-                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-                   <input 
-                     type="text" 
-                     placeholder="Filtrar na fila..." 
-                     className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-9 pr-3 py-2 text-sm" 
-                     value={searchTerm} 
-                     onChange={e => setSearchTerm(e.target.value)} 
-                   />
+      {/* Lista de Registros AGRUPADA (Accordion) */}
+      <div className="space-y-4">
+        {sortedMateriaKeys.length === 0 ? (
+          <div className="text-center py-20 opacity-40">📜 Sem registros para esta missão.</div>
+        ) : (
+          sortedMateriaKeys.map(materia => {
+             const recordsInGroup = groupedRecords[materia];
+             const isOpen = openGroups[materia];
+             
+             const avgTaxa = recordsInGroup.reduce((acc, r) => acc + r.taxa, 0) / recordsInGroup.length;
+             const totalAcertos = recordsInGroup.reduce((acc, r) => acc + (r.acertos || 0), 0);
+             const totalQuestoes = recordsInGroup.reduce((acc, r) => acc + (r.total || 0), 0);
+             const totalMinutos = recordsInGroup.reduce((acc, r) => acc + (r.tempo || 0), 0);
+             const formattedTime = `${Math.floor(totalMinutos/60)}h${totalMinutos%60}m`;
+
+             return (
+               <div key={materia} className="glass border border-white/5 rounded-2xl overflow-hidden transition-all duration-300">
+                  {/* Header do Grupo */}
+                  <button 
+                    onClick={() => toggleGroup(materia)}
+                    className="w-full flex items-center justify-between p-5 bg-slate-900/30 hover:bg-slate-900/50 transition-colors"
+                  >
+                     <div className="flex items-center gap-4">
+                        <div className={`p-2 rounded-lg ${isOpen ? 'bg-purple-500/20 text-purple-400' : 'bg-slate-800 text-slate-400'}`}>
+                           {isOpen ? <ChevronDown size={20} /> : <ChevronRight size={20} />}
+                        </div>
+                        <div className="text-left">
+                           <h4 className="font-bold text-lg text-white">{materia}</h4>
+                           <div className="text-xs text-slate-500 font-bold uppercase tracking-wide flex flex-wrap gap-x-3 gap-y-1 mt-1">
+                              <span>{recordsInGroup.length} registros</span>
+                              <span className="opacity-50">•</span>
+                              <span>Média: {avgTaxa.toFixed(0)}%</span>
+                              <span className="opacity-50">•</span>
+                              <span className="text-slate-400">{totalAcertos}/{totalQuestoes} Acertos</span>
+                              <span className="opacity-50">•</span>
+                              <span className="text-slate-400">{formattedTime}</span>
+                           </div>
+                        </div>
+                     </div>
+                     <div className="hidden md:block">
+                        <Layers size={16} className="text-slate-600" />
+                     </div>
+                  </button>
+
+                  {/* Lista de Registros do Grupo */}
+                  {isOpen && (
+                     <div className="border-t border-white/5 bg-black/20 animate-in slide-in-from-top-2">
+                        {recordsInGroup.map(r => (
+                           <div key={r.id} className={`p-4 border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors flex flex-col md:flex-row gap-4 justify-between items-start md:items-center group`}>
+                              <div className="flex-1 min-w-0">
+                                 <div className="flex items-center gap-2 mb-1">
+                                    <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded uppercase">
+                                       {formatDateDisplay(r.data_estudo)}
+                                    </span>
+                                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${r.taxa >= 80 ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
+                                       {r.taxa.toFixed(0)}%
+                                    </span>
+                                    {r.dificuldade === 'Simulado' && (
+                                       <span className="text-[10px] font-bold bg-purple-500/10 text-purple-400 px-2 py-0.5 rounded uppercase">Simulado</span>
+                                    )}
+                                 </div>
+                                 <p className="font-medium text-slate-300 text-sm truncate">{r.assunto}</p>
+                                 {r.comentarios && <p className="text-xs text-slate-500 truncate mt-1 max-w-lg">{r.comentarios}</p>}
+                              </div>
+
+                              <div className="flex items-center gap-6 w-full md:w-auto justify-between md:justify-end">
+                                 <div className="text-right">
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase">Tempo</div>
+                                    <div className="text-sm font-bold text-slate-300">{Math.floor(r.tempo/60)}h{r.tempo%60}m</div>
+                                 </div>
+                                 <div className="text-right">
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase">Acertos</div>
+                                    <div className="text-sm font-bold text-slate-300">{r.acertos}/{r.total}</div>
+                                 </div>
+                                 <div className="flex gap-2">
+                                    <button onClick={() => openEditModal(r)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-500/10 transition-all"><Edit size={16}/></button>
+                                    <button onClick={() => handleDelete(r.id)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-red-400 hover:bg-red-500/10 transition-all"><Trash2 size={16}/></button>
+                                 </div>
+                              </div>
+                           </div>
+                        ))}
+                     </div>
+                  )}
                </div>
-               <select 
-                 className="bg-slate-900/50 border border-white/10 rounded-xl px-3 py-2 text-sm" 
-                 value={filterMateria} 
-                 onChange={e => setFilterMateria(e.target.value)}
-               >
-                  {materiasDisponiveis.map(m => <option key={m}>{m}</option>)}
-               </select>
-            </div>
-        </div>
-        
-        <div className="space-y-4">
-            {loading ? (
-                <p className="text-center text-slate-500 py-10">Carregando...</p>
-            ) : reviewQueue.length === 0 ? (
-                <div className="text-center py-10 text-slate-500">
-                    <p className="font-bold">Nenhuma questão encontrada para os filtros atuais.</p>
-                </div>
-            ) : (
-                reviewQueue.map(q => (
-                    <QuestionCard 
-                        key={q.id}
-                        q={q}
-                        isExpanded={!!expandedCards[q.id]}
-                        onToggle={toggleCard}
-                        onEdit={handleEdit}
-                        onDelete={handleDelete}
-                        onStatusChange={handleStatusChange}
-                    />
-                ))
-            )}
-        </div>
+             );
+          })
+        )}
       </div>
+
+      {/* Modal Edição - AGORA IGUAL AO STUDY FORM */}
+      {editingRecord && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+           <div className="glass w-full max-w-xl rounded-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 relative">
+              
+              <button onClick={() => setEditingRecord(null)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
+
+              <h3 className="text-2xl font-bold mb-8 flex items-center gap-3">
+                 <Edit className="text-cyan-400" /> 
+                 Editar {isSimuladoEdit ? 'Simulado' : 'Registro'}
+              </h3>
+
+              {msg && <div className={`mb-6 p-4 rounded-xl text-sm font-bold border ${msg.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>{msg.text}</div>}
+
+              <div className="space-y-8">
+                 {/* GRUPO 1: QUANDO E O QUE */}
+                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div className="space-y-2">
+                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                          <Clock size={12}/> Data & Tempo
+                       </label>
+                       <div className="flex gap-2">
+                          <input type="date" className="flex-1 bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium" value={editForm.data_estudo} onChange={e => setEditForm({...editForm, data_estudo: e.target.value})} />
+                          <input type="text" placeholder="HH:MM" maxLength={5} className="w-24 bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium text-center" value={editForm.tempoHHMM} onChange={handleTimeChange} />
+                       </div>
+                    </div>
+
+                    <div className="space-y-2">
+                       <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                          <BookOpen size={12}/> Matéria
+                       </label>
+                       <select
+                         className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium appearance-none"
+                         value={editForm.materia}
+                         onChange={(e) => setEditForm({...editForm, materia: e.target.value, assunto: ''})}
+                       >
+                          {isSimuladoEdit && <option value="Geral">Geral / Completo</option>}
+                          {materiasDisponiveis.includes(editForm.materia) ? null : <option value={editForm.materia}>{editForm.materia} (Legado)</option>}
+                          {materiasDisponiveis.map(m => <option key={m} value={m}>{m}</option>)}
+                       </select>
+                    </div>
+                 </div>
+
+                 {/* GRUPO 2: ASSUNTO (COM DROPDOWN CUSTOMIZADO) */}
+                 <div className="space-y-2" ref={dropdownRef}>
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                       <List size={12}/> Assunto / Tópico
+                    </label>
+                    <div className="relative">
+                        <input 
+                          type="text" 
+                          className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 pr-10 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium"
+                          value={editForm.assunto} 
+                          onChange={e => setEditForm({...editForm, assunto: e.target.value})} 
+                          placeholder={!isSimuladoEdit && editForm.materia ? "Selecione ou digite o tópico..." : "Preencha o campo"}
+                        />
+                        {!isSimuladoEdit && topicosDisponiveis.length > 0 && (
+                            <button 
+                                type="button"
+                                onClick={() => setShowHistoryTopicsDropdown(!showHistoryTopicsDropdown)}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white rounded-lg transition-colors"
+                                title="Ver lista completa de tópicos"
+                            >
+                                {showHistoryTopicsDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                            </button>
+                        )}
+                        {showHistoryTopicsDropdown && !isSimuladoEdit && topicosDisponiveis.length > 0 && (
+                            <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                                {topicosDisponiveis.map((t, idx) => (
+                                    <div 
+                                        key={idx} 
+                                        onClick={() => {
+                                            setEditForm({...editForm, assunto: t});
+                                            setShowHistoryTopicsDropdown(false);
+                                        }}
+                                        className="px-4 py-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer border-b border-white/5 last:border-0 transition-colors"
+                                    >
+                                        {t}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                 </div>
+
+                 {/* GRUPO 3: PERFORMANCE */}
+                 <div className="bg-slate-900/30 p-6 rounded-2xl border border-white/5">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block flex items-center gap-2">
+                       <Target size={12}/> Desempenho
+                    </label>
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                       <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Acertos</span>
+                          <input type="number" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all text-white font-bold text-lg text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editForm.acertos} onChange={e => setEditForm({...editForm, acertos: Number(e.target.value)})} />
+                       </div>
+                       
+                       <div className="space-y-1">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase">Total</span>
+                          <input type="number" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-bold text-lg text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editForm.total} onChange={e => setEditForm({...editForm, total: Number(e.target.value)})} />
+                       </div>
+
+                       <div className="flex flex-col items-center justify-center bg-slate-800/50 rounded-xl p-2 border border-white/5 h-full">
+                          <span className="text-[10px] text-slate-500 font-bold uppercase mb-1">Taxa</span>
+                          <div className={`text-4xl font-black ${percentage >= 80 ? 'text-green-400' : percentage >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                             {percentage.toFixed(0)}%
+                          </div>
+                       </div>
+                    </div>
+                 </div>
+
+                 {/* GRUPO 4: CLASSIFICAÇÃO */}
+                 {!isSimuladoEdit && (
+                   <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Dificuldade Sentida</label>
+                        <div className="flex gap-2 bg-slate-900/30 p-1 rounded-xl border border-white/5">
+                          {['🟢 Fácil', '🟡 Médio', '🔴 Difícil'].map(d => (
+                            <button
+                             key={d}
+                             type="button"
+                             onClick={() => setEditForm({...editForm, dificuldade: d as any})}
+                             className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${editForm.dificuldade === d ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
+                            >
+                              {d.split(' ')[1]}
+                            </button>
+                          ))}
+                        </div>
+                      </div>
+
+                      <div className="space-y-2">
+                        <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex justify-between">
+                           <span>Relevância</span>
+                           <span className="text-cyan-400">{editForm.relevancia}/10</span>
+                        </label>
+                        <input 
+                         type="range" 
+                         min="1" 
+                         max="10" 
+                         className="w-full accent-cyan-500 h-2 bg-slate-900/30 rounded-lg appearance-none cursor-pointer"
+                         value={editForm.relevancia}
+                         onChange={(e) => setEditForm({...editForm, relevancia: parseInt(e.target.value)})}
+                        />
+                      </div>
+                   </div>
+                 )}
+
+                 {/* GRUPO 5: ANOTAÇÕES */}
+                 <div className="space-y-2">
+                   <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Anotações / Observações</label>
+                   <textarea
+                     className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all h-24 text-sm text-slate-300 placeholder-slate-600"
+                     placeholder="Pontos chave, dúvidas ou links..."
+                     value={editForm.comentarios}
+                     onChange={(e) => setEditForm({...editForm, comentarios: e.target.value})}
+                   />
+                 </div>
+
+                 {/* GRUPO 6: OPÇÕES FINAIS (NOVO) */}
+                 {!isSimuladoEdit && (
+                    <div className="pt-4 border-t border-white/5">
+                       <label className="flex items-center gap-4 cursor-pointer group p-4 rounded-xl border border-transparent hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
+                          <div className={`w-6 h-6 rounded-lg border-2 flex items-center justify-center transition-all shrink-0 ${saveToBank ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 bg-slate-900/30'}`}>
+                             {saveToBank && <CheckCircle2 size={16} className="text-white" />}
+                          </div>
+                          <input type="checkbox" className="hidden" checked={saveToBank} onChange={e => setSaveToBank(e.target.checked)} />
+                          <div className="flex-1">
+                             <span className={`text-sm font-bold block ${saveToBank ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'}`}>
+                                Salvar no Banco de Questões
+                             </span>
+                             <span className="text-xs text-slate-500">Cria uma cópia desta edição na sua lista de revisão pendente.</span>
+                          </div>
+                       </label>
+                    </div>
+                 )}
+
+                 <button onClick={handleSaveEdit} disabled={loading} className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-extrabold py-4 rounded-2xl shadow-lg shadow-purple-500/20 transition-all flex items-center justify-center gap-3 disabled:opacity-50">
+                    {loading ? <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin"></div> : <><Calculator size={20} /> SALVAR ALTERAÇÕES</>}
+                 </button>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
+
+export default History;
 // teste de push
