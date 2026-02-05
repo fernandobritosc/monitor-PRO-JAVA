@@ -18,7 +18,7 @@ const formatDateDisplay = (dateStr: string) => {
     return `${day}/${month}/${year}`;
 };
 
-const: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onRecordDelete }) => {
+const : React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onRecordDelete }) => {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
   const [dateStart, setDateStart] = useState('');
