@@ -136,8 +136,12 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
   const [aiStreamText, setAiStreamText] = useState<string>("");
   const [followUpQuery, setFollowUpQuery] = useState("");
   const [aiLoading, setAiLoading] = useState(false);
+  
+  // Filters
   const [filterMateria, setFilterMateria] = useState<string>('Todas');
   const [filterStatus, setFilterStatus] = useState<string>('Todos');
+  const [filterPodcast, setFilterPodcast] = useState<string>('Todos'); // NOVO FILTRO
+
   const [showAdvancedFilters, setShowAdvancedFilters] = useState(false);
   const [sessionStats, setSessionStats] = useState({ learned: 0, review: 0, total: 0 });
   const [showSessionSummary, setShowSessionSummary] = useState(false);
@@ -550,8 +554,16 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
     let filtered = [...cards];
     if (filterMateria !== 'Todas') filtered = filtered.filter(card => card.materia === filterMateria);
     if (filterStatus !== 'Todos') filtered = filtered.filter(card => card.status === filterStatus);
+    
+    // Novo Filtro de Podcast
+    if (filterPodcast === 'Com Podcast') {
+        filtered = filtered.filter(card => podcastCache.has(card.original_audio_id || card.id));
+    } else if (filterPodcast === 'Sem Podcast') {
+        filtered = filtered.filter(card => !podcastCache.has(card.original_audio_id || card.id));
+    }
+    
     return filtered;
-  }, [cards, filterMateria, filterStatus]);
+  }, [cards, filterMateria, filterStatus, filterPodcast, podcastCache]);
 
   const previewTopics = useMemo(() => {
       if (!previewDeck) return [];
@@ -585,7 +597,9 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
         {activeTab === 'study' && (
           // ... (Existing Study UI) ...
           <div className="glass rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex flex-col gap-6"><div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-4"><h3 className="text-xl font-bold flex items-center gap-2"><Brain className="text-cyan-400" /> Modo Estudo</h3><div className="flex flex-wrap gap-3 w-full lg:w-auto"><CustomFilterDropdown label="Matéria" value={filterMateria} options={materias} onChange={setFilterMateria} icon={<BookOpen size={14} />} widthClass="w-full md:w-48" /><CustomFilterDropdown label="Status" value={filterStatus} options={statusOptions} onChange={setFilterStatus} icon={<Filter size={14} />} widthClass="w-full md:w-40" /><button onClick={startStudySession} className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-500/20"><Zap size={16} /> Iniciar Sessão</button></div></div>
+            <div className="flex flex-col gap-6"><div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4 border-b border-white/5 pb-4"><h3 className="text-xl font-bold flex items-center gap-2"><Brain className="text-cyan-400" /> Modo Estudo</h3><div className="flex flex-wrap gap-3 w-full lg:w-auto"><CustomFilterDropdown label="Matéria" value={filterMateria} options={materias} onChange={setFilterMateria} icon={<BookOpen size={14} />} widthClass="w-full md:w-48" /><CustomFilterDropdown label="Status" value={filterStatus} options={statusOptions} onChange={setFilterStatus} icon={<Filter size={14} />} widthClass="w-full md:w-40" />
+            <CustomFilterDropdown label="Podcast" value={filterPodcast} options={['Todos', 'Com Podcast', 'Sem Podcast']} onChange={setFilterPodcast} icon={<Mic2 size={14} />} widthClass="w-full md:w-40" />
+            <button onClick={startStudySession} className="w-full md:w-auto px-6 py-3 bg-gradient-to-r from-green-600 to-emerald-500 hover:from-green-500 hover:to-emerald-400 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-green-500/20"><Zap size={16} /> Iniciar Sessão</button></div></div>
               <div className="bg-slate-900/40 border border-purple-500/20 rounded-xl p-4 flex flex-col gap-3"><div className="flex flex-col md:flex-row justify-between items-center gap-4"><div className="flex items-center gap-3"><div className="p-2 bg-purple-500/10 rounded-lg text-purple-400"><Sparkles size={20} /></div><div><h4 className="text-sm font-bold text-white">Inteligência Artificial</h4><div className="text-[10px] text-slate-400 flex gap-2 mt-0.5"><span className={geminiKeyAvailable ? 'text-green-400 font-bold' : 'text-slate-600'}>Gemini: {geminiKeyAvailable ? 'ON' : 'OFF'}</span><span>•</span><span className={groqKeyAvailable ? 'text-green-400 font-bold' : 'text-slate-600'}>Groq: {groqKeyAvailable ? 'ON' : 'OFF'}</span></div></div></div><div className="flex items-center gap-2 bg-slate-950/50 p-1 rounded-lg border border-white/5 w-full md:w-auto justify-center"><button onClick={() => setSelectedAI('auto')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex-1 md:flex-none ${selectedAI === 'auto' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Auto</button><button onClick={() => setSelectedAI('gemini')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 flex-1 md:flex-none ${selectedAI === 'gemini' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Gemini {!geminiKeyAvailable && <AlertTriangle size={10} className="text-yellow-500"/>}</button><button onClick={() => setSelectedAI('groq')} className={`px-4 py-1.5 rounded-md text-xs font-bold transition-all flex items-center justify-center gap-1 flex-1 md:flex-none ${selectedAI === 'groq' ? 'bg-purple-600 text-white shadow' : 'text-slate-400 hover:text-white'}`}>Groq {!groqKeyAvailable && <AlertTriangle size={10} className="text-yellow-500"/>}</button></div></div><div className="text-[10px] text-slate-400 bg-black/20 p-2 rounded-lg border border-white/5 flex items-start gap-2"><Info size={12} className="text-cyan-400 shrink-0 mt-0.5" /><div><span className="text-cyan-300 font-bold">Dica:</span> <span className="ml-1">Use <strong className="text-white">Gemini</strong> para respostas rápidas com <span className="text-yellow-400">macetes mnemônicos</span>. Use <strong className="text-white">Groq</strong> para explicações <span className="text-purple-400">detalhadas</span> estilo aula.</span></div></div></div>
             </div>
 
@@ -650,7 +664,7 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
         {/* ... (Active Tab: manage and community remain the same) ... */}
         {activeTab === 'manage' && (
           <div className="glass rounded-2xl p-6 shadow-xl space-y-6">
-            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4"><h3 className="text-xl font-bold flex items-center gap-2"><Layers className="text-cyan-400" /> Gerenciar Flashcards</h3><div className="flex flex-wrap gap-3"><button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-2"><Filter size={14} /> Filtros</button><CustomFilterDropdown label="Matéria" value={filterMateria} options={materias} onChange={setFilterMateria} icon={<BookOpen size={14} />} widthClass="w-48" /></div></div>
+            <div className="flex flex-col lg:flex-row justify-between items-start lg:items-center gap-4"><h3 className="text-xl font-bold flex items-center gap-2"><Layers className="text-cyan-400" /> Gerenciar Flashcards</h3><div className="flex flex-wrap gap-3"><button onClick={() => setShowAdvancedFilters(!showAdvancedFilters)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-slate-300 rounded-xl text-xs font-bold flex items-center gap-2"><Filter size={14} /> Filtros</button><CustomFilterDropdown label="Matéria" value={filterMateria} options={materias} onChange={setFilterMateria} icon={<BookOpen size={14} />} widthClass="w-48" /><CustomFilterDropdown label="Podcast" value={filterPodcast} options={['Todos', 'Com Podcast', 'Sem Podcast']} onChange={setFilterPodcast} icon={<Mic2 size={14} />} widthClass="w-full md:w-40" /></div></div>
             <div className="bg-slate-900/30 border border-white/5 rounded-2xl p-6">
                 <div className="flex justify-between items-center mb-4"><h4 className="text-lg font-bold text-white flex items-center gap-2">{editingId ? <><Edit2 size={18} className="text-yellow-400"/> Editar Flashcard</> : <><Plus size={18} /> Criar Novo Flashcard</>}</h4>{editingId && (<button onClick={cancelEdit} className="text-xs text-red-400 hover:text-white font-bold flex items-center gap-1 bg-red-500/10 px-3 py-1.5 rounded-lg border border-red-500/20"><X size={12} /> Cancelar Edição</button>)}</div>
                 {saveMessage && <div className="mb-4 p-3 bg-green-500/10 border border-green-500/20 text-green-400 rounded-xl text-sm font-bold flex items-center gap-2 animate-in fade-in"><CheckCircle2 size={16}/> {saveMessage}</div>}
@@ -707,14 +721,14 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
                     {!editingId && (newCard.materia || newCard.assunto || newCard.front || newCard.back) && (<button onClick={clearForm} className="px-6 py-3 rounded-xl font-bold flex items-center justify-center gap-2 text-white transition-all bg-red-600/80 hover:bg-red-500 border border-red-500/50 shadow-lg shadow-red-500/10" title="Limpar formulário completo para nova matéria"><RotateCcw size={16} /> Limpar Tudo</button>)}
                 </div>
             </div>
-            {filteredCards.length === 0 ? <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-2xl"><p className="text-slate-500">Nada aqui.</p></div> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredCards.map(card => (<div key={card.id} id={`card-${card.id}`} className={`bg-slate-900/30 border rounded-2xl p-6 transition-all group relative ${duplicateWarningId === card.id ? 'ring-4 ring-red-500 bg-red-500/10 animate-pulse z-10' : ''} ${editingId === card.id ? 'border-yellow-500 ring-1 ring-yellow-500' : 'border-white/5 hover:border-cyan-500/30'}`}><div className="flex justify-between items-start mb-4"><span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-900/30 text-blue-400">{card.status}</span>
+            {filteredCards.length === 0 ? <div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-2xl"><p className="text-slate-500">Nada aqui.</p></div> : <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredCards.map(card => (<div key={card.id} id={`card-${card.id}`} className={`bg-slate-900/30 border rounded-2xl p-6 transition-all group relative ${duplicateWarningId === card.id ? 'ring-4 ring-red-500 bg-red-500/10 animate-pulse z-10' : ''} ${editingId === card.id ? 'border-yellow-500 ring-1 ring-yellow-500' : 'border-white/5 hover:border-cyan-500/30'}`}><div className="flex justify-between items-start mb-4"><div className="flex flex-wrap gap-2 items-center"><span className="px-3 py-1 rounded-full text-xs font-bold bg-blue-900/30 text-blue-400">{card.status}</span>
             {/* TAG DE PODCAST SALVO - VERIFICA NO CACHE LOCAL */}
             {(podcastCache.has(card.original_audio_id || card.id)) && (
-               <span className="absolute top-6 right-20 bg-gradient-to-r from-pink-500/20 to-purple-500/20 text-pink-300 border border-pink-500/30 px-2 py-0.5 rounded text-[10px] font-bold flex items-center gap-1 animate-in fade-in" title="Áudio salvo e pronto para uso">
-                  <Mic2 size={10} /> Podcast Salvo 🎙️
+               <span className="px-2 py-1 rounded-full text-[10px] font-bold bg-pink-500/10 text-pink-400 border border-pink-500/20 flex items-center gap-1 animate-in zoom-in" title="Áudio salvo e pronto para uso">
+                  <Mic2 size={10} /> Podcast 🎙️
                </span>
             )}
-            <div className="flex gap-2"><button onClick={() => handleEdit(card)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-900/20"><Edit2 size={14} /></button><button onClick={() => deleteCard(card.id)} className="p-2 bg-red-900/20 hover:bg-red-900/30 rounded-lg text-red-400"><Trash2 size={14} /></button></div></div><h4 className="text-lg font-bold text-white mb-2">{card.front}</h4><p className="text-sm text-slate-400 mb-4 line-clamp-3">{card.back}</p><div className="flex justify-between items-center text-xs text-slate-600"><span>{card.materia}</span><span>{card.assunto}</span></div></div>))}</div>}
+            </div><div className="flex gap-2"><button onClick={() => handleEdit(card)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-cyan-400 hover:bg-cyan-900/20"><Edit2 size={14} /></button><button onClick={() => deleteCard(card.id)} className="p-2 bg-red-900/20 hover:bg-red-900/30 rounded-lg text-red-400"><Trash2 size={14} /></button></div></div><h4 className="text-lg font-bold text-white mb-2">{card.front}</h4><p className="text-sm text-slate-400 mb-4 line-clamp-3">{card.back}</p><div className="flex justify-between items-center text-xs text-slate-600"><span>{card.materia}</span><span>{card.assunto}</span></div></div>))}</div>}
           </div>
         )}
 
