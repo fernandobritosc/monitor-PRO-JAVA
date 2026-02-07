@@ -1,4 +1,4 @@
-import { GoogleGenAI } from "@google/genai";
+import { GoogleGenAI, Modality } from "@google/genai";
 import { supabase } from "./supabase";
 
 /**
@@ -373,7 +373,8 @@ export const speakTextWithGemini = async (
         parts: [{ text: safeText }] 
       },
       config: {
-        responseModalities: ['AUDIO'],
+// @google/genai-sdk-validator-fix: Use Modality.AUDIO instead of 'AUDIO'
+        responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: {
             prebuiltVoiceConfig: { voiceName: 'Kore' }, // Voz 'Kore' é boa para podcast/explicação
@@ -492,7 +493,8 @@ export const handlePlayRevisionAudio = async (
       model: "gemini-2.5-flash-preview-tts",
       contents: { parts: [{ text: safeText }] },
       config: {
-        responseModalities: ['AUDIO'],
+// @google/genai-sdk-validator-fix: Use Modality.AUDIO instead of 'AUDIO'
+        responseModalities: [Modality.AUDIO],
         speechConfig: {
           voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } },
         },
@@ -633,7 +635,8 @@ export const generatePodcastAudio = async (
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: scriptText }] }],
       config: {
-        responseModalities: ['AUDIO'],
+// @google/genai-sdk-validator-fix: Use Modality.AUDIO instead of 'AUDIO'
+        responseModalities: [Modality.AUDIO],
         speechConfig: {
             multiSpeakerVoiceConfig: {
               speakerVoiceConfigs: [
