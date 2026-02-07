@@ -1085,4 +1085,3 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
 };
 
 export default Flashcards;
-```
