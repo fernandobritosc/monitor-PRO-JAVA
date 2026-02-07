@@ -610,23 +610,8 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
                 </div>
                 <div className="mt-6 flex flex-col gap-3"><div className="grid grid-cols-2 gap-3"><button onClick={() => handleCardResult('revisando')} className="px-4 py-4 bg-yellow-600/20 hover:bg-yellow-600/30 text-yellow-400 border border-yellow-500/20 rounded-xl font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"><RotateCcw size={20} /><span className="text-xs uppercase tracking-widest">Revisar</span></button><button onClick={() => handleCardResult('aprendendo')} className="px-4 py-4 bg-green-600/20 hover:bg-green-600/30 text-green-400 border border-green-500/20 rounded-xl font-bold flex flex-col items-center justify-center gap-1 active:scale-95 transition-all"><CheckCircle2 size={20} /><span className="text-xs uppercase tracking-widest">Aprendido</span></button></div><div className="grid grid-cols-2 gap-3"><button onClick={() => { if (currentCardIndex > 0) { setCurrentCardIndex(currentCardIndex - 1); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery(""); } }} disabled={currentCardIndex === 0} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 text-sm border border-white/5 active:bg-slate-700"><ChevronLeft size={16} /> Anterior</button><button onClick={() => { if (currentCardIndex < studyQueue.length - 1) { setCurrentCardIndex(currentCardIndex + 1); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery(""); } }} disabled={currentCardIndex === studyQueue.length - 1} className="px-4 py-3 bg-slate-800 hover:bg-slate-700 disabled:opacity-30 disabled:cursor-not-allowed text-slate-300 rounded-xl font-bold flex items-center justify-center gap-2 text-sm border border-white/5 active:bg-slate-700">Próximo <ChevronRight size={16} /></button></div></div>
                 
-                {isFlipped && (
-                  <div className="mt-4 pt-4 border-t border-purple-500/20 shrink-0 animate-in fade-in">
-                    <button onClick={(e) => { e.stopPropagation(); handleGenerateMnemonic(); }} disabled={mnemonicLoading || !(geminiKeyAvailable || groqKeyAvailable)} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 disabled:opacity-50">
-                        {mnemonicLoading ? <Loader2 size={14} className="animate-spin" /> : <Music size={14} />}
-                        {mnemonicLoading ? "Criando melodia..." : "Criar Mnemônico Musical"}
-                    </button>
-                    {(mnemonicLoading || mnemonicText) && (
-                        <div className="mt-3 bg-black/20 p-4 rounded-xl border border-white/5 animate-in fade-in">
-                            {mnemonicLoading && !mnemonicText && <div className="text-center text-slate-400 text-sm italic">Pensando em uma rima...</div>}
-                            {mnemonicText && (<p className="text-sm text-center text-slate-200 whitespace-pre-wrap font-mono italic">"{mnemonicText}"</p>)}
-                        </div>
-                    )}
-                  </div>
-                )}
-
                 <div className="mt-6">
-                  <button onClick={handleAskAI} disabled={aiLoading} className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-500/20 active:scale-95"><Sparkles size={18} />{aiLoading ? 'Gerando explicação...' : 'Pedir Explicação à IA'}</button>
+                  <button onClick={handleAskAI} disabled={aiLoading || !isFlipped} className="w-full px-6 py-4 bg-gradient-to-r from-purple-600 to-pink-600 hover:from-purple-500 hover:to-pink-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 transition-all shadow-lg shadow-purple-500/20 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"><Sparkles size={18} />{aiLoading ? 'Gerando explicação...' : 'Pedir Explicação à IA'}</button>
                   
                   {(aiStreamText || aiLoading) && (
                       <div className="mt-4 bg-slate-900/80 border border-white/10 rounded-2xl p-6 animate-in slide-in-from-bottom-4">
@@ -651,6 +636,19 @@ const Flashcards: React.FC<FlashcardsProps> = ({ missaoAtiva, editais }) => {
                                     </button>
                                 </div>
                               )}
+                          </div>
+
+                          <div className="my-4 pt-4 border-t border-purple-500/20">
+                            <button onClick={(e) => { e.stopPropagation(); handleGenerateMnemonic(); }} disabled={mnemonicLoading || !(geminiKeyAvailable || groqKeyAvailable)} className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all bg-purple-500/10 text-purple-300 hover:bg-purple-500/20 disabled:opacity-50">
+                                {mnemonicLoading ? <Loader2 size={14} className="animate-spin" /> : <Music size={14} />}
+                                {mnemonicLoading ? "Criando melodia..." : "Criar Mnemônico Musical"}
+                            </button>
+                            {(mnemonicLoading || mnemonicText) && (
+                                <div className="mt-3 bg-black/20 p-4 rounded-xl border border-white/5 animate-in fade-in">
+                                    {mnemonicLoading && !mnemonicText && <div className="text-center text-slate-400 text-sm italic">Pensando em uma rima...</div>}
+                                    {mnemonicText && (<p className="text-sm text-center text-slate-200 whitespace-pre-wrap font-mono italic">"{mnemonicText}"</p>)}
+                                </div>
+                            )}
                           </div>
                           
                           <div className="text-slate-300 whitespace-pre-wrap leading-relaxed text-sm mb-6 max-h-[400px] overflow-y-auto custom-scrollbar pr-2 pb-2">{aiStreamText}</div>
