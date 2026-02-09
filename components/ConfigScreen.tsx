@@ -1,7 +1,15 @@
+<<<<<<< HEAD
 import React, { useState } from 'react';
 import { saveAppConfig, resetAppConfig } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Settings, Link, Key, AlertTriangle, ExternalLink, ClipboardPaste, CheckCircle2, Loader2 } from 'lucide-react';
+=======
+
+import React, { useState } from 'react';
+import { saveAppConfig, resetAppConfig } from '../services/supabase';
+import { createClient } from '@supabase/supabase-js';
+import { Settings, Link, Key, AlertTriangle, ExternalLink, ClipboardPaste, CheckCircle2, Loader2, Sparkles, Zap } from 'lucide-react';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
 interface ConfigScreenProps {
   initialError?: string | null;
@@ -10,6 +18,11 @@ interface ConfigScreenProps {
 const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
   const [url, setUrl] = useState('');
   const [key, setKey] = useState('');
+<<<<<<< HEAD
+=======
+  const [aiKey, setAiKey] = useState('');
+  const [groqKey, setGroqKey] = useState('');
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [loading, setLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(initialError || null);
@@ -34,6 +47,11 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
 
     const trimmedUrl = url.trim();
     const trimmedKey = key.trim();
+<<<<<<< HEAD
+=======
+    const trimmedAiKey = aiKey.trim();
+    const trimmedGroqKey = groqKey.trim();
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
     // Validação Básica
     if (!trimmedUrl.startsWith('https://')) {
@@ -44,7 +62,11 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
     }
 
     if (trimmedKey.length < 20) {
+<<<<<<< HEAD
       setError('A Chave API parece muito curta.');
+=======
+      setError('A Chave API Supabase parece muito curta.');
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       setLoading(false);
       setTestStatus('idle');
       return;
@@ -58,7 +80,10 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
       });
 
       // Faz um ping leve no banco. 
+<<<<<<< HEAD
       // Se a chave estiver errada, retorna erro 401 ou similar.
+=======
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       const { error: pingError } = await tempClient.from('profiles').select('count', { count: 'exact', head: true });
 
       if (pingError) {
@@ -70,14 +95,21 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
         if (pingError.message.includes('FetchError') || pingError.message.includes('Failed to fetch')) {
            throw new Error('Não foi possível conectar nesta URL. Verifique o endereço.');
         }
+<<<<<<< HEAD
         // Outros erros (tabela não existe, RLS, etc) indicam que a CONEXÃO funcionou, então prosseguimos.
+=======
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       }
 
       setTestStatus('success');
       
       // Salva as credenciais e recarrega
       setTimeout(() => {
+<<<<<<< HEAD
         saveAppConfig(trimmedUrl, trimmedKey);
+=======
+        saveAppConfig(trimmedUrl, trimmedKey, trimmedAiKey, trimmedGroqKey);
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       }, 800);
 
     } catch (err: any) {
@@ -147,7 +179,11 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
 
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+<<<<<<< HEAD
               <Key size={12} /> API Key (anon/public)
+=======
+              <Key size={12} /> Supabase API Key (anon/public)
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
             </label>
             <div className="relative flex items-center">
               <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10" />
@@ -171,9 +207,45 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
               </button>
             </div>
           </div>
+<<<<<<< HEAD
           
           <div className="text-xs text-slate-500 bg-slate-900/30 p-3 rounded-lg border border-white/5">
              <p>Seus dados ficarão salvos neste navegador.</p>
+=======
+
+          <div className="pt-4 border-t border-white/5 grid grid-cols-1 gap-4">
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <Sparkles size={12} className="text-yellow-400" /> Google Gemini API Key
+                </label>
+                <input
+                type="password"
+                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all text-white placeholder-slate-600 font-mono text-xs"
+                placeholder="AIza..."
+                value={aiKey}
+                onChange={(e) => setAiKey(e.target.value)}
+                disabled={loading}
+                />
+            </div>
+            <div className="space-y-2">
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <Zap size={12} className="text-orange-400" /> Groq API Key
+                </label>
+                <input
+                type="password"
+                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all text-white placeholder-slate-600 font-mono text-xs"
+                placeholder="gsk_..."
+                value={groqKey}
+                onChange={(e) => setGroqKey(e.target.value)}
+                disabled={loading}
+                />
+            </div>
+            <p className="text-[10px] text-slate-500 px-1">Chaves de IA são opcionais, mas recomendadas para explicações automáticas.</p>
+          </div>
+          
+          <div className="text-xs text-slate-500 bg-slate-900/30 p-3 rounded-lg border border-white/5">
+             <p>Seus dados ficarão salvos apenas neste navegador.</p>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
              <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-cyan-400 font-bold mt-2 inline-flex items-center gap-1 hover:underline">
                 Pegar chaves no Supabase <ExternalLink size={12} />
              </a>
@@ -214,4 +286,8 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
   );
 };
 
+<<<<<<< HEAD
 export default ConfigScreen;
+=======
+export default ConfigScreen;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

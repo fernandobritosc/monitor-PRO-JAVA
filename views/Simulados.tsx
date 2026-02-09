@@ -19,12 +19,30 @@ interface SimuladosProps {
   setActiveView: (view: ViewType) => void;
 }
 
+<<<<<<< HEAD
 const SimuladoSubjectRow: React.FC<{ 
   record: StudyRecord, 
   onUpdate: (record: StudyRecord) => void;
 }> = ({ 
   record, 
   onUpdate 
+=======
+// Helper para exibição de data local
+const formatDateDisplay = (dateStr: string) => {
+    if (!dateStr) return '--/--/----';
+    const [year, month, day] = dateStr.split('-');
+    return `${day}/${month}/${year}`;
+};
+
+const SimuladoSubjectRow: React.FC<{ 
+  record: StudyRecord, 
+  onUpdate: (record: StudyRecord) => void;
+  peso: number;
+}> = ({ 
+  record, 
+  onUpdate,
+  peso
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 }) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localAcertos, setLocalAcertos] = useState(record.acertos);
@@ -86,7 +104,13 @@ const SimuladoSubjectRow: React.FC<{
                         <BookOpen size={14} />
                     </div>
                     <div className="min-w-0">
+<<<<<<< HEAD
                         <div className="text-sm font-medium text-slate-300 truncate">{record.materia}</div>
+=======
+                        <div className="text-sm font-medium text-slate-300 truncate">
+                            {record.materia} <span className="text-[9px] text-slate-500 font-bold bg-slate-800 px-1 rounded ml-1">x{peso}</span>
+                        </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                         <div className="flex items-center gap-1 mt-0.5">
                             <span className="text-xs font-bold text-white">{record.acertos}/{record.total}</span>
                             <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${record.taxa >= 80 ? 'bg-green-500/10 text-green-400' : 'bg-slate-700 text-slate-400'}`}>
@@ -105,7 +129,11 @@ const SimuladoSubjectRow: React.FC<{
 };
 
 
+<<<<<<< HEAD
 const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpdate, onGroupDelete, setActiveView }) => {
+=======
+const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onGroupDelete, setActiveView }) => {
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [expandedGroups, setExpandedGroups] = useState<Record<string, boolean>>({});
 
   // 1. Filtrar registros do tipo Simulado
@@ -118,6 +146,10 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
   // 2. Agrupar por (Data + Assunto)
   const groupedSimulados = useMemo(() => {
     const groups: Record<string, StudyRecord[]> = {};
+<<<<<<< HEAD
+=======
+    const editaisMap = new Map<string, EditalMateria>(editais.filter(e => e.concurso === missaoAtiva).map(e => [e.materia, e]));
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     
     activeSimuladoRecords.forEach(r => {
         // Chave única composta
@@ -135,6 +167,20 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
         const totalTempo = groupRecords.reduce((acc, r) => acc + r.tempo, 0);
         const taxaGlobal = totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
         
+<<<<<<< HEAD
+=======
+        // Cálculo Ponderado
+        let weightedScore = 0;
+        let weightedMax = 0;
+
+        groupRecords.forEach(r => {
+            const editalItem = editaisMap.get(r.materia);
+            const peso = editalItem?.peso || 1;
+            weightedScore += (r.acertos * peso);
+            weightedMax += (r.total * peso);
+        });
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         // Se for um registro único "Geral", usamos os comentários dele, senão concatena ou pega do primeiro
         const comentarios = groupRecords[0]?.comentarios; 
 
@@ -147,11 +193,21 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
             total: totalQuestoes,
             taxa: taxaGlobal,
             tempo: totalTempo,
+<<<<<<< HEAD
             comentarios
         };
     }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   }, [activeSimuladoRecords]);
+=======
+            comentarios,
+            weightedScore,
+            weightedMax
+        };
+    }).sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  }, [activeSimuladoRecords, editais, missaoAtiva]);
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
   // Stats Gerais (Média, Melhor, etc)
   const stats = useMemo(() => {
@@ -170,7 +226,11 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
     return [...groupedSimulados]
       .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
       .map(g => ({
+<<<<<<< HEAD
         date: new Date(g.date).toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit' }),
+=======
+        date: formatDateDisplay(g.date).substring(0, 5), // DD/MM
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         taxa: g.taxa,
         assunto: g.assunto
       }));
@@ -306,7 +366,11 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
                                 <div className="space-y-1 flex-1">
                                     <div className="flex items-center gap-3 mb-2">
                                         <div className="text-[10px] text-slate-500 font-bold uppercase tracking-widest bg-slate-800 px-2 py-1 rounded">
+<<<<<<< HEAD
                                             {new Date(group.date).toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+=======
+                                            {formatDateDisplay(group.date)}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                         </div>
                                         <div className="text-[10px] text-yellow-500 font-bold uppercase tracking-widest bg-yellow-500/10 px-2 py-1 rounded border border-yellow-500/20">
                                             Simulado
@@ -330,10 +394,24 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
                                 </div>
 
                                 <div className="flex items-center gap-8 w-full md:w-auto justify-between md:justify-end">
+<<<<<<< HEAD
                                     <div className="text-center">
                                         <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Acertos</div>
                                         <div className="text-xl font-bold text-slate-300">{group.acertos}<span className="text-slate-600 text-sm">/{group.total}</span></div>
                                     </div>
+=======
+                                    {group.weightedMax > 0 && group.weightedMax !== group.total ? (
+                                        <div className="text-center">
+                                            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Pontos (Peso)</div>
+                                            <div className="text-xl font-bold text-cyan-400">{group.weightedScore.toFixed(1)}<span className="text-slate-600 text-sm">/{group.weightedMax}</span></div>
+                                        </div>
+                                    ) : (
+                                        <div className="text-center">
+                                            <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Acertos</div>
+                                            <div className="text-xl font-bold text-slate-300">{group.acertos}<span className="text-slate-600 text-sm">/{group.total}</span></div>
+                                        </div>
+                                    )}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                     
                                     <div className="text-center min-w-[80px]">
                                         <div className="text-[10px] text-slate-500 uppercase font-bold tracking-widest mb-1">Nota</div>
@@ -362,9 +440,19 @@ const Simulados: React.FC<SimuladosProps> = ({ records, missaoAtiva, onRecordUpd
                                         </div>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
+<<<<<<< HEAD
                                         {group.records.map(record => (
                                             <SimuladoSubjectRow key={record.id} record={record} onUpdate={onRecordUpdate} />
                                         ))}
+=======
+                                        {group.records.map(record => {
+                                            const editalItem = editais.find(e => e.concurso === missaoAtiva && e.materia === record.materia);
+                                            const peso = editalItem?.peso || 1;
+                                            return (
+                                                <SimuladoSubjectRow key={record.id} record={record} onUpdate={onRecordUpdate} peso={peso} />
+                                            );
+                                        })}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                     </div>
                                 </div>
                             )}

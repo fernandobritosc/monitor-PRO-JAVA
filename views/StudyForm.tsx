@@ -1,7 +1,14 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar } from 'lucide-react';
+=======
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '../services/supabase';
+import { EditalMateria } from '../types';
+import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
 interface StudyFormProps {
   editais: EditalMateria[];
@@ -11,10 +18,25 @@ interface StudyFormProps {
   onCancel?: () => void;
 }
 
+<<<<<<< HEAD
 // FIX: Changed to a named export to resolve module resolution issues.
 export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSaved, isSimulado = false, onCancel }) => {
   // Form States
   const [dataEstudo, setDataEstudo] = useState(new Date().toISOString().split('T')[0]);
+=======
+// Helper para pegar data local YYYY-MM-DD
+const getLocalToday = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSaved, isSimulado = false, onCancel }) => {
+  // Form States
+  const [dataEstudo, setDataEstudo] = useState(getLocalToday());
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [tempoHHMM, setTempoHHMM] = useState('');
   
   // Single Record States
@@ -33,16 +55,41 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
   // UI States
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | null, text: string }>({ type: null, text: '' });
+<<<<<<< HEAD
 
   const materiasDisponiveis = useMemo(() => {
      return editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort();
+=======
+  
+  // Custom Dropdown State
+  const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setShowTopicsDropdown(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  const materiasDisponiveis = useMemo(() => {
+     return editais.filter(e => e.concurso === missaoAtiva).sort((a, b) => a.materia.localeCompare(b.materia));
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva]);
 
   // Filtra os tópicos baseados na matéria selecionada (apenas para modo Estudo)
   const topicosDisponiveis = useMemo(() => {
     if (!materia) return [];
     const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === materia);
+<<<<<<< HEAD
     return edital ? edital.topicos.sort() : [];
+=======
+    // Ordenação natural para respeitar números (1., 2., 10., etc)
+    return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva, materia]);
 
   // Reseta o assunto quando a matéria muda
@@ -54,6 +101,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
   const simuladoStats = useMemo(() => {
      let totalAcertos = 0;
      let totalQuestoes = 0;
+<<<<<<< HEAD
      // Fix: Explicitly type the score object in forEach
      (Object.values(simuladoScores) as { acertos: string, total: string }[]).forEach(s => {
         const a = parseInt(s.acertos || '0');
@@ -67,6 +115,35 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         perc: totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0 
      };
   }, [simuladoScores]);
+=======
+     
+     let weightedPoints = 0;
+     let maxWeightedPoints = 0;
+
+     materiasDisponiveis.forEach(m => {
+        const s = simuladoScores[m.materia];
+        if (s) {
+            const a = parseInt(s.acertos || '0');
+            const t = parseInt(s.total || '0');
+            const peso = m.peso || 1;
+
+            if (!isNaN(a)) totalAcertos += a;
+            if (!isNaN(t)) totalQuestoes += t;
+            
+            if (!isNaN(a)) weightedPoints += (a * peso);
+            if (!isNaN(t)) maxWeightedPoints += (t * peso);
+        }
+     });
+
+     return { 
+        acertos: totalAcertos, 
+        total: totalQuestoes, 
+        perc: totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0,
+        weighted: weightedPoints,
+        maxWeighted: maxWeightedPoints
+     };
+  }, [simuladoScores, materiasDisponiveis]);
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
   // Stats do Estudo Individual (Live)
   const singleStats = useMemo(() => {
@@ -116,7 +193,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
       setSimuladoScores(prev => ({
           ...prev,
           [materia]: {
+<<<<<<< HEAD
               ...prev[materia],
+=======
+              ...prev[materia] || { acertos: '', total: '' },
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
               [field]: val
           }
       }));
@@ -348,20 +429,31 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     </label>
                 </div>
                 
+<<<<<<< HEAD
                 <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
                     <div className="col-span-6">Matéria</div>
+=======
+                {/* Header Desktop - Oculto em Mobile */}
+                <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
+                    <div className="col-span-6">Matéria / Peso</div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     <div className="col-span-3 text-center">Acertos</div>
                     <div className="col-span-3 text-center">Total</div>
                 </div>
 
                 <div className="glass bg-slate-900/30 rounded-xl p-1 border border-white/5 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                     {materiasDisponiveis.map(mat => {
+<<<<<<< HEAD
                         const score = simuladoScores[mat] || { acertos: '', total: '' };
+=======
+                        const score = simuladoScores[mat.materia] || { acertos: '', total: '' };
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                         const a = parseInt(score.acertos || '0');
                         const t = parseInt(score.total || '0');
                         const isInvalid = t > 0 && a > t;
 
                         return (
+<<<<<<< HEAD
                             <div key={mat} className="grid grid-cols-12 gap-4 items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
                                 <div className="col-span-6 font-bold text-sm text-slate-300 truncate" title={mat}>{mat}</div>
                                 <div className="col-span-3">
@@ -380,6 +472,34 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                     className="w-full bg-slate-950/30 border border-white/10 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     value={score.total}
                                     onChange={e => handleSimuladoScoreChange(mat, 'total', e.target.value)}
+=======
+                            <div key={mat.materia} className="grid grid-cols-2 md:grid-cols-12 gap-2 md:gap-4 items-center p-3 md:p-2 hover:bg-white/5 rounded-lg transition-colors border-b border-white/5 md:border-0 last:border-0">
+                                {/* Matéria (Ocupa linha inteira no mobile, ou 6 cols no desktop) */}
+                                <div className="col-span-2 md:col-span-6 flex justify-between md:block items-center mb-1 md:mb-0">
+                                    <div className="font-bold text-sm text-slate-300 truncate" title={mat.materia}>{mat.materia}</div>
+                                    <div className="text-[10px] text-slate-500 font-bold uppercase bg-slate-800 px-2 py-0.5 rounded md:bg-transparent md:px-0">Peso {mat.peso || 1}</div>
+                                </div>
+                                
+                                {/* Inputs (Lado a lado no mobile) */}
+                                <div className="col-span-1 md:col-span-3 relative">
+                                    <label className="md:hidden text-[9px] text-slate-500 font-bold uppercase mb-1 block">Acertos</label>
+                                    <input 
+                                    type="number" 
+                                    placeholder="0" 
+                                    className={`w-full bg-slate-950/30 border ${isInvalid ? 'border-red-500 text-red-400' : 'border-white/10 text-green-400'} rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                    value={score.acertos}
+                                    onChange={e => handleSimuladoScoreChange(mat.materia, 'acertos', e.target.value)}
+                                    />
+                                </div>
+                                <div className="col-span-1 md:col-span-3 relative">
+                                    <label className="md:hidden text-[9px] text-slate-500 font-bold uppercase mb-1 block">Total</label>
+                                    <input 
+                                    type="number" 
+                                    placeholder="0" 
+                                    className="w-full bg-slate-950/30 border border-white/10 rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    value={score.total}
+                                    onChange={e => handleSimuladoScoreChange(mat.materia, 'total', e.target.value)}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                     />
                                 </div>
                             </div>
@@ -395,6 +515,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     <input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium text-center" value={tempoHHMM} onChange={handleTimeChange} />
                     </div>
 
+<<<<<<< HEAD
                     <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl border border-white/5 flex justify-between items-center shadow-lg">
                         <div>
                             <div className="text-xs font-bold text-slate-400 uppercase mb-1">Resumo da Prova</div>
@@ -408,6 +529,31 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                             </div>
                             <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Questões Totais</div>
                         </div>
+=======
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl border border-white/5 flex flex-col justify-center shadow-lg gap-2">
+                        <div className="flex justify-between items-center">
+                            <div>
+                                <div className="text-xs font-bold text-slate-400 uppercase mb-1">Aproveitamento</div>
+                                <div className={`text-lg font-bold uppercase tracking-widest ${simuladoStats.perc >= 80 ? 'text-green-400' : simuladoStats.perc >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                    {simuladoStats.perc.toFixed(1)}%
+                                </div>
+                            </div>
+                            <div className="text-right">
+                                <div className="text-lg font-black text-white leading-none">
+                                    {simuladoStats.acertos} <span className="text-base text-slate-500 font-medium">/ {simuladoStats.total}</span>
+                                </div>
+                                <div className="text-[9px] text-slate-500 uppercase font-bold mt-1">Questões Totais</div>
+                            </div>
+                        </div>
+                        {simuladoStats.maxWeighted > 0 && (
+                            <div className="pt-2 border-t border-white/10 flex justify-between items-center">
+                                <div className="text-xs font-bold text-cyan-400 uppercase">Pontuação Ponderada</div>
+                                <div className="text-sm font-black text-white">
+                                    {simuladoStats.weighted.toFixed(1)} <span className="text-slate-500 text-xs">/ {simuladoStats.maxWeighted}</span>
+                                </div>
+                            </div>
+                        )}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     </div>
                 </div>
                 </div>
@@ -427,6 +573,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                             <label className="text-[10px] font-bold text-slate-500 uppercase">Matéria</label>
                             <select required className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium appearance-none" value={materia} onChange={(e) => setMateria(e.target.value)}>
                                 <option value="">Selecione...</option>
+<<<<<<< HEAD
                                 {materiasDisponiveis.map(m => <option key={m} value={m}>{m}</option>)}
                             </select>
                         </div>
@@ -435,6 +582,57 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         <label className="text-[10px] font-bold text-slate-500 uppercase">Assunto / Tópico</label>
                         <input type="text" required list="topicos-options" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium placeholder-slate-600" value={assunto} onChange={(e) => setAssunto(e.target.value)} placeholder="Ex: Crase" />
                         {materia && <datalist id="topicos-options">{topicosDisponiveis.map((t: string, index: number) => <option key={index} value={t} />)}</datalist>}
+=======
+                                {materiasDisponiveis.map(m => <option key={m.materia} value={m.materia}>{m.materia}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1" ref={dropdownRef}>
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Assunto / Tópico</label>
+                        <div className="relative">
+                            <input 
+                                type="text" 
+                                required 
+                                className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 pr-10 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium placeholder-slate-600" 
+                                value={assunto} 
+                                onChange={(e) => {
+                                    setAssunto(e.target.value);
+                                    // Se usuário digitar, não fechamos automaticamente para permitir filtro mental
+                                    // Mas se quiser filtrar, ele usa a lista padrão ou vê o que está digitando.
+                                }} 
+                                onClick={() => {
+                                    if (materia && topicosDisponiveis.length > 0) setShowTopicsDropdown(true);
+                                }}
+                                placeholder="Ex: Crase" 
+                            />
+                            {materia && topicosDisponiveis.length > 0 && (
+                                <button 
+                                    type="button"
+                                    onClick={() => setShowTopicsDropdown(!showTopicsDropdown)}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-500 hover:text-white rounded-lg transition-colors"
+                                    title="Ver lista completa de tópicos"
+                                >
+                                    {showTopicsDropdown ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                                </button>
+                            )}
+                            {showTopicsDropdown && materia && topicosDisponiveis.length > 0 && (
+                                <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                                    {topicosDisponiveis.map((t, index) => (
+                                        <div 
+                                            key={index} 
+                                            onClick={() => {
+                                                setAssunto(t);
+                                                setShowTopicsDropdown(false);
+                                            }}
+                                            className="px-4 py-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer border-b border-white/5 last:border-0 transition-colors"
+                                        >
+                                            {t}
+                                        </div>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     </div>
                 </div>
 

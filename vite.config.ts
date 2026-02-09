@@ -1,4 +1,5 @@
 
+<<<<<<< HEAD
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 
@@ -6,3 +7,53 @@ import react from '@vitejs/plugin-react'
 export default defineConfig({
   plugins: [react()],
 })
+=======
+import { defineConfig, loadEnv } from 'vite'
+import react from '@vitejs/plugin-react'
+import { createRequire } from 'module';
+
+const require = createRequire(import.meta.url);
+const pkg = require('./package.json');
+
+// https://vitejs.dev/config/
+export default defineConfig(({ mode }) => {
+  const env = loadEnv(mode, (process as any).cwd(), '');
+  const timestamp = new Date().getTime();
+
+  return {
+    plugins: [react()],
+    define: {
+      '__SUPABASE_URL__': JSON.stringify(env.VITE_SUPABASE_URL || ""),
+      '__SUPABASE_KEY__': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ""),
+      // Injeta a chave API tentando várias fontes comuns
+      'process.env.API_KEY': JSON.stringify(
+        env.API_KEY || 
+        env.VITE_GOOGLE_API_KEY || 
+        env.GOOGLE_API_KEY || 
+        env.VITE_GEMINI_API_KEY || 
+        ""
+      ),
+      '__BUILD_TIMESTAMP__': JSON.stringify(timestamp),
+      '__APP_VERSION__': JSON.stringify(pkg.version || '1.0.0'),
+    },
+    build: {
+      rollupOptions: {
+        // IMPORTANTE: Marca @google/genai como externo para usar o CDN do index.html
+        external: ['@google/genai'],
+        output: {
+          entryFileNames: `assets/[name]-${timestamp}.js`,
+          chunkFileNames: `assets/[name]-${timestamp}.js`,
+          assetFileNames: `assets/[name]-${timestamp}.[ext]`,
+          manualChunks(id) {
+            if (id.includes('node_modules')) {
+              // Se @google/genai estiver instalado, separa, mas o external acima tem prioridade
+              if (id.includes('@google')) return 'vendor-ai';
+              return 'vendor'; 
+            }
+          }
+        }
+      }
+    }
+  }
+})
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

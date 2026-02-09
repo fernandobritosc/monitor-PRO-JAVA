@@ -6,7 +6,11 @@ import {
 } from 'recharts';
 import { 
   CheckCircle2, Circle, ChevronDown, ChevronUp, CalendarDays, 
+<<<<<<< HEAD
   TrendingUp, AlertTriangle, Target, Info, BarChart2
+=======
+  TrendingUp, AlertTriangle, Target, Info, BarChart2, PieChart
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 } from 'lucide-react';
 
 interface EditalProgressProps {
@@ -15,6 +19,23 @@ interface EditalProgressProps {
   editais: EditalMateria[];
 }
 
+<<<<<<< HEAD
+=======
+interface SubjectStat {
+  total: number;
+  studied: number;
+  avgAccuracy: number;
+  topics: { 
+      name: string; 
+      studied: boolean; 
+      partial: boolean; // Nova propriedade: Indica se foi "concluído" por ter filhos estudados
+      avgAccuracy: number; 
+      totalTime: number; 
+      sessionCount: number 
+  }[];
+}
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 // UTILITY: Normaliza strings para comparação mais robusta
 const normalizeString = (str: string) => {
   if (!str) return '';
@@ -29,6 +50,16 @@ const normalizeString = (str: string) => {
     .trim();
 };
 
+<<<<<<< HEAD
+=======
+// UTILITY: Extrai o prefixo numérico (ex: "1.1" de "1.1 Conceitos")
+const getTopicPrefix = (topicName: string) => {
+    // Tenta pegar o primeiro bloco que parece um número/índice
+    const match = topicName.match(/^(\d+(\.\d+)*)/);
+    return match ? match[0] : null;
+};
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, editais }) => {
   const [expandedSubjects, setExpandedSubjects] = useState<Record<string, boolean>>({});
 
@@ -38,6 +69,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
 
   const dataProva = useMemo(() => activeEditais[0]?.data_prova, [activeEditais]);
 
+<<<<<<< HEAD
   // ANÁLISE DE COBERTURA E PERFORMANCE (LÓGICA REFEITA)
   const performanceAnalysis = useMemo(() => {
     const analysis: Record<string, { total: number, studied: number, avgAccuracy: number, topics: any[] }> = {};
@@ -45,6 +77,15 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
     let studiedTopicsGlobal = 0;
     let totalAccuracySum = 0; // Para média global
     let topicsWithAccuracyCount = 0; // Para média global
+=======
+  // ANÁLISE DE COBERTURA E PERFORMANCE (LÓGICA HIERÁRQUICA)
+  const performanceAnalysis = useMemo(() => {
+    const analysis: Record<string, SubjectStat> = {};
+    let totalTopicsGlobal = 0;
+    let studiedTopicsGlobal = 0;
+    let totalAccuracySum = 0;
+    let topicsWithAccuracyCount = 0;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
     const allMissionRecords = records.filter(r => 
       r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
@@ -55,15 +96,24 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         let materiaAccuracySum = 0;
         let materiaTopicsWithAccuracy = 0;
 
+<<<<<<< HEAD
         const topicsStatus = materiaTopics.map(topic => {
+=======
+        // Passo 1: Calcular status direto (Match Exato/Semântico)
+        const initialTopicsStatus = materiaTopics.map(topic => {
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
             const normalizedTopic = normalizeString(topic);
             
             const matchingRecords = allMissionRecords.filter(r => {
                 const normalizedAssunto = normalizeString(r.assunto);
                 if (!normalizedTopic || !normalizedAssunto) return false;
+<<<<<<< HEAD
                 // Tier 1: Match exato
                 if (normalizedTopic === normalizedAssunto) return true;
                 // Tier 2: Match de inclusão
+=======
+                if (normalizedTopic === normalizedAssunto) return true;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                 if (normalizedTopic.length > 5 && normalizedAssunto.length > 5) {
                     if (normalizedTopic.includes(normalizedAssunto) || normalizedAssunto.includes(normalizedTopic)) return true;
                 }
@@ -76,11 +126,16 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
                 const totalTime = matchingRecords.reduce((acc, r) => acc + r.tempo, 0);
                 const avgAccuracy = totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
                 
+<<<<<<< HEAD
+=======
+                // Contabiliza para a média da matéria apenas se foi estudado diretamente
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                 if(totalQuestoes > 0) {
                    materiaAccuracySum += avgAccuracy;
                    materiaTopicsWithAccuracy++;
                 }
 
+<<<<<<< HEAD
                 return { name: topic, studied: true, avgAccuracy, totalTime, sessionCount: matchingRecords.length };
             } else {
                 return { name: topic, studied: false, avgAccuracy: 0, totalTime: 0, sessionCount: 0 };
@@ -88,13 +143,75 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         });
 
         const studiedCount = topicsStatus.filter(t => t.studied).length;
+=======
+                return { name: topic, studied: true, partial: false, avgAccuracy, totalTime, sessionCount: matchingRecords.length, prefix: getTopicPrefix(topic) };
+            } else {
+                return { name: topic, studied: false, partial: false, avgAccuracy: 0, totalTime: 0, sessionCount: 0, prefix: getTopicPrefix(topic) };
+            }
+        });
+
+        // Passo 2: Propagação Hierárquica de Status (Bottom-Up)
+        // Adicionamos índice original para restaurar a ordem depois
+        let workingTopics = initialTopicsStatus.map((t, i) => ({ ...t, originalIndex: i }));
+
+        // Ordena por comprimento do prefixo decrescente (filhos antes dos pais)
+        // Ex: "1.1.1" (len 5) vem antes de "1.1" (len 3), que vem antes de "1." (len 2)
+        workingTopics.sort((a, b) => (b.prefix?.length || 0) - (a.prefix?.length || 0));
+
+        // Itera para atualizar status baseado nos filhos já processados
+        for (const topic of workingTopics) {
+            if (!topic.prefix) continue;
+
+            // Encontra descendentes diretos ou indiretos
+            const descendants = workingTopics.filter(t => 
+                t !== topic && 
+                t.prefix && 
+                (t.name.startsWith(topic.prefix + '.') || t.name.startsWith(topic.prefix + ' '))
+            );
+
+            if (descendants.length > 0) {
+                // Verifica se TODOS os descendentes estão marcados como estudados (direta ou indiretamente)
+                const allStudied = descendants.every(d => d.studied);
+                const someStudied = descendants.some(d => d.studied || d.partial);
+
+                // Se o tópico pai não foi estudado diretamente, inferimos o status
+                if (!topic.studied) {
+                    if (allStudied) {
+                        topic.studied = true;
+                        topic.partial = false; // Promovido de parcial para concluído
+                        
+                        // Agrega estatísticas dos filhos para o pai não ficar com nota zerada
+                        const kidsWithStats = descendants.filter(d => d.avgAccuracy > 0);
+                        if (kidsWithStats.length > 0) {
+                            topic.avgAccuracy = kidsWithStats.reduce((acc, k) => acc + k.avgAccuracy, 0) / kidsWithStats.length;
+                        }
+                    } else if (someStudied) {
+                        topic.partial = true;
+                    }
+                }
+            }
+        }
+
+        // Restaura ordem original do edital
+        const finalTopicsStatus = workingTopics.sort((a, b) => a.originalIndex - b.originalIndex);
+
+        // Contagem final para os cards da matéria
+        const studiedCount = finalTopicsStatus.filter(t => t.studied || t.partial).length;
+        
+        // Recalcula média da matéria considerando inferidos? 
+        // Não, a média global da matéria deve refletir estudos reais (Step 1), senão inflaciona.
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         const materiaAvgAccuracy = materiaTopicsWithAccuracy > 0 ? materiaAccuracySum / materiaTopicsWithAccuracy : 0;
 
         analysis[ed.materia] = {
             total: materiaTopics.length,
             studied: studiedCount,
             avgAccuracy: materiaAvgAccuracy,
+<<<<<<< HEAD
             topics: topicsStatus
+=======
+            topics: finalTopicsStatus
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         };
 
         totalTopicsGlobal += materiaTopics.length;
@@ -140,6 +257,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
     setExpandedSubjects(prev => ({ ...prev, [materia]: !prev[materia] }));
   };
 
+<<<<<<< HEAD
   const statusPrazo = useMemo(() => {
       if (!dataProva || !forecast) return null;
       const examDate = new Date(dataProva);
@@ -149,6 +267,10 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
   }, [dataProva, forecast]);
 
   const getPerformanceColor = (accuracy: number) => {
+=======
+  const getPerformanceColor = (accuracy: number, isPartial: boolean) => {
+    if (isPartial) return { bg: 'bg-orange-500/10', border: 'border-orange-500/30', text: 'text-orange-400', main: 'border-orange-500' };
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     if (accuracy >= 80) return { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', main: 'border-green-500' };
     if (accuracy >= 60) return { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400', main: 'border-yellow-500' };
     return { bg: 'bg-red-500/10', border: 'border-red-500/30', text: 'text-red-400', main: 'border-red-500' };
@@ -194,10 +316,17 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
               <Target className="text-slate-400" /> Detalhamento do Conteúdo
           </h3>
 
+<<<<<<< HEAD
           {(Object.entries(performanceAnalysis.bySubject)).map(([materia, stat]) => {
               const percent = stat.total > 0 ? (stat.studied / stat.total) * 100 : 0;
               const isExpanded = expandedSubjects[materia];
               const perfColor = getPerformanceColor(stat.avgAccuracy);
+=======
+          {(Object.entries(performanceAnalysis.bySubject) as [string, SubjectStat][]).map(([materia, stat]) => {
+              const percent = stat.total > 0 ? (stat.studied / stat.total) * 100 : 0;
+              const isExpanded = expandedSubjects[materia];
+              const perfColor = getPerformanceColor(stat.avgAccuracy, false); // No header usa avg pura
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
               return (
                   <div key={materia} className={`glass border rounded-2xl overflow-hidden transition-all duration-300 ${isExpanded ? perfColor.border : 'border-white/5'}`}>
@@ -243,23 +372,50 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
                               ) : (
                                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
                                     {stat.topics.map((topic: any, idx: number) => {
+<<<<<<< HEAD
                                         const topicPerf = getPerformanceColor(topic.avgAccuracy);
                                         return (
                                           <div key={idx} className={`p-3 rounded-xl border transition-colors ${topic.studied ? `${topicPerf.bg} ${topicPerf.border}` : 'bg-slate-800/30 border-white/5'}`}>
+=======
+                                        const topicPerf = getPerformanceColor(topic.avgAccuracy, topic.partial);
+                                        return (
+                                          <div key={idx} className={`p-3 rounded-xl border transition-colors ${topic.studied || topic.partial ? `${topicPerf.bg} ${topicPerf.border}` : 'bg-slate-800/30 border-white/5'}`}>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                             <div className="flex items-start gap-3">
                                                 {topic.studied ? (
                                                     <div className={`shrink-0 mt-1 text-center w-12`}>
                                                         <div className={`font-bold text-sm ${topicPerf.text}`}>
                                                             {topic.avgAccuracy.toFixed(0)}%
                                                         </div>
+<<<<<<< HEAD
                                                         <div className="text-[9px] text-slate-500 font-bold uppercase">{topic.sessionCount}x</div>
+=======
+                                                        <div className="text-[9px] text-slate-500 font-bold uppercase flex justify-center">
+                                                            {topic.sessionCount > 0 ? (
+                                                                `${topic.sessionCount}x` 
+                                                            ) : (
+                                                                <span title="Concluído por Tópicos" className="flex items-center gap-0.5 text-green-400/80">
+                                                                    <CheckCircle2 size={10} /> Auto
+                                                                </span>
+                                                            )}
+                                                        </div>
+                                                    </div>
+                                                ) : topic.partial ? (
+                                                    <div className="shrink-0 mt-1 text-center w-12 flex flex-col items-center" title="Tópico Pai Iniciado (subtópicos estudados)">
+                                                        <PieChart size={18} className="text-orange-400 mb-1" />
+                                                        <span className="text-[8px] font-bold text-orange-400 uppercase tracking-tighter">PARCIAL</span>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                                     </div>
                                                 ) : (
                                                     <div className="shrink-0 mt-0.5 text-slate-600">
                                                         <Circle size={16} />
                                                     </div>
                                                 )}
+<<<<<<< HEAD
                                                 <span className={`text-sm flex-1 ${topic.studied ? 'text-slate-300' : 'text-slate-500'}`}>
+=======
+                                                <span className={`text-sm flex-1 ${topic.studied || topic.partial ? 'text-slate-200' : 'text-slate-500'}`}>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                                     {topic.name}
                                                 </span>
                                             </div>
@@ -280,6 +436,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         <div className="flex items-start gap-4">
             <Info size={20} className="text-slate-500 shrink-0 mt-1" />
             <div>
+<<<<<<< HEAD
                 <h4 className="text-sm font-bold text-slate-300">Entendendo a Análise</h4>
                 <ul className="list-disc list-inside mt-2 space-y-2 text-xs text-slate-400">
                     <li>
@@ -290,6 +447,25 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
                     </li>
                     <li>
                         <strong className="text-slate-300">Contador de Sessões (Ex: 3x):</strong> Este número indica quantas vezes você já registrou um estudo para aquele tópico específico.
+=======
+                <h4 className="text-sm font-bold text-slate-300">Legenda de Status</h4>
+                <ul className="mt-2 space-y-2 text-xs text-slate-400">
+                    <li className="flex items-center gap-2">
+                        <CheckCircle2 size={12} className="text-green-400"/>
+                        <span><strong className="text-green-400">Concluído:</strong> Tópico estudado diretamente OU todos os seus sub-tópicos (filhos) foram concluídos.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <span className="flex items-center gap-0.5 text-green-400/80 font-bold bg-slate-800 px-1 rounded"><CheckCircle2 size={10} /> Auto</span>
+                        <span>Indica que a conclusão foi calculada automaticamente (todos os filhos estudados).</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <PieChart size={12} className="text-orange-400"/>
+                        <span><strong className="text-orange-400">Parcial:</strong> Você estudou alguns sub-tópicos, mas ainda faltam itens neste grupo.</span>
+                    </li>
+                    <li className="flex items-center gap-2">
+                        <Circle size={12} className="text-slate-600"/>
+                        <span><strong className="text-slate-500">Pendente:</strong> Nenhum registro encontrado para este item ou seus sub-itens.</span>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     </li>
                 </ul>
             </div>

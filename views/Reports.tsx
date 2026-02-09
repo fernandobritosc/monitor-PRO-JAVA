@@ -1,3 +1,7 @@
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 import React, { useState, useMemo } from 'react';
 import { StudyRecord } from '../types';
 import { FileText, Download, Calendar, Filter, PieChart, CheckSquare, Printer } from 'lucide-react';
@@ -14,14 +18,35 @@ interface ReportsProps {
   missaoAtiva: string;
 }
 
+<<<<<<< HEAD
+=======
+// Helper para pegar data local YYYY-MM-DD
+const getLocalToday = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
   // Estado de Filtros
   const [startDate, setStartDate] = useState(() => {
     const d = new Date();
     d.setDate(d.getDate() - 30); // Padrão: Últimos 30 dias
+<<<<<<< HEAD
     return d.toISOString().split('T')[0];
   });
   const [endDate, setEndDate] = useState(new Date().toISOString().split('T')[0]);
+=======
+    const year = d.getFullYear();
+    const month = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+  });
+  const [endDate, setEndDate] = useState(getLocalToday());
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [generating, setGenerating] = useState(false);
 
   // Filtragem dos dados
@@ -371,4 +396,8 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
   );
 };
 
+<<<<<<< HEAD
 export default Reports;
+=======
+export default Reports;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

@@ -1,13 +1,32 @@
+<<<<<<< HEAD
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
 import { Question, EditalMateria } from '../types';
 import { Search, Trash2, Edit, ExternalLink, Clock, Target, Zap, X, AlertOctagon, ChevronDown, CheckCircle2 } from 'lucide-react';
+=======
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { supabase } from '../services/supabase';
+import { Question, EditalMateria } from '../types';
+import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp } from 'lucide-react';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
 interface QuestionsBankProps {
   missaoAtiva: string;
   editais: EditalMateria[];
 }
 
+<<<<<<< HEAD
+=======
+// Helper para pegar data local YYYY-MM-DD
+const getLocalToday = () => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    return `${year}-${month}-${day}`;
+};
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 // Helper para links
 const formatTextWithLinks = (text: string | undefined) => {
   if (!text) return null;
@@ -37,7 +56,11 @@ const QuestionCard: React.FC<{
     onToggle: (id: string) => void;
     onEdit: (q: Question) => void;
     onDelete: (id: string) => void;
+<<<<<<< HEAD
     onStatusChange: (id: string, status: 'Pendente' | 'Concluída') => void;
+=======
+    onStatusChange: (id: string, status: 'Pendente' | 'Em andamento' | 'Concluída') => void;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 }> = ({ q, isExpanded, onToggle, onEdit, onDelete, onStatusChange }) => {
     
     const statusInfo = {
@@ -108,7 +131,11 @@ const QuestionCard: React.FC<{
     );
 };
 
+<<<<<<< HEAD
 export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) => {
+=======
+const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) => {
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [questions, setQuestions] = useState<Question[]>([]);
   const [loading, setLoading] = useState(true);
   const [showForm, setShowForm] = useState(false);
@@ -119,9 +146,29 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMateria, setFilterMateria] = useState<string>('Todas');
 
+<<<<<<< HEAD
   // Form States
   const initialFormState = {
     data: new Date().toISOString().split('T')[0],
+=======
+  // Custom Dropdown State
+  const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
+  const dropdownRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+        if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
+            setShowTopicsDropdown(false);
+        }
+    };
+    document.addEventListener("mousedown", handleClickOutside);
+    return () => document.removeEventListener("mousedown", handleClickOutside);
+  }, []);
+
+  // Form States
+  const initialFormState = {
+    data: getLocalToday(), // Usar data local em vez de UTC
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     materia: '',
     assunto: '',
     simulado: '',
@@ -138,7 +185,11 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
   
   const topicosDisponiveis = useMemo(() => {
      const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === formData.materia);
+<<<<<<< HEAD
      return edital ? edital.topicos : [];
+=======
+     return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva, formData.materia]);
 
   const fetchQuestions = async () => {
@@ -178,7 +229,11 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
       filtered = filtered.filter(q => 
         q.assunto.toLowerCase().includes(searchTerm.toLowerCase()) ||
         q.materia.toLowerCase().includes(searchTerm.toLowerCase()) ||
+<<<<<<< HEAD
         q.anotacoes?.toLowerCase().includes(searchTerm.toLowerCase())
+=======
+        (q.anotacoes && q.anotacoes.toLowerCase().includes(searchTerm.toLowerCase()))
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       );
     }
 
@@ -188,11 +243,30 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
     }
 
     // Ordenar por relevância (maior primeiro) e data (mais recente primeiro)
+<<<<<<< HEAD
     return filtered.sort((a, b) => {
       if (b.relevancia !== a.relevancia) {
         return b.relevancia - a.relevancia;
       }
       return new Date(b.data).getTime() - new Date(a.data).getTime();
+=======
+    return [...filtered].sort((a: Question, b: Question) => {
+      // FIX: The 'relevancia' property might not be a number at runtime.
+      // This ensures values are properly converted before subtraction.
+      const relDiff = (Number(b.relevancia) || 0) - (Number(a.relevancia) || 0);
+      if (relDiff !== 0) {
+        return relDiff;
+      }
+      
+      const timeB = new Date(b.data).getTime();
+      const timeA = new Date(a.data).getTime();
+      
+      // Handle potential invalid dates which result in NaN
+      const valB = isNaN(timeB) ? 0 : timeB;
+      const valA = isNaN(timeA) ? 0 : timeA;
+      
+      return valB - valA;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     });
   }, [questions, searchTerm, filterMateria]);
 
@@ -200,7 +274,12 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
   const weakPoints = useMemo(() => {
     const pendentes = questions.filter(q => q.status === 'Pendente');
     const grouped = pendentes.reduce((acc, q) => {
+<<<<<<< HEAD
       acc[q.materia] = (acc[q.materia] || 0) + 1;
+=======
+      const current = acc[q.materia] || 0;
+      acc[q.materia] = current + 1;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       return acc;
     }, {} as Record<string, number>);
 
@@ -277,8 +356,12 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
     fetchQuestions();
   };
 
+<<<<<<< HEAD
   const handleStatusChange = async (id: string, newStatus: 'Pendente' | 'Concluída') => {
     // Optimistic UI update
+=======
+  const handleStatusChange = async (id: string, newStatus: 'Pendente' | 'Em andamento' | 'Concluída') => {
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: newStatus } : q));
     await supabase.from('questoes_revisao').update({ status: newStatus }).eq('id', id);
   };
@@ -346,6 +429,7 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
                     }
                   </select>
                 </div>
+<<<<<<< HEAD
                 <div>
                   <label className="text-xs text-slate-400">Assunto</label>
                   <input 
@@ -358,6 +442,46 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
                   <datalist id="topicos-list">
                     {topicosDisponiveis.map(t => <option key={t} value={t}/>)}
                   </datalist>
+=======
+                <div ref={dropdownRef}>
+                  <label className="text-xs text-slate-400">Assunto</label>
+                  <div className="relative mt-1">
+                      <input 
+                        type="text" 
+                        className="w-full bg-slate-900 p-2 rounded-lg border border-white/5" 
+                        value={formData.assunto} 
+                        onChange={e => setFormData({...formData, assunto: e.target.value})} 
+                        onClick={() => {
+                            if (topicosDisponiveis.length > 0) setShowTopicsDropdown(true);
+                        }}
+                      />
+                      {topicosDisponiveis.length > 0 && (
+                        <button 
+                            type="button"
+                            onClick={() => setShowTopicsDropdown(!showTopicsDropdown)}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-slate-500 hover:text-white"
+                        >
+                            {showTopicsDropdown ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+                        </button>
+                      )}
+                      {showTopicsDropdown && topicosDisponiveis.length > 0 && (
+                        <div className="absolute top-full left-0 right-0 mt-1 bg-slate-800 border border-white/10 rounded-lg shadow-xl z-50 max-h-48 overflow-y-auto custom-scrollbar">
+                            {topicosDisponiveis.map((t, i) => (
+                                <div 
+                                    key={i} 
+                                    onClick={() => {
+                                        setFormData(prev => ({...prev, assunto: t}));
+                                        setShowTopicsDropdown(false);
+                                    }}
+                                    className="px-3 py-2 text-sm text-slate-300 hover:bg-white/5 cursor-pointer"
+                                >
+                                    {t}
+                                </div>
+                            ))}
+                        </div>
+                      )}
+                  </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                 </div>
              </div>
              <div>
@@ -471,4 +595,10 @@ export const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, edita
       </div>
     </div>
   );
+<<<<<<< HEAD
 };
+=======
+};
+
+export default QuestionsBank;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

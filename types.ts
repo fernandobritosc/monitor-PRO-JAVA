@@ -1,4 +1,8 @@
 
+<<<<<<< HEAD
+=======
+
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 export interface UserProfile {
   id: string;
   email: string;
@@ -37,6 +41,10 @@ export interface EditalMateria {
   topicos: string[];
   data_prova?: string;
   is_principal: boolean;
+<<<<<<< HEAD
+=======
+  peso?: number; // Novo campo para cálculo ponderado
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 }
 
 export interface Question {
@@ -58,4 +66,34 @@ export interface Question {
   tempo?: number;
 }
 
+<<<<<<< HEAD
 export type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS';
+=======
+export interface Flashcard {
+  id: string;
+  user_id: string;
+  concurso?: string; // Agora opcional/global
+  materia: string;
+  assunto?: string; // Novo campo
+  front: string;
+  back: string;
+  ai_generated_assets?: any; // Armazena múltiplos conteúdos da IA (explicação, mnemônico, etc.)
+  original_audio_id?: string; // NOVO: Aponta para o ID do card original que gerou o áudio
+  status: 'novo' | 'aprendendo' | 'revisando';
+  next_review: string;
+  interval: number;
+  ease_factor: number;
+}
+
+export interface Discursiva {
+  id: string;
+  user_id: string;
+  created_at: string;
+  title: string;
+  prompt?: string; // NOVO: Enunciado da questão
+  image_url: string;
+  analysis_text: string;
+}
+
+export type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
