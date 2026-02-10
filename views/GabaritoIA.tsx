@@ -1,1 +1,0 @@
-https://dyxtalcvjcprmhuktyfd.supabase.co
