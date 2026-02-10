@@ -1,10 +1,7 @@
-<<<<<<< HEAD
-=======
 .env
 .env.local
 .env.*
 
->>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 # Logs
 logs
 *.log
@@ -14,23 +11,6 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
-<<<<<<< HEAD
-node_modules
-dist
-dist-ssr
-*.local
-
-# Editor directories and files
-.vscode/*
-!.vscode/extensions.json
-.idea
-.DS_Store
-*.suo
-*.ntvs*
-*.njsproj
-*.sln
-*.sw?
-=======
 # Diagnostic reports (https://nodejs.org/api/report.html)
 report.[0-9]*.[0-9]*.[0-9]*.[0-9]*.json
 
@@ -138,4 +118,3 @@ dist
 
 # Mac
 .DS_Store
->>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
