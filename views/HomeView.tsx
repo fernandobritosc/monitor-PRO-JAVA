@@ -12,4 +12,4 @@ export { default as Reports } from './Reports';
 export { default as Onboarding } from './Onboarding';
 export { default as EditalProgress } from './EditalProgress';
 export { default as Flashcards } from './Flashcards';
-export { default as Discursiva } from './Discursiva';Z
+export { default as Discursiva } from './Discursiva';
