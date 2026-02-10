@@ -1,4 +1,13 @@
 
+<<<<<<< HEAD
+import { defineConfig } from 'vite'
+import react from '@vitejs/plugin-react'
+
+// https://vitejs.dev/config/
+export default defineConfig({
+  plugins: [react()],
+})
+=======
 import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 import { createRequire } from 'module';
@@ -47,3 +56,4 @@ export default defineConfig(({ mode }) => {
     }
   }
 })
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

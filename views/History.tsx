@@ -1,7 +1,15 @@
+<<<<<<< HEAD
+
+import React, { useState, useMemo, useEffect } from 'react';
+import { supabase } from '../services/supabase';
+import { StudyRecord, EditalMateria } from '../types';
+import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers } from 'lucide-react';
+=======
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { StudyRecord, EditalMateria } from '../types';
 import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp } from 'lucide-react';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
 interface HistoryProps {
   records: StudyRecord[];
@@ -11,6 +19,8 @@ interface HistoryProps {
   onRecordDelete: (recordId: string) => void;
 }
 
+<<<<<<< HEAD
+=======
 // Helper para exibição de data local sem conversão UTC
 const formatDateDisplay = (dateStr: string) => {
     if (!dateStr) return '--/--/----';
@@ -18,6 +28,7 @@ const formatDateDisplay = (dateStr: string) => {
     return `${day}/${month}/${year}`;
 };
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onRecordDelete }) => {
   // Filtros
   const [searchTerm, setSearchTerm] = useState('');
@@ -31,6 +42,8 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
   // Edição
   const [editingRecord, setEditingRecord] = useState<StudyRecord | null>(null);
   
+<<<<<<< HEAD
+=======
   // Custom Dropdown State
   const [showHistoryTopicsDropdown, setShowHistoryTopicsDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
@@ -45,6 +58,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
   
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   // State Completo do Form de Edição (Igual ao StudyForm)
   const [editForm, setEditForm] = useState<{
     materia: string;
@@ -81,8 +95,12 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
   const topicosDisponiveis = useMemo(() => {
     if (!editForm.materia) return [];
     const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === editForm.materia);
+<<<<<<< HEAD
+    return edital ? edital.topicos.sort() : [];
+=======
     // Ordenação natural (numérica)
     return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva, editForm.materia]);
 
   // Cálculo Automático de Porcentagem e Dificuldade Sugerida
@@ -288,12 +306,16 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
           sortedMateriaKeys.map(materia => {
              const recordsInGroup = groupedRecords[materia];
              const isOpen = openGroups[materia];
+<<<<<<< HEAD
+             const avgTaxa = recordsInGroup.reduce((acc, r) => acc + r.taxa, 0) / recordsInGroup.length;
+=======
              
              const avgTaxa = recordsInGroup.reduce((acc, r) => acc + r.taxa, 0) / recordsInGroup.length;
              const totalAcertos = recordsInGroup.reduce((acc, r) => acc + (r.acertos || 0), 0);
              const totalQuestoes = recordsInGroup.reduce((acc, r) => acc + (r.total || 0), 0);
              const totalMinutos = recordsInGroup.reduce((acc, r) => acc + (r.tempo || 0), 0);
              const formattedTime = `${Math.floor(totalMinutos/60)}h${totalMinutos%60}m`;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
              return (
                <div key={materia} className="glass border border-white/5 rounded-2xl overflow-hidden transition-all duration-300">
@@ -308,6 +330,11 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                         </div>
                         <div className="text-left">
                            <h4 className="font-bold text-lg text-white">{materia}</h4>
+<<<<<<< HEAD
+                           <p className="text-xs text-slate-500 font-bold uppercase tracking-wide">
+                              {recordsInGroup.length} registros • Média: {avgTaxa.toFixed(0)}%
+                           </p>
+=======
                            <div className="text-xs text-slate-500 font-bold uppercase tracking-wide flex flex-wrap gap-x-3 gap-y-1 mt-1">
                               <span>{recordsInGroup.length} registros</span>
                               <span className="opacity-50">•</span>
@@ -317,6 +344,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                               <span className="opacity-50">•</span>
                               <span className="text-slate-400">{formattedTime}</span>
                            </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                         </div>
                      </div>
                      <div className="hidden md:block">
@@ -332,7 +360,11 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                               <div className="flex-1 min-w-0">
                                  <div className="flex items-center gap-2 mb-1">
                                     <span className="text-[10px] font-bold text-slate-500 bg-slate-800 px-2 py-0.5 rounded uppercase">
+<<<<<<< HEAD
+                                       {new Date(r.data_estudo).toLocaleDateString('pt-BR')}
+=======
                                        {formatDateDisplay(r.data_estudo)}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                     </span>
                                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded uppercase ${r.taxa >= 80 ? 'bg-green-500/10 text-green-400' : 'bg-yellow-500/10 text-yellow-400'}`}>
                                        {r.taxa.toFixed(0)}%
@@ -412,6 +444,28 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                     </div>
                  </div>
 
+<<<<<<< HEAD
+                 {/* GRUPO 2: ASSUNTO */}
+                 <div className="space-y-2">
+                    <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                       <List size={12}/> Assunto / Tópico
+                    </label>
+                    <input 
+                      type="text" 
+                      list="history-topicos-options"
+                      className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium"
+                      value={editForm.assunto} 
+                      onChange={e => setEditForm({...editForm, assunto: e.target.value})} 
+                      placeholder={!isSimuladoEdit && editForm.materia ? "Selecione ou digite o tópico..." : "Preencha o campo"}
+                    />
+                    {!isSimuladoEdit && (
+                      <datalist id="history-topicos-options">
+                        {topicosDisponiveis.map((t, idx) => (
+                          <option key={idx} value={t} />
+                        ))}
+                      </datalist>
+                    )}
+=======
                  {/* GRUPO 2: ASSUNTO (COM DROPDOWN CUSTOMIZADO) */}
                  <div className="space-y-2" ref={dropdownRef}>
                     <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -455,6 +509,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                             </div>
                         )}
                     </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                  </div>
 
                  {/* GRUPO 3: PERFORMANCE */}
@@ -558,4 +613,8 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
   );
 };
 
+<<<<<<< HEAD
 export default History;
+=======
+export default History;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

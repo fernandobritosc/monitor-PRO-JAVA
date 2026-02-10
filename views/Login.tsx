@@ -1,5 +1,17 @@
 
 import React, { useState, useEffect } from 'react';
+<<<<<<< HEAD
+import { supabase } from '../services/supabase';
+import { Settings, User, Mail, Lock, CheckCircle, AlertOctagon } from 'lucide-react';
+
+interface LoginProps {
+  // onConfigClick: () => void; // Removido
+}
+
+const Login: React.FC<LoginProps> = (/* { onConfigClick } */) => {
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+=======
 import { supabase, getAiKey } from '../services/supabase';
 import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Loader2, Eye, EyeOff } from 'lucide-react';
 
@@ -12,11 +24,16 @@ const Login: React.FC<LoginProps> = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false); // NOVO STATE
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [isSignUp, setIsSignUp] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [rememberEmail, setRememberEmail] = useState(false);
+<<<<<<< HEAD
+
+  // Carregar e-mail salvo ao iniciar
+=======
   
   // Diagnóstico
   const [configSource, setConfigSource] = useState<'Checking...' | 'ENV' | 'STORAGE' | 'MISSING'>('Checking...');
@@ -24,12 +41,15 @@ const Login: React.FC<LoginProps> = () => {
   const [aiKeyStatus, setAiKeyStatus] = useState<'CHECKING' | 'LOADED' | 'MISSING'>('CHECKING');
   const [aiKeyPrefix, setAiKeyPrefix] = useState('');
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   useEffect(() => {
     const savedEmail = localStorage.getItem('monitorpro_saved_email');
     if (savedEmail) {
       setEmail(savedEmail);
       setRememberEmail(true);
     }
+<<<<<<< HEAD
+=======
 
     // Check Config Source
     // @ts-ignore
@@ -55,6 +75,7 @@ const Login: React.FC<LoginProps> = () => {
         setAiKeyStatus('MISSING');
     }
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, []);
 
   const handleAuth = async (e: React.FormEvent) => {
@@ -65,6 +86,11 @@ const Login: React.FC<LoginProps> = () => {
 
     try {
       if (isSignUp) {
+<<<<<<< HEAD
+        // CADASTRO SIMPLIFICADO
+        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signUp' property.
+=======
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         const { data, error } = await (supabase.auth as any).signUp({ 
           email, 
           password,
@@ -73,6 +99,20 @@ const Login: React.FC<LoginProps> = () => {
         if (error) throw error;
         
         if (data.user) {
+<<<<<<< HEAD
+           setSuccessMsg('Conta criada! O login será automático ou você pode entrar agora.');
+           setIsSignUp(false);
+           // Não limpa a senha para facilitar
+        }
+
+      } else {
+        // LOGIN DIRETO
+        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signInWithPassword' property.
+        const { error } = await (supabase.auth as any).signInWithPassword({ email, password });
+        if (error) throw error;
+
+        // Salvar e-mail se solicitado
+=======
            setSuccessMsg('Conta criada! Faça login para continuar.');
            setIsSignUp(false);
         }
@@ -82,11 +122,19 @@ const Login: React.FC<LoginProps> = () => {
         const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password });
         if (error) throw error;
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
         if (rememberEmail) {
           localStorage.setItem('monitorpro_saved_email', email);
         } else {
           localStorage.removeItem('monitorpro_saved_email');
         }
+<<<<<<< HEAD
+      }
+    } catch (err: any) {
+      setError(err.message || 'Erro na autenticação');
+    } finally {
+      setLoading(false);
+=======
 
         if (data.session) {
             setSuccessMsg('Login realizado! Entrando...');
@@ -103,10 +151,41 @@ const Login: React.FC<LoginProps> = () => {
     if(confirm('Isso limpará TODOS os dados locais deste site. Continuar?')) {
         localStorage.clear();
         window.location.reload();
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     }
   };
 
   return (
+<<<<<<< HEAD
+    <div className="min-h-screen bg-[#12151D] flex items-center justify-center p-6 relative overflow-hidden font-['Montserrat']"> {/* Nova cor de fundo */}
+      {/* Background Orbs */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full" /> {/* Blur aumentado */}
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 blur-[150px] rounded-full" /> {/* Blur aumentado */}
+
+      {/* Botão de Reset/Configuração Manual (Removido) */}
+      {/*
+      <button 
+        onClick={onConfigClick}
+        className="absolute top-6 right-6 flex items-center gap-2 text-slate-500 hover:text-white transition-colors text-xs font-bold uppercase tracking-widest z-50 bg-black/20 px-4 py-2 rounded-full border border-white/5 hover:bg-white/10 hover:border-red-500/30 hover:text-red-400"
+      >
+        <Settings size={14} />
+        Alterar Conexão / Limpar Dados
+      </button>
+      */}
+
+      <div className="w-full max-w-md z-10">
+        <div className="text-center mb-10">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-500 mx-auto mb-6 flex items-center justify-center text-4xl shadow-2xl shadow-purple-500/20 animate-in zoom-in duration-700">
+            🎯
+          </div>
+          <h1 className="text-4xl font-extrabold tracking-tight mb-2 text-white">
+            MONITOR<span className="text-cyan-400">PRO</span>
+          </h1>
+          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">Acesso Independente</p>
+        </div>
+
+        <form onSubmit={handleAuth} className="glass rounded-3xl p-8 space-y-5 shadow-2xl border-white/5 relative">
+=======
     <div className="min-h-screen bg-[#12151D] flex items-center justify-center p-4 relative overflow-hidden font-['Montserrat']">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 blur-[150px] rounded-full" />
@@ -123,6 +202,7 @@ const Login: React.FC<LoginProps> = () => {
         </div>
 
         <form onSubmit={handleAuth} className="glass rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl border-white/5 relative mx-2">
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
           
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -130,6 +210,11 @@ const Login: React.FC<LoginProps> = () => {
             </label>
             <input
               type="email"
+<<<<<<< HEAD
+              id="email"
+              name="email"
+=======
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
               autoComplete="username"
               required
               className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
@@ -143,6 +228,27 @@ const Login: React.FC<LoginProps> = () => {
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
               <Lock size={12} /> Senha
             </label>
+<<<<<<< HEAD
+            <input
+              type="password"
+              id="password"
+              name="password"
+              autoComplete={isSignUp ? "new-password" : "current-password"}
+              required
+              className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
+              placeholder="••••••••"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+            />
+          </div>
+
+          {!isSignUp && (
+            <div className="flex items-center gap-2 py-1 cursor-pointer" onClick={() => setRememberEmail(!rememberEmail)}>
+              <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${rememberEmail ? 'bg-purple-500 border-purple-500' : 'border-slate-600 bg-slate-900/30'}`}> {/* Ajustado de /50 */}
+                {rememberEmail && <CheckCircle size={12} className="text-white" />}
+              </div>
+              <span className="text-xs text-slate-400 select-none">Lembrar meu e-mail</span>
+=======
             <div className="relative">
                 <input
                     type={showPassword ? "text" : "password"}
@@ -173,6 +279,7 @@ const Login: React.FC<LoginProps> = () => {
                 </div>
                 <span className="text-xs text-slate-400 select-none">Lembrar e-mail</span>
               </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
             </div>
           )}
 
@@ -182,6 +289,17 @@ const Login: React.FC<LoginProps> = () => {
                  <AlertOctagon size={16} className="shrink-0" />
                  <span className="font-bold">{error}</span>
               </div>
+<<<<<<< HEAD
+              
+              {(error.toLowerCase().includes('login') && error.toLowerCase().includes('disabled')) || error.includes('desativado') ? (
+                 <div className="text-[10px] text-red-300 pl-6 border-l-2 border-red-500/30 ml-1 mt-1">
+                    ⚠️ <b>Ação Necessária no Painel Supabase:</b>
+                    <br/>
+                    Auth {'>'} Providers {'>'} Email {'>'} Enable Email provider
+                 </div>
+              ) : null}
+=======
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
             </div>
           )}
 
@@ -217,6 +335,11 @@ const Login: React.FC<LoginProps> = () => {
           </div>
         </form>
 
+<<<<<<< HEAD
+        <p className="mt-8 text-center text-slate-600 text-[10px] uppercase tracking-widest">
+          MonitorPro Intelligence Security
+        </p>
+=======
         <div className="mt-4 text-center space-y-4">
           <p className="text-slate-600 text-[10px] uppercase tracking-widest">
             MonitorPro Intelligence Security
@@ -244,9 +367,14 @@ const Login: React.FC<LoginProps> = () => {
         <div className={aiKeyStatus === 'LOADED' ? 'text-cyan-400 font-bold flex items-center gap-1 justify-end' : 'text-slate-600 flex items-center gap-1 justify-end'}>
             AI Key: {aiKeyStatus} {aiKeyPrefix && `(${aiKeyPrefix})`} {aiKeyStatus === 'LOADED' && <KeyRound size={8} />}
         </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       </div>
     </div>
   );
 };
 
+<<<<<<< HEAD
 export default Login;
+=======
+export default Login;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

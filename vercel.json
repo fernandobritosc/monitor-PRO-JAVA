@@ -1,10 +1,17 @@
+<<<<<<< HEAD
+=======
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 {
   "rewrites": [
     {
       "source": "/(.*)",
       "destination": "/index.html"
     }
+<<<<<<< HEAD
+  ]
+}
+=======
   ],
   "headers": [
     {
@@ -18,3 +25,4 @@
     }
   ]
 }
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

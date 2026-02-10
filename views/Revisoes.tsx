@@ -1,10 +1,17 @@
+<<<<<<< HEAD
+=======
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 import React, { useState, useMemo, useEffect } from 'react';
 import { StudyRecord, EditalMateria } from '../types';
 import { RefreshCcw, Calendar, CheckCircle2, Clock, ChevronDown, ChevronUp, AlertCircle, X, Filter, Search, SlidersHorizontal, Trash2, FileText, Target, Zap, BarChart2 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 
+<<<<<<< HEAD
+export interface RevisoesProps {
+=======
 interface RevisoesProps {
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   records: StudyRecord[];
   missaoAtiva: string;
   editais: EditalMateria[];
@@ -19,6 +26,8 @@ interface PendingReview extends StudyRecord {
   reviewDate: Date;
 }
 
+<<<<<<< HEAD
+=======
 // Helper para pegar data local YYYY-MM-DD
 const getLocalToday = () => {
     const now = new Date();
@@ -28,6 +37,7 @@ const getLocalToday = () => {
     return `${year}-${month}-${day}`;
 };
 
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 // Helper para formatar links
 const formatTextWithLinks = (text: string | undefined) => {
   if (!text) return null;
@@ -133,7 +143,11 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
   const [selectedReview, setSelectedReview] = useState<PendingReview | null>(null);
   
   // States do Modal de Conclusão
+<<<<<<< HEAD
+  const [reviewDate, setReviewDate] = useState(new Date().toISOString().split('T')[0]);
+=======
   const [reviewDate, setReviewDate] = useState(getLocalToday());
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [tempoHHMM, setTempoHHMM] = useState(''); 
   const [reviewQuestions, setReviewQuestions] = useState(0);
   const [reviewCorrect, setReviewCorrect] = useState(0);
@@ -150,7 +164,11 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
   // Reset do formulário ao abrir modal
   useEffect(() => {
     if (selectedReview) {
+<<<<<<< HEAD
+      setReviewDate(new Date().toISOString().split('T')[0]);
+=======
       setReviewDate(getLocalToday());
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       setTempoHHMM('');
       setReviewQuestions(0);
       setReviewCorrect(0);
@@ -160,7 +178,10 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
   // Lógica de Processamento de Revisões
   const { overdue, today, upcomingCount, totalFiltered, materiasOptions } = useMemo(() => {
     const now = new Date();
+<<<<<<< HEAD
+=======
     // Normaliza 'agora' para 00:00 local
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
     now.setHours(0, 0, 0, 0);
 
     const pending: PendingReview[] = [];
@@ -172,10 +193,15 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
     );
 
     activeRecords.forEach(r => {
+<<<<<<< HEAD
+      const studyDate = new Date(r.data_estudo);
+      studyDate.setHours(0, 0, 0, 0);
+=======
       // IMPORTANTE: Trata a string 'YYYY-MM-DD' como data local, não UTC
       const [year, month, day] = r.data_estudo.split('-').map(Number);
       const studyDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
       
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
       const diffDays = Math.floor((now.getTime() - studyDate.getTime()) / (1000 * 3600 * 24));
       
       let type: '24h' | '07d' | '15d' | '30d' | null = null;
@@ -390,4 +416,8 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
   );
 };
 
+<<<<<<< HEAD
 export default Revisoes;
+=======
+export default Revisoes;
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608

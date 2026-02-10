@@ -1,7 +1,14 @@
+<<<<<<< HEAD
+import React, { useState, useEffect, useMemo } from 'react';
+import { supabase } from '../services/supabase';
+import { EditalMateria } from '../types';
+import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar } from 'lucide-react';
+=======
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
 interface StudyFormProps {
   editais: EditalMateria[];
@@ -11,6 +18,12 @@ interface StudyFormProps {
   onCancel?: () => void;
 }
 
+<<<<<<< HEAD
+// FIX: Changed to a named export to resolve module resolution issues.
+export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSaved, isSimulado = false, onCancel }) => {
+  // Form States
+  const [dataEstudo, setDataEstudo] = useState(new Date().toISOString().split('T')[0]);
+=======
 // Helper para pegar data local YYYY-MM-DD
 const getLocalToday = () => {
     const now = new Date();
@@ -23,6 +36,7 @@ const getLocalToday = () => {
 export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSaved, isSimulado = false, onCancel }) => {
   // Form States
   const [dataEstudo, setDataEstudo] = useState(getLocalToday());
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   const [tempoHHMM, setTempoHHMM] = useState('');
   
   // Single Record States
@@ -41,6 +55,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
   // UI States
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{ type: 'success' | 'error' | null, text: string }>({ type: null, text: '' });
+<<<<<<< HEAD
+
+  const materiasDisponiveis = useMemo(() => {
+     return editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort();
+=======
   
   // Custom Dropdown State
   const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
@@ -58,14 +77,19 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
 
   const materiasDisponiveis = useMemo(() => {
      return editais.filter(e => e.concurso === missaoAtiva).sort((a, b) => a.materia.localeCompare(b.materia));
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva]);
 
   // Filtra os tópicos baseados na matéria selecionada (apenas para modo Estudo)
   const topicosDisponiveis = useMemo(() => {
     if (!materia) return [];
     const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === materia);
+<<<<<<< HEAD
+    return edital ? edital.topicos.sort() : [];
+=======
     // Ordenação natural para respeitar números (1., 2., 10., etc)
     return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
   }, [editais, missaoAtiva, materia]);
 
   // Reseta o assunto quando a matéria muda
@@ -77,6 +101,21 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
   const simuladoStats = useMemo(() => {
      let totalAcertos = 0;
      let totalQuestoes = 0;
+<<<<<<< HEAD
+     // Fix: Explicitly type the score object in forEach
+     (Object.values(simuladoScores) as { acertos: string, total: string }[]).forEach(s => {
+        const a = parseInt(s.acertos || '0');
+        const t = parseInt(s.total || '0');
+        if (!isNaN(a)) totalAcertos += a;
+        if (!isNaN(t)) totalQuestoes += t;
+     });
+     return { 
+        acertos: totalAcertos, 
+        total: totalQuestoes, 
+        perc: totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0 
+     };
+  }, [simuladoScores]);
+=======
      
      let weightedPoints = 0;
      let maxWeightedPoints = 0;
@@ -104,6 +143,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         maxWeighted: maxWeightedPoints
      };
   }, [simuladoScores, materiasDisponiveis]);
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
 
   // Stats do Estudo Individual (Live)
   const singleStats = useMemo(() => {
@@ -153,7 +193,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
       setSimuladoScores(prev => ({
           ...prev,
           [materia]: {
+<<<<<<< HEAD
+              ...prev[materia],
+=======
               ...prev[materia] || { acertos: '', total: '' },
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
               [field]: val
           }
       }));
@@ -385,21 +429,50 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     </label>
                 </div>
                 
+<<<<<<< HEAD
+                <div className="grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
+                    <div className="col-span-6">Matéria</div>
+=======
                 {/* Header Desktop - Oculto em Mobile */}
                 <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
                     <div className="col-span-6">Matéria / Peso</div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     <div className="col-span-3 text-center">Acertos</div>
                     <div className="col-span-3 text-center">Total</div>
                 </div>
 
                 <div className="glass bg-slate-900/30 rounded-xl p-1 border border-white/5 space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
                     {materiasDisponiveis.map(mat => {
+<<<<<<< HEAD
+                        const score = simuladoScores[mat] || { acertos: '', total: '' };
+=======
                         const score = simuladoScores[mat.materia] || { acertos: '', total: '' };
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                         const a = parseInt(score.acertos || '0');
                         const t = parseInt(score.total || '0');
                         const isInvalid = t > 0 && a > t;
 
                         return (
+<<<<<<< HEAD
+                            <div key={mat} className="grid grid-cols-12 gap-4 items-center p-2 hover:bg-white/5 rounded-lg transition-colors">
+                                <div className="col-span-6 font-bold text-sm text-slate-300 truncate" title={mat}>{mat}</div>
+                                <div className="col-span-3">
+                                    <input 
+                                    type="number" 
+                                    placeholder="0" 
+                                    className={`w-full bg-slate-950/30 border ${isInvalid ? 'border-red-500 text-red-400' : 'border-white/10 text-green-400'} rounded-lg px-2 py-1.5 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                    value={score.acertos}
+                                    onChange={e => handleSimuladoScoreChange(mat, 'acertos', e.target.value)}
+                                    />
+                                </div>
+                                <div className="col-span-3">
+                                    <input 
+                                    type="number" 
+                                    placeholder="0" 
+                                    className="w-full bg-slate-950/30 border border-white/10 rounded-lg px-2 py-1.5 text-center text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                    value={score.total}
+                                    onChange={e => handleSimuladoScoreChange(mat, 'total', e.target.value)}
+=======
                             <div key={mat.materia} className="grid grid-cols-2 md:grid-cols-12 gap-2 md:gap-4 items-center p-3 md:p-2 hover:bg-white/5 rounded-lg transition-colors border-b border-white/5 md:border-0 last:border-0">
                                 {/* Matéria (Ocupa linha inteira no mobile, ou 6 cols no desktop) */}
                                 <div className="col-span-2 md:col-span-6 flex justify-between md:block items-center mb-1 md:mb-0">
@@ -426,6 +499,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                     className="w-full bg-slate-950/30 border border-white/10 rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                     value={score.total}
                                     onChange={e => handleSimuladoScoreChange(mat.materia, 'total', e.target.value)}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                                     />
                                 </div>
                             </div>
@@ -441,6 +515,21 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     <input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium text-center" value={tempoHHMM} onChange={handleTimeChange} />
                     </div>
 
+<<<<<<< HEAD
+                    <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl border border-white/5 flex justify-between items-center shadow-lg">
+                        <div>
+                            <div className="text-xs font-bold text-slate-400 uppercase mb-1">Resumo da Prova</div>
+                            <div className={`text-sm font-bold uppercase tracking-widest ${simuladoStats.perc >= 80 ? 'text-green-400' : simuladoStats.perc >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                                {simuladoStats.perc.toFixed(1)}% Aproveitamento
+                            </div>
+                        </div>
+                        <div className="text-right">
+                            <div className="text-2xl font-black text-white leading-none">
+                                {simuladoStats.acertos} <span className="text-base text-slate-500 font-medium">/ {simuladoStats.total}</span>
+                            </div>
+                            <div className="text-[10px] text-slate-500 uppercase font-bold mt-1">Questões Totais</div>
+                        </div>
+=======
                     <div className="bg-gradient-to-r from-slate-800 to-slate-900 p-4 rounded-xl border border-white/5 flex flex-col justify-center shadow-lg gap-2">
                         <div className="flex justify-between items-center">
                             <div>
@@ -464,6 +553,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                 </div>
                             </div>
                         )}
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     </div>
                 </div>
                 </div>
@@ -483,6 +573,16 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                             <label className="text-[10px] font-bold text-slate-500 uppercase">Matéria</label>
                             <select required className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium appearance-none" value={materia} onChange={(e) => setMateria(e.target.value)}>
                                 <option value="">Selecione...</option>
+<<<<<<< HEAD
+                                {materiasDisponiveis.map(m => <option key={m} value={m}>{m}</option>)}
+                            </select>
+                        </div>
+                    </div>
+                    <div className="space-y-1">
+                        <label className="text-[10px] font-bold text-slate-500 uppercase">Assunto / Tópico</label>
+                        <input type="text" required list="topicos-options" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-1 focus:ring-purple-500/50 transition-all text-white font-medium placeholder-slate-600" value={assunto} onChange={(e) => setAssunto(e.target.value)} placeholder="Ex: Crase" />
+                        {materia && <datalist id="topicos-options">{topicosDisponiveis.map((t: string, index: number) => <option key={index} value={t} />)}</datalist>}
+=======
                                 {materiasDisponiveis.map(m => <option key={m.materia} value={m.materia}>{m.materia}</option>)}
                             </select>
                         </div>
@@ -532,6 +632,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                 </div>
                             )}
                         </div>
+>>>>>>> a5cbf2e84d7d3f1a06c931c5a4a3cb9ad2767608
                     </div>
                 </div>
 
