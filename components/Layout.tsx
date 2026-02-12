@@ -1,11 +1,11 @@
 import React, { useState } from 'react';
-import { 
-  Home, 
-  PencilLine, 
-  RotateCcw, 
-  History as HistoryIcon, 
-  Trophy, 
-  Settings, 
+import {
+  Home,
+  PencilLine,
+  RotateCcw,
+  History as HistoryIcon,
+  Trophy,
+  Settings,
   LogOut,
   Menu,
   CalendarCheck,
@@ -34,12 +34,12 @@ interface LayoutProps {
 // Safe version check
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.17';
 
-const Layout: React.FC<LayoutProps> = ({ 
-  children, 
-  activeView, 
-  setActiveView, 
-  userEmail, 
-  onLogout, 
+const Layout: React.FC<LayoutProps> = ({
+  children,
+  activeView,
+  setActiveView,
+  userEmail,
+  onLogout,
   missaoAtiva
 }) => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -62,10 +62,10 @@ const Layout: React.FC<LayoutProps> = ({
   ];
 
   return (
-    <div className="min-h-screen flex bg-[#12151D] text-white font-['Montserrat']">
+    <div className="min-h-screen flex bg-[#0B0E14] text-[#E2E8F0] font-['Montserrat']">
       {/* Mobile Overlay */}
       {sidebarOpen && (
-        <div className="fixed inset-0 bg-black/80 z-[60] lg:hidden backdrop-blur-sm" onClick={() => setSidebarOpen(false)} />
+        <div className="fixed inset-0 bg-black/80 z-[60] lg:hidden backdrop-blur-md" onClick={() => setSidebarOpen(false)} />
       )}
 
       {/* Sidebar */}
@@ -73,58 +73,56 @@ const Layout: React.FC<LayoutProps> = ({
         fixed lg:sticky top-0 left-0 h-screen 
         ${isCollapsed ? 'lg:w-20' : 'lg:w-64'}
         w-64
-        bg-[#12151D] lg:bg-[#12151D]/80 lg:backdrop-blur-xl border-r border-white/10
+        bg-[#0B0E14] lg:bg-[#0B0E14]/90 lg:backdrop-blur-xl border-r border-[#22D3EE1A]
         z-[70] transition-all duration-300 flex flex-col shadow-2xl lg:shadow-none
         ${sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
       `}>
         {/* Mobile Close Button */}
-        <button 
-            onClick={() => setSidebarOpen(false)} 
-            className="lg:hidden absolute top-4 right-4 p-2 text-slate-400 hover:text-white"
+        <button
+          onClick={() => setSidebarOpen(false)}
+          className="lg:hidden absolute top-4 right-4 p-2 text-slate-500 hover:text-white"
         >
-            <X size={20} />
+          <X size={20} />
         </button>
 
         {/* Desktop Collapse Button */}
-        <button 
+        <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden lg:flex absolute -right-3 top-8 bg-slate-800 border border-white/10 text-slate-400 p-1.5 rounded-full hover:text-white hover:bg-cyan-500 transition-all z-50 shadow-lg"
+          className="hidden lg:flex absolute -right-3 top-8 bg-[#0B0E14] border border-[#22D3EE33] text-[#22D3EE] p-1.5 rounded-full hover:bg-[#22D3EE] hover:text-[#0B0E14] transition-all z-50 shadow-[0_0_10px_rgba(34,211,238,0.2)]"
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
 
         <div className={`flex flex-col h-full ${isCollapsed ? 'p-2' : 'p-4'}`}>
-          <div className={`flex items-center gap-3 mb-8 shrink-0 transition-all mt-2 lg:mt-0 ${isCollapsed ? 'justify-center' : 'px-2'}`}>
-            <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-xl shadow-lg shadow-purple-500/20 shrink-0">
-              🎯
-            </div>
-            {!isCollapsed && (
-              <div className="animate-in fade-in duration-300 overflow-hidden whitespace-nowrap">
-                <h1 className="text-lg font-extrabold tracking-tighter leading-none">
-                  Monitor<span className="bg-white text-[#12151D] px-1 rounded ml-0.5">PRO</span>
+          <div className={`flex items-center gap-3 mb-10 shrink-0 transition-all mt-2 lg:mt-0 ${isCollapsed ? 'justify-center' : 'px-2'}`}>
+            <div className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''}`}>
+              <div className="w-2 h-8 bg-[#22D3EE] rounded-full" />
+              {!isCollapsed && (
+                <h1 className="text-xl font-extrabold tracking-tighter leading-none text-white">
+                  MONITOR<span className="text-[#22D3EE] ml-1">PRO</span>
                 </h1>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <div className={`
-            bg-slate-900/30 border border-white/5 rounded-xl mb-6 shrink-0 transition-all
-            ${isCollapsed ? 'p-2' : 'p-3'}
+            bg-[#1E293B33] border border-white/5 rounded-2xl mb-8 shrink-0 transition-all
+            ${isCollapsed ? 'p-2' : 'p-4'}
           `}>
             <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 border border-white/10 shrink-0">
-                <User size={16} />
+              <div className="w-10 h-10 rounded-xl bg-[#0F172A] flex items-center justify-center text-[#22D3EE] border border-[#22D3EE1A] shrink-0">
+                <User size={18} />
               </div>
               {!isCollapsed && (
                 <div className="overflow-hidden animate-in fade-in duration-300 min-w-0">
                   <div className="font-bold text-white text-xs truncate">{userEmail.split('@')[0]}</div>
-                  <div className="text-[10px] text-slate-500 uppercase tracking-wider">Usuário</div>
+                  <div className="text-[10px] text-[#22D3EE] uppercase tracking-widest font-bold opacity-70">Perfil</div>
                 </div>
               )}
             </div>
           </div>
 
-          <nav className="flex-1 space-y-1.5 overflow-y-auto overflow-x-hidden custom-scrollbar">
+          <nav className="flex-1 space-y-1 overflow-y-auto overflow-x-hidden custom-scrollbar pr-1">
             {menuItems.map((item: any) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
@@ -135,67 +133,70 @@ const Layout: React.FC<LayoutProps> = ({
                     setActiveView(item.id as ViewType);
                     setSidebarOpen(false);
                   }}
-                  className={`w-full flex items-center gap-3.5 rounded-lg transition-all duration-200 text-sm group relative
-                    ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3 lg:py-2.5'}
-                    ${isActive 
-                      ? 'bg-purple-500/10 text-white'
-                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                  className={`w-full flex items-center gap-3.5 rounded-xl transition-all duration-300 text-sm group relative
+                    ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'}
+                    ${isActive
+                      ? 'bg-[#22D3EE1A] text-[#22D3EE] shadow-[inset_0_0_10px_rgba(34,211,238,0.05)]'
+                      : 'text-slate-500 hover:text-white hover:bg-white/5'
                     }
                   `}
                   title={isCollapsed ? item.label : ''}
                 >
-                  {isActive && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-cyan-400 rounded-r-full animate-in fade-in" />}
-                  <Icon size={18} className={`${isActive ? 'text-cyan-300' : 'text-slate-500 group-hover:text-white'} transition-colors shrink-0`} />
+                  <Icon size={18} className={`${isActive ? 'text-[#22D3EE]' : 'text-slate-600 group-hover:text-slate-300'} transition-colors shrink-0`} />
                   {!isCollapsed && (
-                    <div className="flex-1 flex justify-between items-center animate-in fade-in duration-200">
-                      <span className="truncate text-left">{item.label}</span>
-                      {item.isNew && <span className="text-[9px] font-bold bg-cyan-500 text-white px-1.5 py-0.5 rounded uppercase tracking-widest">Novo</span>}
+                    <div className="flex-1 flex justify-between items-center animate-in fade-in duration-300">
+                      <span className={`truncate text-left font-medium ${isActive ? 'text-white' : ''}`}>{item.label}</span>
+                      {item.isNew && <span className="text-[8px] font-black bg-[#22D3EE] text-[#0B0E14] px-1.5 py-0.5 rounded-sm uppercase tracking-tighter">New</span>}
                     </div>
                   )}
+                  {isActive && !isCollapsed && <div className="absolute left-0 top-1/2 -translate-y-1/2 h-5 w-1 bg-[#22D3EE] rounded-r-full shadow-[0_0_10px_rgba(34,211,238,0.5)]" />}
                 </button>
               );
             })}
           </nav>
 
           <div className="mt-4 shrink-0 space-y-2 pb-4 lg:pb-0">
-            {!isCollapsed && (
-                <div className="text-center text-[10px] text-slate-600 font-mono">
-                    v{APP_VERSION}
-                </div>
-            )}
             <button
               onClick={onLogout}
-              className={`flex items-center gap-3.5 text-slate-400 hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-sm w-full
-                ${isCollapsed ? 'justify-center p-3' : 'px-4 py-2.5'}
+              className={`flex items-center gap-3.5 text-slate-500 hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all text-sm w-full
+                ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'}
               `}
               title={isCollapsed ? 'Sair' : ''}
             >
               <LogOut size={18} />
-              {!isCollapsed && <span>Sair</span>}
+              {!isCollapsed && <span className="font-medium">Sair</span>}
             </button>
+            {!isCollapsed && (
+              <div className="text-center text-[9px] text-slate-700 font-bold tracking-widest uppercase opacity-50">
+                Version {APP_VERSION}
+              </div>
+            )}
           </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="flex-1 min-w-0 relative transition-all duration-300 flex flex-col">
+      <main className="flex-1 min-w-0 relative transition-all duration-300 flex flex-col bg-[#0B0E14]">
         {/* Mobile Header */}
-        <header className="lg:hidden sticky top-0 z-[50] flex items-center justify-between p-4 bg-[#12151D]/90 backdrop-blur-md border-b border-white/5 shadow-md">
+        <header className="lg:hidden sticky top-0 z-[50] flex items-center justify-between p-4 bg-[#0B0E14]/90 backdrop-blur-md border-b border-[#22D3EE1A] shadow-md">
           <div className="flex items-center gap-3">
-              <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-slate-300 hover:text-white"><Menu size={24} /></button>
-              <span className="font-bold text-sm tracking-tight text-white">MONITOR<span className="text-cyan-400">PRO</span></span>
+            <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-slate-400 hover:text-[#22D3EE]"><Menu size={24} /></button>
+            <span className="font-extrabold text-sm tracking-tighter text-white">MONITOR<span className="text-[#22D3EE] ml-0.5">PRO</span></span>
           </div>
-          <div className="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400 border border-white/10"><User size={16} /></div>
+          <div className="w-8 h-8 rounded-lg bg-[#1E293B33] flex items-center justify-center text-[#22D3EE] border border-[#22D3EE1A]"><User size={16} /></div>
         </header>
 
-        <div className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-8 pb-24">
-          <div className="mb-6 lg:mb-8">
-            <h2 className="text-xl lg:text-3xl font-extrabold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase tracking-tight break-words">
+        <div className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-10 pb-24">
+          <div className="mb-10">
+            <h2 className="text-2xl lg:text-4xl font-black text-white uppercase tracking-tighter break-words">
               {missaoAtiva || 'Selecione uma Missão'}
             </h2>
-            <p className="text-slate-500 font-medium uppercase tracking-widest text-[10px] lg:text-xs mt-1 flex items-center gap-2">
-              {activeView.replace('_', ' ')} <span className="w-1 h-1 bg-slate-500 rounded-full"/> {new Date().toLocaleDateString('pt-BR')}
-            </p>
+            <div className="flex items-center gap-3 mt-2">
+              <div className="h-1 w-12 bg-[#22D3EE] rounded-full" />
+              <p className="text-slate-500 font-bold uppercase tracking-widest text-[10px] lg:text-xs">
+                {activeView.replace('_', ' ')} <span className="mx-2 opacity-30">|</span> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+              </p>
+            </div>
           </div>
           {children}
         </div>

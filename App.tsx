@@ -58,7 +58,7 @@ const App: React.FC = () => {
     handleRecordDelete,
     handleMultipleRecordDelete
   } = useAppData(session);
-  
+
   const handleLogout = async () => {
     setLoading(true);
     // FIX: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signOut' property.
@@ -73,7 +73,7 @@ const App: React.FC = () => {
       setLoading(false);
       return;
     }
-  
+
     // Imediatamente verifica a sessão ativa para evitar o flash da tela de login.
     // Este é o método mais robusto para restaurar a sessão no Supabase.
     (supabase.auth as any).getSession().then(({ data: { session } }: { data: { session: any } }) => {
@@ -86,7 +86,7 @@ const App: React.FC = () => {
       }
       setLoading(false); // Essencial: para o loading apenas após a verificação inicial.
     });
-  
+
     // Em seguida, inscreve-se para futuras mudanças de estado de autenticação (login, logout).
     const { data: { subscription } } = (supabase.auth as any).onAuthStateChange((_event: any, session: any) => {
       setSession(session);
@@ -98,7 +98,7 @@ const App: React.FC = () => {
         setUserEmail(cachedEmail || '');
       }
     });
-  
+
     return () => {
       subscription.unsubscribe();
     };
@@ -118,17 +118,22 @@ const App: React.FC = () => {
   };
 
   if (loading) return (
-    <div className="min-h-screen bg-[#12151D] flex flex-col items-center justify-center gap-4">
-      <Loader2 className="w-12 h-12 text-purple-500 animate-spin" />
-      <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">MonitorPro v{APP_VERSION}</p>
-      <p className="text-slate-600 text-[10px] animate-pulse">Restaurando sessão...</p>
+    <div className="min-h-screen bg-[#0B0E14] flex flex-col items-center justify-center gap-6">
+      <div className="relative">
+        <Loader2 className="w-16 h-16 text-[#22D3EE] animate-spin opacity-20" />
+        <Loader2 className="w-16 h-16 text-[#22D3EE] animate-spin absolute inset-0" style={{ animationDuration: '3s' }} />
+      </div>
+      <div className="flex flex-col items-center gap-1">
+        <p className="text-white text-xs font-black uppercase tracking-[0.3em] opacity-50">Monitor<span className="text-[#22D3EE]">Pro</span> v{APP_VERSION}</p>
+        <p className="text-[#22D3EE] text-[9px] font-bold uppercase tracking-widest animate-pulse">Iniciando interface segura...</p>
+      </div>
     </div>
   );
 
   if (needsConfig) return <ConfigScreen initialError={!isConfigured ? "Ambiente não configurado." : "Sessão expirada."} />;
 
   if (!session && !isOfflineMode) return <Login />;
-  
+
   if (showOnboarding && !dataLoading && !isOfflineMode) return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={userEmail} />;
 
   const renderView = () => {
@@ -157,8 +162,8 @@ const App: React.FC = () => {
       {backgroundSyncing && !isOfflineMode && (<div className="fixed bottom-4 right-4 bg-slate-800 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg border border-white/5 z-[100] animate-in fade-in"><RefreshCw size={10} className="animate-spin" /> v{APP_VERSION}</div>)}
       {isOfflineMode && !isError && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-3 rounded-xl mb-6 flex items-center justify-between gap-4 text-xs font-bold shadow-lg animate-in slide-in-from-top-2">
-            <div className="flex items-center gap-2"><Database size={16} /><span>Modo Offline (v{APP_VERSION}).</span><span className="hidden md:inline font-normal opacity-70">Exibindo dados do cache. Algumas funções podem estar limitadas.</span></div>
-            {session ? (<button onClick={() => session?.user?.id && fetchData(session.user.id)} className="underline hover:text-white flex items-center gap-1"><RefreshCw size={12} /> Tentar Conectar</button>) : (<button onClick={handleLogout} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all"><LogIn size={12} /> Fazer Login</button>)}
+          <div className="flex items-center gap-2"><Database size={16} /><span>Modo Offline (v{APP_VERSION}).</span><span className="hidden md:inline font-normal opacity-70">Exibindo dados do cache. Algumas funções podem estar limitadas.</span></div>
+          {session ? (<button onClick={() => session?.user?.id && fetchData(session.user.id)} className="underline hover:text-white flex items-center gap-1"><RefreshCw size={12} /> Tentar Conectar</button>) : (<button onClick={handleLogout} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all"><LogIn size={12} /> Fazer Login</button>)}
         </div>
       )}
       {isError && (<div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold shadow-lg animate-in slide-in-from-top-2"><div className="flex items-center gap-3"><div className="p-2 bg-red-500/20 rounded-full animate-pulse"><WifiOff size={20} /></div><div className="flex flex-col"><span>Falha na Conexão.</span><span className="text-[10px] opacity-70 font-normal">Não foi possível baixar seus dados e não há cópia local.</span></div></div><button onClick={() => session?.user?.id && fetchData(session.user.id)} className="md:ml-auto flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all active:scale-95"><RefreshCw size={14} /> Tentar Novamente</button></div>)}
