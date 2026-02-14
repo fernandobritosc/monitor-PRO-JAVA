@@ -117,15 +117,21 @@ export const getGeminiKey = () => {
     }
   }
 
-  // 2. Fallback: Chave injetada durante o build (p. ex., das Environment Variables da Vercel).
-  //    Acessada através de `process.env.API_KEY` conforme definido em vite.config.ts.
+  // 2. Fallback: Chave injetada durante o build (Vite / Vercel).
   let envKey = "";
   try {
-    if (typeof process !== 'undefined' && process.env.API_KEY) {
+    // Tenta primeiro o padrão moderno do Vite
+    // @ts-ignore
+    if (typeof import.meta !== 'undefined' && import.meta.env) {
+      envKey = import.meta.env.VITE_GOOGLE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
+    }
+
+    // Se não encontrar, tenta o process.env injetado via define no vite.config.ts
+    if (!envKey && typeof process !== 'undefined' && process.env.API_KEY) {
       envKey = process.env.API_KEY ?? '';
     }
   } catch (e) {
-    // Em alguns ambientes, `process` pode não estar definido.
+    // Fallback silencioso para ambientes onde process ou import.meta não existem
   }
 
   if (envKey && envKey.length > 10) {
