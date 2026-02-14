@@ -103,7 +103,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
         {/* Desktop Collapse Toggle */}
         <button
           onClick={() => setIsCollapsed(!isCollapsed)}
-          className="hidden lg:flex absolute -right-3 top-8 bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] text-[hsl(var(--accent))] p-1.5 rounded-full hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--bg-main))] transition-all z-[80] shadow-lg shadow-black/20"
+          className="hidden lg:flex absolute -right-3 top-8 bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] text-[hsl(var(--accent))] p-1.5 rounded-full hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--bg-main))] transition-all z-[80]"
         >
           {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
@@ -111,7 +111,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
         {/* Logo Section */}
         <div className="p-6 shrink-0 flex items-center justify-between">
           <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'lg:opacity-0' : 'opacity-100'}`}>
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] flex items-center justify-center text-xl shadow-lg shadow-[hsl(var(--accent)/0.2)]">
+            <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] flex items-center justify-center text-xl">
               🎯
             </div>
             <div>
@@ -177,7 +177,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
                   </div>
                 )}
                 {isActive && (
-                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[hsl(var(--accent))] rounded-r-full shadow-[0_0_15px_hsl(var(--accent)/0.8)]" />
+                  <div className="absolute left-0 top-1/2 -translate-y-1/2 h-6 w-1 bg-[hsl(var(--accent))] rounded-r-full" />
                 )}
               </button>
             );
@@ -243,7 +243,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
                   {missaoAtiva || 'Selecione uma Missão'}
                 </h2>
                 <div className="flex items-center gap-3">
-                  <div className="h-1 w-16 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full shadow-[0_0_15px_hsl(var(--accent)/0.5)]" />
+                  <div className="h-1 w-16 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full" />
                   <p className="text-[hsl(var(--text-muted))] font-bold uppercase tracking-[0.2em] text-[10px] lg:text-xs">
                     {activeView.replace('_', ' ')} <span className="mx-2 opacity-20">|</span> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
                   </p>

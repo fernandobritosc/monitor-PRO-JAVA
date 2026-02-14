@@ -203,7 +203,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
             <button
               key={p.val}
               onClick={() => setFilterPeriod(p.val)}
-              className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all duration-300 ${filterPeriod === p.val ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-[0_0_20px_hsl(var(--accent)/0.3)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-white/5'}`}
+              className={`px-6 py-2 rounded-xl text-[10px] font-black tracking-widest transition-all duration-300 ${filterPeriod === p.val ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-white/5'}`}
             >
               {p.label}
             </button>
@@ -314,7 +314,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
         </div>
 
         {/* COLUNA DIREITA: RESUMO DO DIA (DESIGN PREMIUM) */}
-        <div className="lg:col-span-1 glass-premium rounded-[2.5rem] flex flex-col overflow-hidden transition-all duration-500 hover:shadow-[hsl(var(--accent)/0.1)] h-[450px] md:h-[500px]">
+        <div className="lg:col-span-1 glass-premium rounded-[2.5rem] flex flex-col overflow-hidden transition-all duration-500 h-[450px] md:h-[500px]">
           {/* Header */}
           <div className="p-8 border-b border-[hsl(var(--border))] bg-[hsl(var(--bg-user-block)/0.3)] flex justify-between items-start shrink-0">
             <div>
@@ -444,7 +444,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
             </button>
             <button
               onClick={() => setAnalysisTab('errors')}
-              className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'errors' ? 'bg-red-500 text-white shadow-lg shadow-red-500/20' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}
+              className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'errors' ? 'bg-red-500 text-white' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}
             >
               Análise de Erros
             </button>

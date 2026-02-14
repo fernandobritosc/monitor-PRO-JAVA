@@ -486,7 +486,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                           <button
                             onClick={handlePlayNeural}
                             disabled={!aiStreamText || isGeneratingPodcast}
-                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && !isGeneratingPodcast ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}
+                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && !isGeneratingPodcast ? 'bg-indigo-600 text-white' : 'text-slate-400 hover:text-white'}`}
                             title="Ouvir Explicação (Solo)"
                           >
                             <Volume2 size={18} />
@@ -494,7 +494,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                           <button
                             onClick={handlePodcastDuo}
                             disabled={!aiStreamText || isGeneratingPodcast}
-                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && isGeneratingPodcast ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20 animate-pulse' : 'text-slate-400 hover:text-pink-400'}`}
+                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && isGeneratingPodcast ? 'bg-pink-600 text-white animate-pulse' : 'text-slate-400 hover:text-pink-400'}`}
                             title="Podcast Duo (Alex & Bia)"
                           >
                             <Headphones size={18} />
@@ -798,7 +798,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
               ) : (
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                   {filteredCards.map((card: Flashcard) => (
-                    <div key={card.id} id={`card-${card.id}`} className={`glass-premium bg-[hsl(var(--bg-card))] border-2 rounded-[2rem] p-8 transition-all group relative duration-500 overflow-hidden ${duplicateWarningId === card.id ? 'ring-4 ring-red-500 bg-red-500/10 animate-pulse z-10' : ''} ${editingId === card.id ? 'border-yellow-500 shadow-2xl scale-[1.02]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.5)] hover:shadow-2xl hover:scale-[1.02]'}`}>
+                    <div key={card.id} id={`card-${card.id}`} className={`glass-premium bg-[hsl(var(--bg-card))] border-2 rounded-[2rem] p-8 transition-all group relative duration-500 overflow-hidden ${duplicateWarningId === card.id ? 'ring-4 ring-red-500 bg-red-500/10 animate-pulse z-10' : ''} ${editingId === card.id ? 'border-yellow-500 scale-[1.02]' : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.5)] hover:scale-[1.02]'}`}>
                       <div className="absolute -right-6 -top-6 w-24 h-24 bg-[hsl(var(--accent)/0.03)] rounded-full blur-2xl group-hover:bg-[hsl(var(--accent)/0.1)] transition-all"></div>
 
                       <div className="flex justify-between items-start mb-6 relative z-10">

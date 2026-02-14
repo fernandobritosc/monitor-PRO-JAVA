@@ -13,11 +13,6 @@ interface KPICardProps {
 const KPICard: React.FC<KPICardProps> = ({ label, value, percentage, icon, trend, trendUp, color }) => {
     return (
         <div className="glass-premium rounded-3xl p-6 group transition-all duration-500 hover:-translate-y-1 active:scale-95 shadow-2xl">
-            {/* Background Glow */}
-            <div
-                className="absolute -right-10 -top-10 w-32 h-32 rounded-full blur-[60px] opacity-20 transition-all duration-500 group-hover:opacity-30"
-                style={{ backgroundColor: `hsl(${color})` }}
-            />
 
             <div className="relative z-10">
                 <div className="flex justify-between items-start mb-6">

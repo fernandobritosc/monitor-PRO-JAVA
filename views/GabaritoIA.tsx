@@ -450,20 +450,20 @@ const GabaritoIA: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-4">
-            <button onClick={() => setShowManualAddModal(true)} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all shadow-xl">
+            <button onClick={() => setShowManualAddModal(true)} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
               <PlusCircle size={16} className="text-emerald-400" /> Adicionar Item
             </button>
-            <button onClick={generatePDF} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all shadow-xl">
+            <button onClick={generatePDF} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
               <Download size={16} className="text-blue-400" /> Exportar Dossiê
             </button>
-            <button onClick={handleUpdate} className="px-8 py-4 bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 transition-all hover:scale-105 active:scale-95 shadow-2xl shadow-[hsl(var(--accent)/0.3)]">
+            <button onClick={handleUpdate} className="px-8 py-4 bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 transition-all hover:scale-105 active:scale-95">
               <Save size={16} /> Consolidar Alterações
             </button>
           </div>
         </div>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-          <div className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+          <div className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2.5rem] p-10 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none rotate-12">
               <Sparkles size={120} />
             </div>
@@ -473,7 +473,7 @@ const GabaritoIA: React.FC = () => {
             {scores && <PieChartComponent data={scores.dataVsAI} colors={['hsl(var(--accent))', 'hsl(var(--bg-user-block))']} score={scores.totals.scoreAI} total={scores.totals.totalAI} />}
           </div>
 
-          <div className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2.5rem] p-10 shadow-2xl relative overflow-hidden">
+          <div className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2.5rem] p-10 relative overflow-hidden">
             <div className="absolute top-0 right-0 p-8 opacity-[0.03] pointer-events-none -rotate-12">
               <BarChart size={120} />
             </div>
@@ -675,7 +675,7 @@ const GabaritoIA: React.FC = () => {
           {processing ? (
             <div className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2.5rem] p-16 text-center shadow-2xl relative overflow-hidden">
               <div className="absolute inset-0 bg-gradient-to-b from-cyan-500/5 to-transparent pointer-events-none"></div>
-              <Loader2 size={64} className="mx-auto animate-spin text-[hsl(var(--accent))] mb-10 drop-shadow-[0_0_15px_hsl(var(--accent)/0.5)]" />
+              <Loader2 size={64} className="mx-auto animate-spin text-[hsl(var(--accent))] mb-10" />
               <h3 className="text-2xl font-black text-white uppercase tracking-widest mb-2">Auditoria Neural em Curso</h3>
               <p className="text-[10px] text-[hsl(var(--text-muted))] font-bold uppercase tracking-[0.3em] mb-12">Processando Página {progress.current} de {progress.total}</p>
               <div className="max-w-md mx-auto relative">
