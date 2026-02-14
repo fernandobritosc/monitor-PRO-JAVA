@@ -489,7 +489,7 @@ export const handlePlayRevisionAudio = async (
     console.log("🎙️ Áudio elite (v2.5 TTS)...");
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-2.0-flash", // Nome atualizado
       contents: [{ parts: [{ text: text.substring(0, 4000) }] }],
       config: {
         responseModalities: [Modality.AUDIO],
@@ -567,14 +567,14 @@ export const generatePodcastAudio = async (
     onStatusChange("Escrevendo roteiro...");
     const scriptPrompt = `Converta o seguinte texto em um diálogo de podcast curto entre Alex e Bia. Formato estrito: Alex: [fala] Bia: [fala]. Texto: "${originalText.substring(0, 3000)}"`;
     const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
+      model: 'gemini-1.5-flash',
       contents: [{ role: 'user', parts: [{ text: scriptPrompt }] }]
     });
     const scriptText = scriptResponse.text || '';
 
     onStatusChange("Gravando Dual Podcast (Gemini 2.5 TTS)...");
     const audioResponse = await ai.models.generateContent({
-      model: "gemini-2.5-flash-preview-tts",
+      model: "gemini-2.0-flash", // Nome atualizado
       contents: [{ parts: [{ text: scriptText }] }],
       config: {
         responseModalities: [Modality.AUDIO],

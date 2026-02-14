@@ -472,6 +472,35 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                           <p className="text-[9px] font-bold text-slate-400 uppercase tracking-tighter">Motor Cognitivo: {getActiveProviderName()}</p>
                         </div>
                       </div>
+
+                      {/* Podcast & Audio Controls */}
+                      <div className="flex items-center gap-3">
+                        {isGeneratingPodcast && (
+                          <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-xl animate-in zoom-in">
+                            <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
+                            <span className="text-[9px] font-black text-pink-400 uppercase tracking-widest">{podcastStatus || "Processando..."}</span>
+                          </div>
+                        )}
+
+                        <div className="flex p-1 bg-black/20 rounded-xl border border-white/5">
+                          <button
+                            onClick={handlePlayNeural}
+                            disabled={!aiStreamText || isGeneratingPodcast}
+                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && !isGeneratingPodcast ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-600/20' : 'text-slate-400 hover:text-white'}`}
+                            title="Ouvir Explicação (Solo)"
+                          >
+                            <Volume2 size={18} />
+                          </button>
+                          <button
+                            onClick={handlePodcastDuo}
+                            disabled={!aiStreamText || isGeneratingPodcast}
+                            className={`p-2.5 rounded-lg transition-all ${isPlayingNeural && isGeneratingPodcast ? 'bg-pink-600 text-white shadow-lg shadow-pink-600/20 animate-pulse' : 'text-slate-400 hover:text-pink-400'}`}
+                            title="Podcast Duo (Alex & Bia)"
+                          >
+                            <Headphones size={18} />
+                          </button>
+                        </div>
+                      </div>
                     </div>
 
                     {/* Lab Navigation */}
