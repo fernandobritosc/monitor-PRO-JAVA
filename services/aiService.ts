@@ -20,6 +20,25 @@ export interface AIStreamCallback {
 }
 
 /**
+ * Processa erros de API de IA e retorna uma mensagem amigável.
+ */
+const processAIError = (error: any, provider: 'Gemini' | 'Groq'): Error => {
+  console.error(`Erro no ${provider}:`, error);
+  let friendlyMessage = error.message || `Erro desconhecido na API ${provider}`;
+
+  if (typeof friendlyMessage === 'string') {
+    if (provider === 'Gemini' && (friendlyMessage.includes('API key expired') || friendlyMessage.includes('API_KEY_INVALID'))) {
+      friendlyMessage = `Sua chave de API do Gemini expirou ou é inválida. Por favor, vá em Configurar > Sistema & API para atualizar sua chave.`;
+    }
+    if (provider === 'Groq' && friendlyMessage.includes('invalid_api_key')) {
+      friendlyMessage = `Sua chave de API do Groq é inválida. Por favor, vá em Configurar > Sistema & API para atualizar sua chave.`;
+    }
+  }
+
+  return new Error(`${provider} Error: ${friendlyMessage}`);
+};
+
+/**
  * Detecta qual provedor de IA usar baseado nas chaves disponíveis
  */
 export const detectAIProvider = (
@@ -54,38 +73,50 @@ export const detectAIProvider = (
 const streamWithGemini = async (
   apiKey: string,
   prompt: string,
-  callbacks: AIStreamCallback
+  callbacks: AIStreamCallback,
+  context: 'flashcard' | 'general' = 'general'
 ): Promise<void> => {
-  try {
-    console.log('🤖 Iniciando streaming com Gemini SDK (gemini-3-flash-preview)...');
-    
-    const ai = new GoogleGenAI({ apiKey });
+  const models = ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  let lastError: any = null;
 
-    // PROMPT OTIMIZADO PARA GEMINI: Direto, conciso e focado em mnemônicos.
-    const fullPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico para o flashcard a seguir:\n\n${prompt}`;
-    
-    const response = await ai.models.generateContentStream({
-      model: 'gemini-3-flash-preview', 
-      contents: fullPrompt,
-      config: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-      }
-    });
+  // Prompts sincronizados com o snippet do usuário
+  const flashcardPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico para o flashcard a seguir:\n\n${prompt}`;
+  const generalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.`;
+  const finalPrompt = context === 'flashcard' ? flashcardPrompt : `${generalPrompt}\n\nConteúdo: ${prompt}`;
 
-    for await (const chunk of response) {
-      if (chunk.text) {
-        callbacks.onChunk(chunk.text);
+  for (const modelId of models) {
+    try {
+      console.log(`🤖 Tentando streaming Gemini SDK (${modelId}) para ${context}...`);
+      const ai = new GoogleGenAI({ apiKey });
+
+      const result = await ai.models.generateContentStream({
+        model: modelId,
+        contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
+        config: {
+          temperature: 0.7,
+          maxOutputTokens: 2048,
+        }
+      });
+
+      for await (const chunk of result) {
+        const text = chunk.text;
+        if (text) {
+          callbacks.onChunk(text);
+        }
       }
+
+      console.log(`✅ Streaming Gemini (${modelId}) completo`);
+      callbacks.onComplete();
+      return;
+    } catch (error: any) {
+      lastError = error;
+      console.warn(`⚠️ Falha no modelo ${modelId}:`, error.message);
+      // Se for erro de autenticação ou cota, não adianta trocar modelo
+      if (error.message?.includes('API_KEY') || error.message?.includes('quota')) break;
     }
-
-    console.log('✅ Streaming Gemini completo');
-    callbacks.onComplete();
-  } catch (error: any) {
-    console.error('Erro no Gemini:', error);
-    const msg = error.message || 'Erro desconhecido na API Gemini';
-    callbacks.onError(new Error(`Gemini Error: ${msg}`));
   }
+
+  callbacks.onError(processAIError(lastError, 'Gemini'));
 };
 
 /**
@@ -99,9 +130,7 @@ const streamWithGroq = async (
   try {
     console.log('🚀 Iniciando streaming com Groq...');
 
-    const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:
-- **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.
-- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito. Se possível, use um cenário de concurso público.`;
+    const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito. Se possível, use um cenário de concurso público.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -113,7 +142,7 @@ const streamWithGroq = async (
         model: 'llama-3.3-70b-versatile',
         messages: [
           { role: 'system', content: systemPrompt },
-          { role: 'user', content: `Analise o seguinte flashcard:\n\n${prompt}` }
+          { role: 'user', content: `Analise o seguinte conteúdo:\n\n${prompt}` }
         ],
         temperature: 0.5,
         max_tokens: 4096,
@@ -123,8 +152,7 @@ const streamWithGroq = async (
 
     if (!response.ok) {
       const errorText = await response.text();
-      console.error('Erro Groq API:', errorText);
-      throw new Error(`Groq API error: ${response.status} ${response.statusText}`);
+      throw new Error(`Groq API error: ${response.status}`);
     }
 
     const reader = response.body?.getReader();
@@ -165,9 +193,8 @@ const streamWithGroq = async (
 
     console.log('✅ Streaming Groq completo');
     callbacks.onComplete();
-  } catch (error) {
-    console.error('Erro no Groq:', error);
-    callbacks.onError(error as Error);
+  } catch (error: any) {
+    callbacks.onError(processAIError(error, 'Groq'));
   }
 };
 
@@ -191,9 +218,30 @@ export const streamAIContent = async (
 
   try {
     if (config.provider === 'gemini') {
-      await streamWithGemini(config.apiKey, prompt, callbacks);
+      try {
+        const isFlashcard = prompt.toLowerCase().includes('flashcard') || prompt.toLowerCase().includes('mnemônico');
+        await streamWithGemini(config.apiKey, prompt, callbacks, isFlashcard ? 'flashcard' : 'general');
+      } catch (err: any) {
+        // Fallback para Groq se Gemini falhar
+        if (groqKey && groqKey.length > 10) {
+          callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou. Ativando Groq automaticamente...]\n\n`);
+          await streamWithGroq(groqKey, prompt, callbacks);
+        } else {
+          throw err;
+        }
+      }
     } else {
-      await streamWithGroq(config.apiKey, prompt, callbacks);
+      try {
+        await streamWithGroq(config.apiKey, prompt, callbacks);
+      } catch (err: any) {
+        // Fallback para Gemini se Groq falhar
+        if (geminiKey && geminiKey.length > 10) {
+          callbacks.onChunk("\n\n🔄 [Aviso: Groq falhou. Ativando Gemini automaticamente...]\n\n");
+          await streamWithGemini(geminiKey, prompt, callbacks);
+        } else {
+          throw err;
+        }
+      }
     }
   } catch (error) {
     callbacks.onError(error as Error);
@@ -207,7 +255,8 @@ export const generateAIContent = async (
   prompt: string,
   geminiKey?: string,
   groqKey?: string,
-  preferredProvider?: AIProvider
+  preferredProvider?: AIProvider,
+  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' = 'general'
 ): Promise<string> => {
   const config = detectAIProvider(geminiKey, groqKey, preferredProvider);
 
@@ -215,42 +264,126 @@ export const generateAIContent = async (
     throw new Error('Nenhuma chave de IA configurada');
   }
 
-  if (config.provider === 'gemini') {
-    const ai = new GoogleGenAI({ apiKey: config.apiKey });
-    const response = await ai.models.generateContent({
-      model: 'gemini-3-flash-preview',
-      contents: prompt,
-      config: {
-        temperature: 0.7,
-        maxOutputTokens: 8192,
-      }
-    });
-    return response.text || '';
-  } else {
-    const systemPrompt = `Você é um professor universitário especialista em concursos públicos. Responda de forma didática com: 1. Explicação Detalhada. 2. Exemplo Prático Aprofundado.`;
-    const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${config.apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama-3.3-70b-versatile',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: prompt }
-        ],
-        temperature: 0.5,
-        max_tokens: 4096,
-      }),
-    });
+  const runGemini = async (key: string) => {
+    const models = ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    let lastError: any = null;
 
-    if (!response.ok) {
-      throw new Error(`Groq API error: ${response.status}`);
+    let finalPrompt = "";
+
+    if (context === 'flashcard') {
+      finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${prompt}`;
+    } else if (context === 'mapa') {
+      finalPrompt = `Você é um especialista em visualização de dados. Crie um MAPA MENTAL em formato de texto aninhado EXTREMAMENTE DETALHADO sobre: ${prompt}. 
+      Use traços (-) e sub-traços para ramificar. 
+      Use Markdown (negrito para termos chave). 
+      Estrutura esperada:
+      - **Conceito Central**
+        - **Ramo Principal 1**
+          - Detalhe A
+          - Detalhe B
+      Seja pedagógico e profundo.`;
+    } else if (context === 'tabela') {
+      finalPrompt = `Crie uma TABELA COMPARATIVA em Markdown sobre: ${prompt}. 
+      A tabela DEVE ter colunas como "Critério", "Conceito Principal" e "Comparativo/Oposto". 
+      Use pelo menos 3 a 5 linhas de critérios técnicos. 
+      Garanta que a sintaxe de tabela Markdown (|---|) esteja perfeita para renderização.`;
+    } else if (context === 'fluxo') {
+      finalPrompt = `Gere um FLUXOGRAMA LÓGICO em texto descrevendo o processo ou sequência de: ${prompt}. 
+      Use emojis ➡️ para as setas e [ ] para as etapas. 
+      Exemplo: [Início] ➡️ [Etapa 1] ➡️ [Fim]. 
+      Se for um conceito estático, crie uma "Linha do Tempo de Raciocínio" para explicá-lo passo a passo.`;
+    } else if (context === 'info') {
+      finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${prompt}. 
+      Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
+      Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
+      Use Markdown para dar um visual premium.`;
+    } else {
+      finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${prompt}`;
     }
 
-    const data = await response.json();
-    return data.choices[0].message.content;
+    for (const modelId of models) {
+      try {
+        const ai = new GoogleGenAI({ apiKey: key });
+        const response = await ai.models.generateContent({
+          model: modelId,
+          contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
+          config: {
+            temperature: 0.7,
+            maxOutputTokens: 2048,
+          }
+        }) as any;
+
+        // Extração robusta de texto (compatibilidade com múltiplos padrões de SDK)
+        let resultText = "";
+        try {
+          if (typeof response.text === 'function') {
+            resultText = response.text();
+          } else if (response.response && typeof response.response.text === 'function') {
+            resultText = response.response.text();
+          } else if (typeof response.text === 'string') {
+            resultText = response.text;
+          } else if (response.candidates?.[0]?.content?.parts?.[0]?.text) {
+            resultText = response.candidates[0].content.parts[0].text;
+          }
+        } catch (e) {
+          console.warn("Falha na extração refinada do texto Gemini:", e);
+        }
+
+        return resultText || '';
+      } catch (error: any) {
+        lastError = error;
+        if (error.message?.includes('API_KEY')) break;
+      }
+    }
+    throw processAIError(lastError, 'Gemini');
+  };
+
+  const runGroq = async (key: string) => {
+    try {
+      const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito. Se possível, use um cenário de concurso público.`;
+      const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${key}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          model: 'llama-3.3-70b-versatile',
+          messages: [
+            { role: 'system', content: systemPrompt },
+            { role: 'user', content: `Contexto: ${context}\nAnálise: ${prompt}` }
+          ],
+          temperature: 0.5,
+          max_tokens: 4096,
+        }),
+      });
+
+      if (!response.ok) throw new Error(`Groq status ${response.status}`);
+      const data = await response.json();
+      return data.choices[0].message.content;
+    } catch (error: any) {
+      throw processAIError(error, 'Groq');
+    }
+  };
+
+  try {
+    if (config.provider === 'gemini') {
+      try {
+        return await runGemini(config.apiKey);
+      } catch (err) {
+        if (groqKey && groqKey.length > 10) return await runGroq(groqKey);
+        throw err;
+      }
+    } else {
+      try {
+        return await runGroq(config.apiKey);
+      } catch (err) {
+        if (geminiKey && geminiKey.length > 10) return await runGemini(geminiKey);
+        throw err;
+      }
+    }
+  } catch (err: any) {
+    throw err;
   }
 };
 
@@ -331,37 +464,32 @@ export const handlePlayRevisionAudio = async (
   let htmlAudio: HTMLAudioElement | null = null;
 
   try {
-    const fileName = `${revisionId}.wav`; 
+    const fileName = `${revisionId}.wav`;
     const bucketName = 'audio-revisions';
 
     let cacheExists = false;
     try {
       const { data: listData } = await supabase.storage.from(bucketName).list('', { search: fileName });
       if (listData && listData.length > 0) cacheExists = true;
-    } catch (e) { console.warn("Falha ao verificar cache de áudio:", e); }
+    } catch (e) { console.warn("Erro cache:", e); }
 
     if (cacheExists) {
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
       const publicUrl = publicUrlData?.publicUrl;
-      
       if (publicUrl) {
-        console.log("🔊 Áudio encontrado no cache.");
         htmlAudio = new Audio(publicUrl);
         htmlAudio.onended = () => onEnd();
-        htmlAudio.onerror = (e) => onError("Erro ao reproduzir arquivo do cache.");
         onStart();
-        htmlAudio.play().catch(e => onError("Autoplay bloqueado ou erro de reprodução: " + (e as Error).message));
-        return () => { if (htmlAudio) { htmlAudio.pause(); htmlAudio.currentTime = 0; } };
+        htmlAudio.play().catch(e => onError("Erro reprodução cache."));
+        return () => { if (htmlAudio) htmlAudio.pause(); };
       }
-      console.warn("Cache de áudio existe, mas URL pública falhou. Regenerando...");
     }
 
-    console.log("🎙️ Áudio não cacheado. Gerando com Gemini...");
-    const safeText = text.length > 4000 ? text.substring(0, 4000) + "..." : text;
+    console.log("🎙️ Áudio elite (v2.5 TTS)...");
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
-      contents: { parts: [{ text: safeText }] },
+      contents: [{ parts: [{ text: text.substring(0, 4000) }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
@@ -369,12 +497,11 @@ export const handlePlayRevisionAudio = async (
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("Nenhum áudio gerado.");
+    if (!base64Audio) throw new Error("Audio generation failed");
 
     audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
-    const audioBytes = decodeBase64(base64Audio); 
+    const audioBytes = decodeBase64(base64Audio);
     const audioBuffer = await decodeAudioData(audioBytes, audioContext);
-
     source = audioContext.createBufferSource();
     source.buffer = audioBuffer;
     source.connect(audioContext.destination);
@@ -382,31 +509,27 @@ export const handlePlayRevisionAudio = async (
     onStart();
     source.start();
 
+    // Cache em background
     (async () => {
       try {
-        const int16Data = new Int16Array(audioBytes.buffer);
-        const wavBlob = createWavFile(int16Data, 24000);
+        const wavBlob = createWavFile(new Int16Array(audioBytes.buffer), 24000);
         await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
-        console.log("💾 Áudio salvo em cache com sucesso!");
-      } catch (bgError) { console.error("Falha no upload de background:", bgError); }
+      } catch (e) { }
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
   } catch (error: any) {
-    onError(error.message);
+    onError(processAIError(error, 'Gemini').message);
     onEnd();
-    return () => {};
+    return () => { };
   }
 };
 
 export const deleteCachedAudio = async (revisionId: string) => {
-  const fileNames = [`${revisionId}.wav`, `${revisionId}_podcast.wav`];
   const bucketName = 'audio-revisions';
   try {
-    const { error } = await supabase.storage.from(bucketName).remove(fileNames);
-    if (error) console.warn('Erro ao deletar áudio antigo:', error);
-    else console.log('🗑️ Cache de áudio limpo para:', revisionId);
-  } catch (e) { console.error('Falha ao limpar cache:', e); }
+    await supabase.storage.from(bucketName).remove([`${revisionId}.wav`, `${revisionId}_podcast.wav`]);
+  } catch (e) { }
 };
 
 export const generatePodcastAudio = async (
@@ -420,63 +543,53 @@ export const generatePodcastAudio = async (
 ): Promise<() => void> => {
   let audioContext: AudioContext | null = null;
   let source: AudioBufferSourceNode | null = null;
-  let htmlAudio: HTMLAudioElement | null = null;
 
   try {
     const fileName = `${referenceId}_podcast.wav`;
     const bucketName = 'audio-revisions';
-    
+
+    // Verificação de cache simplificada
     onStatusChange("Buscando cache...");
-
-    let cacheExists = false;
-    try {
-      const { data: listData } = await supabase.storage.from(bucketName).list('', { search: fileName });
-      if (listData && listData.length > 0) cacheExists = true;
-    } catch (e) { console.warn("Erro verificação cache podcast:", e); }
-
-    if (cacheExists) {
-        const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
-        const publicUrl = publicUrlData?.publicUrl;
-        
-        if (publicUrl) {
-            console.log("🎙️ Podcast encontrado no cache!");
-            onStatusChange("Carregando...");
-            htmlAudio = new Audio(publicUrl);
-            htmlAudio.onended = () => onEndAudio();
-            htmlAudio.onerror = (e) => onError("Erro ao tocar cache.");
-            onStartAudio();
-            htmlAudio.play().catch(e => onError("Autoplay bloqueado: " + (e as Error).message));
-            return () => { if (htmlAudio) { htmlAudio.pause(); htmlAudio.currentTime = 0; } };
-        }
-        console.warn("Cache de podcast existe mas URL pública falhou. Regenerando.");
+    const { data: listData } = await supabase.storage.from(bucketName).list('', { search: fileName });
+    if (listData && listData.length > 0) {
+      const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+      if (publicUrlData?.publicUrl) {
+        const htmlAudio = new Audio(publicUrlData.publicUrl);
+        htmlAudio.onended = () => onEndAudio();
+        onStartAudio();
+        htmlAudio.play().catch(e => onError("Erro ao tocar podcast."));
+        return () => { htmlAudio.pause(); };
+      }
     }
 
     const ai = new GoogleGenAI({ apiKey });
     onStatusChange("Escrevendo roteiro...");
     const scriptPrompt = `Converta o seguinte texto em um diálogo de podcast curto entre Alex e Bia. Formato estrito: Alex: [fala] Bia: [fala]. Texto: "${originalText.substring(0, 3000)}"`;
-    const scriptResponse = await ai.models.generateContent({ model: 'gemini-3-flash-preview', contents: scriptPrompt });
-    const scriptText = scriptResponse.text;
-    if (!scriptText) throw new Error("Falha ao gerar roteiro.");
-    
-    onStatusChange("Gravando episódio...");
+    const scriptResponse = await ai.models.generateContent({
+      model: 'gemini-3-flash-preview',
+      contents: [{ role: 'user', parts: [{ text: scriptPrompt }] }]
+    });
+    const scriptText = scriptResponse.text || '';
+
+    onStatusChange("Gravando Dual Podcast (Gemini 2.5 TTS)...");
     const audioResponse = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts",
       contents: [{ parts: [{ text: scriptText }] }],
       config: {
         responseModalities: [Modality.AUDIO],
         speechConfig: {
-            multiSpeakerVoiceConfig: {
-              speakerVoiceConfigs: [
-                    { speaker: 'Alex', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Fenrir' } } },
-                    { speaker: 'Bia', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
-              ]
-            }
+          multiSpeakerVoiceConfig: {
+            speakerVoiceConfigs: [
+              { speaker: 'Alex', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Fenrir' } } },
+              { speaker: 'Bia', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } }
+            ]
+          }
         }
       }
     });
 
     const base64Audio = audioResponse.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
-    if (!base64Audio) throw new Error("Falha na geração do áudio do podcast.");
+    if (!base64Audio) throw new Error("Podcast generation failed");
 
     onStatusChange("Reproduzindo...");
     audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
@@ -489,19 +602,18 @@ export const generatePodcastAudio = async (
     onStartAudio();
     source.start();
 
+    // Cache background
     (async () => {
       try {
-        const int16Data = new Int16Array(audioBytes.buffer);
-        const wavBlob = createWavFile(int16Data, 24000);
+        const wavBlob = createWavFile(new Int16Array(audioBytes.buffer), 24000);
         await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
-        console.log("💾 Podcast salvo!");
-      } catch (bgError) { console.error("Falha background podcast:", bgError); }
+      } catch (e) { }
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
   } catch (error: any) {
-    onError(error.message);
+    onError(processAIError(error, 'Gemini').message);
     onEndAudio();
-    return () => {};
+    return () => { };
   }
 };

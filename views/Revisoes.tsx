@@ -21,11 +21,11 @@ interface PendingReview extends StudyRecord {
 
 // Helper para pegar data local YYYY-MM-DD
 const getLocalToday = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
 
 // Helper para formatar links
@@ -52,77 +52,79 @@ const formatTextWithLinks = (text: string | undefined) => {
 };
 
 // Componente de Card Refatorado
-const ReviewCard: React.FC<{ 
-  item: PendingReview; 
-  isExpanded: boolean; 
-  onToggle: (id: string) => void; 
-  onComplete: (item: PendingReview) => void; 
+const ReviewCard: React.FC<{
+  item: PendingReview;
+  isExpanded: boolean;
+  onToggle: (id: string) => void;
+  onComplete: (item: PendingReview) => void;
 }> = ({ item, isExpanded, onToggle, onComplete }) => {
   const isOverdue = item.daysOverdue > 0;
-  const badgeColor = isOverdue ? 'bg-red-500/10 text-red-400' : 'bg-green-500/10 text-green-400';
-  const typeInfo = { 
-    '24h': { label: '24 Horas', icon: <Clock size={12}/> }, 
-    '07d': { label: '7 Dias', icon: <Calendar size={12}/> }, 
-    '15d': { label: '15 Dias', icon: <Calendar size={12}/> }, 
-    '30d': { label: '30 Dias', icon: <Calendar size={12}/> }
+  const badgeColor = isOverdue ? 'bg-red-500/10 text-red-400 border-red-500/20 shadow-[0_0_15px_rgba(239,68,68,0.1)]' : 'bg-green-500/10 text-green-400 border-green-500/20 shadow-[0_0_15px_rgba(34,197,94,0.1)]';
+
+  const typeInfo = {
+    '24h': { label: '24h', icon: <Clock size={12} />, color: 'text-cyan-400' },
+    '07d': { label: '7d', icon: <Calendar size={12} />, color: 'text-purple-400' },
+    '15d': { label: '15d', icon: <Calendar size={12} />, color: 'text-indigo-400' },
+    '30d': { label: '30d', icon: <Calendar size={12} />, color: 'text-pink-400' }
   }[item.reviewType];
 
   const hasNotes = !!item.comentarios && item.comentarios.trim().length > 0;
-  const showExpandButton = item.assunto.length > 100 || hasNotes;
 
   return (
-    <div className={`glass rounded-2xl p-5 border-l-4 transition-all duration-300 hover:bg-slate-900/40 ${isOverdue ? 'border-red-500' : 'border-green-500'}`}>
-      <div className="flex justify-between items-start mb-3">
-        <div>
-          <h4 className="text-lg font-bold text-white mb-1">{item.materia}</h4>
-          <div className="flex items-center gap-2">
-            <span className={`text-[10px] font-bold uppercase tracking-widest px-2 py-1 rounded-full ${badgeColor}`}>
-              {isOverdue ? `Atrasado ${item.daysOverdue} d` : 'Hoje'}
+    <div className={`glass-premium rounded-[2.5rem] p-6 border transition-all duration-500 group ${isExpanded ? `border-[hsl(var(--accent)/0.4)] shadow-2xl` : `hover:border-[hsl(var(--accent)/0.2)] ${isOverdue ? 'border-red-500/20' : 'border-[hsl(var(--border))]'}`}`}>
+      <div className="flex justify-between items-start mb-6">
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-3 mb-2">
+            <span className={`text-[9px] font-black uppercase tracking-[0.2em] px-3 py-1 rounded-full border ${badgeColor}`}>
+              {isOverdue ? `ATRASO ${item.daysOverdue}D` : 'PONTUAL'}
             </span>
-            <span className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 bg-slate-800 px-2 py-1 rounded-full">
+            <span className={`flex items-center gap-1.5 text-[9px] font-black ${typeInfo.color} bg-[hsl(var(--bg-user-block))] px-3 py-1 rounded-full border border-[hsl(var(--border))] uppercase tracking-widest`}>
               {typeInfo.icon} {typeInfo.label}
             </span>
           </div>
+          <h4 className="text-xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter truncate leading-tight group-hover:text-[hsl(var(--accent))] transition-colors duration-300">{item.materia}</h4>
         </div>
-        <div className="text-center">
-            <div className="text-[9px] text-slate-500 font-bold uppercase tracking-widest">Relevância</div>
-            <div className="text-lg font-extrabold text-yellow-400">{item.relevancia}</div>
+        <div className="text-right shrink-0">
+          <div className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] mb-1">Impacto</div>
+          <div className={`text-2xl font-black tracking-tighter ${item.relevancia >= 8 ? 'text-red-400' : 'text-yellow-400'}`}>{item.relevancia}</div>
         </div>
       </div>
 
-      <div className="bg-slate-900/30 p-4 rounded-xl border border-white/5 space-y-3">
-        <div>
-          <p className={`text-sm text-slate-300 transition-all ${isExpanded ? '' : 'line-clamp-3'}`}>{item.assunto}</p>
-          {showExpandButton && (
-            <button onClick={() => onToggle(item.id)} className="text-xs text-cyan-400 hover:text-cyan-300 mt-2 flex items-center gap-1 font-bold">
-              {isExpanded ? <><ChevronUp size={12}/> Ver menos</> : <><ChevronDown size={12}/> Ver mais</>}
+      <div className="bg-black/10 p-5 rounded-[1.5rem] border border-[hsl(var(--border))] space-y-4">
+        <div className="relative">
+          <p className={`text-sm font-bold text-[hsl(var(--text-main))] leading-relaxed transition-all ${isExpanded ? '' : 'line-clamp-3'}`}>{item.assunto}</p>
+          {(item.assunto.length > 100 || hasNotes) && (
+            <button onClick={() => onToggle(item.id)} className="text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--accent))] hover:text-white mt-3 flex items-center gap-2 transition-all">
+              {isExpanded ? <><ChevronUp size={14} /> Menos</> : <><ChevronDown size={14} /> Detalhes</>}
             </button>
           )}
         </div>
 
         {hasNotes && isExpanded && (
-           <div className="pt-3 border-t border-white/5 animate-in fade-in">
-              <div className="flex items-center gap-2 mb-1 text-xs font-bold text-purple-400 uppercase tracking-wide"><FileText size={12} /> Anotações</div>
-              <p className="text-xs text-slate-300 italic whitespace-pre-wrap">{formatTextWithLinks(item.comentarios)}</p>
-           </div>
+          <div className="pt-4 border-t border-[hsl(var(--border))] animate-in slide-in-from-top-2">
+            <div className="flex items-center gap-2 mb-2 text-[10px] font-black text-purple-400 uppercase tracking-widest"><FileText size={14} /> Insights Ativos</div>
+            <div className="text-xs font-bold text-[hsl(var(--text-muted))] leading-relaxed whitespace-pre-wrap bg-[hsl(var(--bg-main))] p-4 rounded-xl border border-[hsl(var(--border))]">
+              {formatTextWithLinks(item.comentarios)}
+            </div>
+          </div>
         )}
 
-        <div className="flex justify-between items-center text-xs text-slate-500 font-bold uppercase tracking-widest pt-3 border-t border-white/5">
-           <div className="flex items-center gap-1.5" title="Performance do estudo que originou esta revisão">
-              <BarChart2 size={12} />
-              <span>Taxa Original: <span className="text-white">{item.taxa.toFixed(0)}%</span></span>
-           </div>
-           <span>Estudado em {new Date(item.data_estudo).toLocaleDateString('pt-BR')}</span>
+        <div className="flex justify-between items-center text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] pt-4 border-t border-[hsl(var(--border))]">
+          <div className="flex items-center gap-2" title="Eficiência do estudo original">
+            <BarChart2 size={12} className="text-[hsl(var(--accent))]" />
+            <span>Taxa: <span className="text-[hsl(var(--text-bright))]">{item.taxa.toFixed(0)}%</span></span>
+          </div>
+          <span className="opacity-50">Base: {new Date(item.data_estudo).toLocaleDateString('pt-BR')}</span>
         </div>
       </div>
 
-      <div className="mt-4">
-         <button 
+      <div className="mt-6">
+        <button
           onClick={() => onComplete(item)}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-xl text-sm font-bold transition-all bg-slate-800 text-slate-300 hover:bg-green-500 hover:text-white border border-white/5"
-         >
-           <CheckCircle2 size={16} /> Concluir Revisão
-         </button>
+          className="w-full flex items-center justify-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-[0.2em] transition-all bg-[hsl(var(--bg-user-block))] text-[hsl(var(--text-muted))] hover:bg-gradient-to-r hover:from-green-600 hover:to-emerald-500 hover:text-[hsl(var(--bg-main))] hover:shadow-xl hover:shadow-green-500/20 border border-[hsl(var(--border))] group/btn active:scale-95"
+        >
+          <CheckCircle2 size={18} className="transition-transform group-hover/btn:scale-110" /> Dominar Tópico
+        </button>
       </div>
     </div>
   );
@@ -131,16 +133,16 @@ const ReviewCard: React.FC<{
 
 const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRecordUpdate, onUpdated }) => {
   const [selectedReview, setSelectedReview] = useState<PendingReview | null>(null);
-  
+
   // States do Modal de Conclusão
   const [reviewDate, setReviewDate] = useState(getLocalToday());
-  const [tempoHHMM, setTempoHHMM] = useState(''); 
+  const [tempoHHMM, setTempoHHMM] = useState('');
   const [reviewQuestions, setReviewQuestions] = useState(0);
   const [reviewCorrect, setReviewCorrect] = useState(0);
 
   const [loading, setLoading] = useState(false);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
-  
+
   // Filtros States
   const [showFilters, setShowFilters] = useState(false);
   const [quickFilterMateria, setQuickFilterMateria] = useState('Todas'); // NOVO
@@ -167,7 +169,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
     let future = 0;
     const uniqueMaterias = new Set<string>();
 
-    const activeRecords = records.filter(r => 
+    const activeRecords = records.filter(r =>
       r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
     );
 
@@ -175,9 +177,9 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
       // IMPORTANTE: Trata a string 'YYYY-MM-DD' como data local, não UTC
       const [year, month, day] = r.data_estudo.split('-').map(Number);
       const studyDate = new Date(year, month - 1, day); // month is 0-indexed in JS Date
-      
+
       const diffDays = Math.floor((now.getTime() - studyDate.getTime()) / (1000 * 3600 * 24));
-      
+
       let type: '24h' | '07d' | '15d' | '30d' | null = null;
       let targetDays = 0;
 
@@ -224,16 +226,16 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
     let hours = 0, minutes = 0;
     if (cleaned.length <= 2) minutes = parseInt(cleaned);
     else if (cleaned.length === 3) {
-       hours = parseInt(cleaned.substring(0, 1));
-       minutes = parseInt(cleaned.substring(1));
+      hours = parseInt(cleaned.substring(0, 1));
+      minutes = parseInt(cleaned.substring(1));
     } else if (cleaned.length === 4) {
-       hours = parseInt(cleaned.substring(0, 2));
-       minutes = parseInt(cleaned.substring(2));
+      hours = parseInt(cleaned.substring(0, 2));
+      minutes = parseInt(cleaned.substring(2));
     } else return -1;
     if (minutes > 59) return -2;
     return hours * 60 + minutes;
   };
-  
+
   const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     let value = e.target.value.replace(/\D/g, '');
     if (value.length > 4) value = value.slice(0, 4);
@@ -262,7 +264,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
         if (selectedReview.reviewType === '24h') { updates['rev_07d'] = true; updates['rev_15d'] = true; }
         else if (selectedReview.reviewType === '07d') { updates['rev_15d'] = true; }
       }
-      
+
       const recordWithUpdates = { ...selectedReview, ...updates };
       delete (recordWithUpdates as any).reviewType;
       delete (recordWithUpdates as any).daysOverdue;
@@ -274,13 +276,13 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
         const { data: { user } } = await (supabase.auth as any).getUser();
         let dificuldadeCalc: any = '🟡 Médio';
         if (reviewQuestions > 0) {
-           if (taxa >= 80) dificuldadeCalc = '🟢 Fácil'; else if (taxa < 60) dificuldadeCalc = '🔴 Difícil';
+          if (taxa >= 80) dificuldadeCalc = '🟢 Fácil'; else if (taxa < 60) dificuldadeCalc = '🔴 Difícil';
         }
         const statsRecord = {
           user_id: user?.id, concurso: selectedReview.concurso, materia: selectedReview.materia,
           assunto: selectedReview.assunto, data_estudo: reviewDate, acertos: reviewCorrect,
           total: reviewQuestions, taxa: taxa, tempo: calculatedMinutes, dificuldade: dificuldadeCalc,
-          relevancia: selectedReview.relevancia, 
+          relevancia: selectedReview.relevancia,
           comentarios: `Revisão (${selectedReview.reviewType}) realizada.${isHighPerformance ? ' Desempenho alto: avançou etapas.' : ''}`,
           rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true
         };
@@ -288,7 +290,7 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
         if (insertError) throw insertError;
         onUpdated();
       }
-      
+
       setSelectedReview(null);
     } catch (error: any) {
       alert('Erro ao concluir revisão: ' + error.message);
@@ -311,78 +313,171 @@ const Revisoes: React.FC<RevisoesProps> = ({ records, missaoAtiva, editais, onRe
   };
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-left-4 duration-500 pb-20">
-      
-      <div className="flex flex-col gap-6">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-orange-500/10 text-orange-400 flex items-center justify-center border border-orange-500/20"><RefreshCcw size={24} /></div>
-            <div><h3 className="text-2xl font-bold">Fila Inteligente de Revisão</h3><p className="text-slate-400 text-sm">{totalFiltered} tópicos para revisar · {upcomingCount} agendados</p></div>
+    <div className="space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
+
+      <div className="flex flex-col gap-8">
+        <div className="flex flex-col md:flex-row md:items-center justify-between gap-6">
+          <div className="flex items-center gap-5">
+            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-600 to-amber-500 text-[hsl(var(--bg-main))] flex items-center justify-center shadow-xl shadow-orange-500/20"><RefreshCcw size={28} /></div>
+            <div>
+              <h3 className="text-3xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Curva de Esquecimento</h3>
+              <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] mt-1">
+                {totalFiltered} temas críticos para retenção estratégica
+              </p>
+            </div>
           </div>
-          <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-bold transition-all border ${showFilters || hasActiveFilters ? 'bg-purple-500/20 border-purple-500/50 text-white' : 'bg-slate-800 border-white/5 text-slate-400 hover:text-white'}`}><SlidersHorizontal size={16} />Filtros Avançados</button>
+          <button onClick={() => setShowFilters(!showFilters)} className={`flex items-center gap-3 px-6 py-4 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all border ${showFilters || hasActiveFilters ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] border-transparent shadow-lg shadow-[hsl(var(--accent)/0.3)]' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:text-white'}`}>
+            <SlidersHorizontal size={18} /> Filtros de Revisão
+          </button>
         </div>
-        
+
         {/* Quick Filters */}
-        <div className="flex items-center gap-2 overflow-x-auto pb-2 -mb-2">
-            {['Todas', ...materiasOptions].map(m => (
-                <button key={m} onClick={() => setQuickFilterMateria(m)} className={`px-4 py-2 rounded-lg text-xs font-bold transition-all whitespace-nowrap ${quickFilterMateria === m ? 'bg-purple-500/20 text-white shadow' : 'bg-slate-800/50 text-slate-400 hover:bg-white/5'}`}>{m}</button>
-            ))}
+        <div className="flex items-center gap-3 overflow-x-auto pb-4 custom-scrollbar-h">
+          {['Todas', ...materiasOptions].map(m => (
+            <button
+              key={m}
+              onClick={() => setQuickFilterMateria(m)}
+              className={`px-5 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all whitespace-nowrap border ${quickFilterMateria === m ? 'bg-[hsl(var(--accent)/0.15)] text-[hsl(var(--accent))] border-[hsl(var(--accent)/0.3)] shadow-xl' : 'bg-[hsl(var(--bg-user-block))] text-[hsl(var(--text-muted))] border-[hsl(var(--border))] hover:bg-white/5'}`}
+            >
+              {m}
+            </button>
+          ))}
         </div>
 
         {showFilters && (
-          <div className="glass p-5 rounded-xl border border-white/10 animate-in slide-in-from-top-2">
-            <div className="flex justify-between items-center mb-4"><h4 className="text-sm font-bold text-slate-300 flex items-center gap-2"><Filter size={14} /> Filtros Avançados</h4>{hasActiveFilters && <button onClick={clearFilters} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 font-bold"><Trash2 size={12} /> Limpar</button>}</div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-               <div className="space-y-1">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase">Assunto</label>
-                 <div className="relative"><Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" /><input type="text" placeholder="Ex: Atos Administrativos..." className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-purple-500" value={filterAssunto} onChange={(e) => setFilterAssunto(e.target.value)} /></div>
-               </div>
-               <div className="space-y-1">
-                 <label className="text-[10px] font-bold text-slate-500 uppercase flex justify-between"><span>Relevância Mínima</span><span className="text-purple-400">{filterRelevancia > 1 ? filterRelevancia : 'Todas'}</span></label>
-                 <input type="range" min="1" max="10" step="1" className="w-full accent-purple-500 h-2 bg-slate-800 rounded-lg appearance-none cursor-pointer mt-2" value={filterRelevancia} onChange={(e) => setFilterRelevancia(Number(e.target.value))} />
-               </div>
+          <div className="glass-premium p-8 rounded-[2rem] border border-[hsl(var(--border))] shadow-2xl animate-in slide-in-from-top-4 duration-500">
+            <div className="flex justify-between items-center mb-8">
+              <h4 className="text-[10px] font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]">
+                <Filter size={16} className="text-[hsl(var(--accent))]" /> Refinar Ciclo
+              </h4>
+              {hasActiveFilters && (
+                <button onClick={clearFilters} className="text-[10px] font-black text-red-400 hover:text-red-300 flex items-center gap-2 uppercase tracking-widest transition-all">
+                  <Trash2 size={14} /> Redefinir
+                </button>
+              )}
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Assunto / Tópico</label>
+                <div className="relative group">
+                  <Search size={18} className="absolute left-5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] group-focus-within:text-[hsl(var(--accent))] transition-colors" />
+                  <input type="text" placeholder="Ex: Controle de Constitucionalidade..." className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl pl-14 pr-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all placeholder-[hsl(var(--text-muted)/0.5)]" value={filterAssunto} onChange={(e) => setFilterAssunto(e.target.value)} />
+                </div>
+              </div>
+              <div className="space-y-3">
+                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex justify-between">
+                  <span>Relevância Prioritária</span>
+                  <span className="text-[hsl(var(--accent))]">{filterRelevancia > 1 ? `Mínima ${filterRelevancia}` : 'Todas'}</span>
+                </label>
+                <div className="pt-3">
+                  <input type="range" min="1" max="10" step="1" className="w-full h-2 bg-[hsl(var(--bg-user-block))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--accent))]" value={filterRelevancia} onChange={(e) => setFilterRelevancia(Number(e.target.value))} />
+                </div>
+              </div>
             </div>
           </div>
         )}
       </div>
 
       {totalFiltered === 0 ? (
-        <div className="glass rounded-2xl p-16 text-center space-y-4 border-dashed border-2 border-slate-800"><div className="w-20 h-20 bg-slate-800/50 rounded-full flex items-center justify-center mx-auto text-slate-500 mb-4">{hasActiveFilters ? <Filter size={40} /> : <CheckCircle2 size={40} className="text-green-500" />}</div><h4 className="text-xl font-bold text-white">{hasActiveFilters ? 'Nenhuma revisão encontrada' : 'Tudo limpo por aqui!'}</h4><p className="text-slate-400 max-w-md mx-auto">{hasActiveFilters ? 'Tente ajustar os filtros para ver mais resultados.' : 'Você zerou suas revisões pendentes. Ótimo trabalho!'}</p>{hasActiveFilters && <button onClick={clearFilters} className="text-purple-400 font-bold text-sm hover:underline">Limpar todos os filtros</button>}</div>
+        <div className="glass-premium rounded-[3rem] p-20 text-center space-y-6 border-dashed border-2 border-[hsl(var(--border))]">
+          <div className="w-24 h-24 bg-[hsl(var(--bg-user-block))] rounded-full flex items-center justify-center mx-auto shadow-2xl border border-[hsl(var(--border))]">
+            {hasActiveFilters ? <Filter size={40} className="text-[hsl(var(--text-muted))]" /> : <CheckCircle2 size={40} className="text-green-500" />}
+          </div>
+          <div>
+            <h4 className="text-2xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter">
+              {hasActiveFilters ? 'Refino Infecundo' : 'Sapiência Consolidada'}
+            </h4>
+            <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] max-w-md mx-auto mt-4">
+              {hasActiveFilters ? 'Nenhuma revisão compatível com os filtros atuais.' : 'Você zerou as pendências críticas deste ciclo. Domínio de mestre!'}
+            </p>
+          </div>
+          {hasActiveFilters && (
+            <button onClick={clearFilters} className="px-8 py-3 rounded-xl bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] text-[10px] font-black uppercase tracking-widest hover:bg-[hsl(var(--accent)/0.2)] transition-all">
+              Limpar Parâmetros
+            </button>
+          )}
+        </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          <div className="space-y-4 lg:col-span-1">
-            <div className="flex items-center gap-2 text-red-400 font-bold uppercase tracking-widest text-xs"><AlertCircle size={14} /> Críticas ({overdue.length})</div>
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+          <div className="space-y-6 lg:col-span-1">
+            <div className="flex items-center gap-3 text-red-400 font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 bg-red-500/5 rounded-full border border-red-500/20 w-fit">
+              <AlertCircle size={14} /> Ciclos Críticos ({overdue.length})
+            </div>
             {overdue.map(item => <ReviewCard key={item.id} item={item} isExpanded={!!expandedCards[item.id]} onToggle={toggleExpand} onComplete={setSelectedReview} />)}
           </div>
-          <div className="space-y-4 lg:col-span-2">
-            <div className="flex items-center gap-2 text-green-400 font-bold uppercase tracking-widest text-xs"><Calendar size={14} /> Para Hoje ({today.length})</div>
+          <div className="space-y-6 lg:col-span-2">
+            <div className="flex items-center gap-3 text-green-400 font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 bg-green-500/5 rounded-full border border-green-500/20 w-fit">
+              <Calendar size={14} /> Cronograma Hoje ({today.length})
+            </div>
             {today.map(item => <ReviewCard key={item.id} item={item} isExpanded={!!expandedCards[item.id]} onToggle={toggleExpand} onComplete={setSelectedReview} />)}
           </div>
         </div>
       )}
 
       {selectedReview && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-[#12151D] border border-slate-800 w-full max-w-sm rounded-2xl p-5 relative animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <button onClick={() => setSelectedReview(null)} className="absolute top-4 right-4 text-slate-500 hover:text-white z-10"><X size={20} /></button>
-            <div className="text-center mb-6"><div className="w-16 h-16 bg-cyan-500/10 rounded-2xl flex items-center justify-center mx-auto text-cyan-400 mb-4"><Clock size={32} /></div><h3 className="text-xl font-bold text-white">Concluir Revisão</h3><p className="text-slate-400 text-sm mt-2 font-bold uppercase">{selectedReview.materia}</p></div>
-            <div className="overflow-y-auto pr-2 custom-scrollbar space-y-6">
-              <div className="bg-slate-900/30 p-4 rounded-xl border border-white/5"><p className="text-sm text-slate-300 font-medium line-clamp-3 italic">"{selectedReview.assunto}"</p><div className="flex justify-between items-center text-xs text-slate-500 uppercase font-bold mt-2 pt-2 border-t border-white/5"><span>Tipo: {selectedReview.reviewType}</span><span>Original: {new Date(selectedReview.data_estudo).toLocaleDateString('pt-BR')}</span></div></div>
-              <div className="grid grid-cols-2 gap-4">
-                  <div><label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex items-center gap-2"><Calendar size={12} /> Data</label><input type="date" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} /></div>
-                  <div><label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex items-center gap-2"><Clock size={12} /> Tempo</label><div className="relative"><input type="text" placeholder="HH:MM" maxLength={5} className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-center" value={tempoHHMM} onChange={handleTimeChange} /><div className="text-[10px] text-slate-500 mt-1 pl-1 text-center">HH:MM ou Minutos</div></div></div>
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-xl z-50 flex items-center justify-center p-6 animate-in fade-in duration-300">
+          <div className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] w-full max-w-md rounded-[2.5rem] p-10 relative animate-in zoom-in-95 duration-500 flex flex-col max-h-[90vh] shadow-[0_0_100px_rgba(0,0,0,0.5)]">
+            <button onClick={() => setSelectedReview(null)} className="absolute top-8 right-8 p-2 bg-[hsl(var(--bg-user-block))] rounded-xl text-[hsl(var(--text-muted))] hover:text-white transition-all active:scale-95 z-10"><X size={20} /></button>
+
+            <div className="text-center mb-8">
+              <div className="w-20 h-20 bg-gradient-to-br from-cyan-600 to-blue-600 rounded-[1.5rem] flex items-center justify-center mx-auto text-white mb-6 shadow-2xl shadow-cyan-500/20">
+                <CheckCircle2 size={40} />
               </div>
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase mb-2 block flex items-center gap-2"><Target size={12} /> Desempenho (Opcional)</label>
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">Total</span><input type="number" min="0" value={reviewQuestions} onChange={(e) => setReviewQuestions(parseInt(e.target.value) || 0)} className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-12 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
-                  <div className="relative"><span className="absolute left-3 top-1/2 -translate-y-1/2 text-xs font-bold text-slate-500">Acertos</span><input type="number" min="0" max={reviewQuestions} value={reviewCorrect} onChange={(e) => setReviewCorrect(parseInt(e.target.value) || 0)} className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-14 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-white font-bold text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" /></div>
+              <h3 className="text-2xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Validar Retenção</h3>
+              <p className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] mt-2">{selectedReview.materia}</p>
+            </div>
+
+            <div className="overflow-y-auto pr-2 custom-scrollbar space-y-8">
+              <div className="bg-[hsl(var(--bg-user-block))] p-6 rounded-2xl border border-[hsl(var(--border))]">
+                <p className="text-sm font-bold text-[hsl(var(--text-main))] leading-relaxed italic">"{selectedReview.assunto}"</p>
+                <div className="flex justify-between items-center text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mt-4 pt-4 border-t border-[hsl(var(--border))]">
+                  <span>Etapa: {selectedReview.reviewType}</span>
+                  <span>Base: {new Date(selectedReview.data_estudo).toLocaleDateString('pt-BR')}</span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 gap-6">
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Data</label>
+                  <input type="date" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] text-[hsl(var(--text-bright))] font-black uppercase tracking-widest text-xs" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} />
+                </div>
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Tempo (HH:MM)</label>
+                  <input type="text" placeholder="00:00" maxLength={5} className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} />
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2"><Target size={14} className="text-[hsl(var(--accent))]" /> Desempenho na Sessão</label>
+                <div className="grid grid-cols-2 gap-6">
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-[hsl(var(--text-muted))] uppercase">Total</span>
+                    <input type="number" min="0" value={reviewQuestions} onChange={(e) => setReviewQuestions(parseInt(e.target.value) || 0)} className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl pl-14 pr-4 py-4 focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] text-[hsl(var(--text-bright))] font-black text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  </div>
+                  <div className="relative">
+                    <span className="absolute left-4 top-1/2 -translate-y-1/2 text-[9px] font-black text-[hsl(var(--text-muted))] uppercase">Acertos</span>
+                    <input type="number" min="0" max={reviewQuestions} value={reviewCorrect} onChange={(e) => setReviewCorrect(parseInt(e.target.value) || 0)} className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl pl-16 pr-4 py-4 focus:ring-2 focus:ring-green-500/30 text-green-400 font-black text-right [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" />
+                  </div>
                 </div>
                 {renderPerformanceBadge()}
-                {(reviewQuestions > 0 && (reviewCorrect/reviewQuestions) > 0.85) && (<div className="mt-2 text-[10px] text-green-400 flex items-center gap-1"><Zap size={10} /> Alta performance: Próximas revisões serão antecipadas.</div>)}
+                {(reviewQuestions > 0 && (reviewCorrect / reviewQuestions) > 0.85) && (
+                  <div className="bg-green-500/5 border border-green-500/20 p-4 rounded-2xl flex items-center gap-3 animate-in fade-in slide-in-from-bottom-2">
+                    <Zap size={16} className="text-green-400 animate-pulse" />
+                    <span className="text-[10px] font-black text-green-400 uppercase tracking-widest">Sincronia Neural: Etapas futuristas desbloqueadas!</span>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="mt-6 pt-4 border-t border-white/10"><button onClick={handleCompleteReview} disabled={loading} className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-white font-bold py-4 rounded-xl transition-all shadow-lg shadow-cyan-500/20 disabled:opacity-50 flex items-center justify-center gap-2">{loading ? 'Salvando...' : '✅ Confirmar e Registrar'}</button></div>
+
+            <div className="mt-10 pt-8 border-t border-[hsl(var(--border))]">
+              <button
+                onClick={handleCompleteReview}
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 text-[hsl(var(--bg-main))] font-black py-5 rounded-2xl shadow-2xl shadow-cyan-500/30 disabled:opacity-50 transition-all hover:scale-[1.02] active:scale-95 text-[10px] uppercase tracking-[0.2em] flex items-center justify-center gap-3"
+              >
+                {loading ? 'Sincronizando...' : 'Consolidar Evolução'}
+              </button>
+            </div>
           </div>
         </div>
       )}

@@ -18,7 +18,7 @@ const getSupabaseConfig = () => {
   let envKey = "";
   if (typeof __SUPABASE_URL__ !== 'undefined') envUrl = __SUPABASE_URL__;
   if (typeof __SUPABASE_KEY__ !== 'undefined') envKey = __SUPABASE_KEY__;
-  
+
   if (envUrl && envUrl.length > 5 && !envUrl.includes('undefined')) {
     console.info('[MonitorPro] Supabase config carregado via Build ENV.');
     return {
@@ -26,7 +26,7 @@ const getSupabaseConfig = () => {
       key: envKey.trim().replace(/^"|"$/g, '')
     };
   }
-  
+
   // 3. If nothing is found
   console.warn('[MonitorPro] Nenhuma configuração Supabase encontrada (ENV ou localStorage).');
   return { url: "", key: "" };
@@ -79,20 +79,20 @@ export const getAiKey = () => {
 export const getGroqKey = () => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('monitorpro_groq_key');
-    if (stored && stored.length > 5 && stored.startsWith('gsk_')) {
+    if (stored && stored.length > 5) {
       console.info('[MonitorPro] Chave Groq carregada do localStorage (prioridade).');
-      return stored;
+      return stored.trim().replace(/^"|"$/g, '');
     }
   }
-  
+
   // Fallback para vários formatos de ENV injetados pelo Vite no build
   let envKey = "";
   try {
     // @ts-ignore - Vite define isso no build
     if (typeof import.meta.env !== 'undefined') {
-       envKey = import.meta.env.VITE_GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
+      envKey = import.meta.env.VITE_GROQ_API_KEY || import.meta.env.GROQ_API_KEY || '';
     }
-  } catch(e) {}
+  } catch (e) { }
 
   if (envKey) {
     console.info('[MonitorPro] Chave Groq carregada de ENV (fallback).');
@@ -113,7 +113,7 @@ export const getGeminiKey = () => {
     const stored = localStorage.getItem('monitorpro_ai_key');
     if (stored && stored.length > 10) {
       console.info('[MonitorPro] Chave Gemini carregada do localStorage (prioridade).');
-      return stored;
+      return stored.trim().replace(/^"|"$/g, '');
     }
   }
 
@@ -125,9 +125,9 @@ export const getGeminiKey = () => {
       envKey = process.env.API_KEY ?? '';
     }
   } catch (e) {
-     // Em alguns ambientes, `process` pode não estar definido.
+    // Em alguns ambientes, `process` pode não estar definido.
   }
-  
+
   if (envKey && envKey.length > 10) {
     console.info('[MonitorPro] Chave Gemini carregada de ENV (fallback).');
     return envKey;

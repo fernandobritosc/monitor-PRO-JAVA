@@ -21,7 +21,7 @@ import GabaritoIA from './views/GabaritoIA';
 import { useAppData } from './hooks/useAppData';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 
-const APP_VERSION = '1.0.28'; // Protocolo de Versão Atualizado
+const APP_VERSION = '1.0.29'; // Tradução e Restauração de Navegação
 
 const App: React.FC = () => {
   const [session, setSession] = useState<any | null>(null);
@@ -37,9 +37,27 @@ const App: React.FC = () => {
     return 'HOME';
   });
 
+  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
+    if (typeof window !== 'undefined') {
+      return (localStorage.getItem('monitorpro_theme') as 'dark' | 'light') || 'dark';
+    }
+    return 'dark';
+  });
+
   useEffect(() => {
     if (activeView) localStorage.setItem('monitorpro_last_view', activeView);
   }, [activeView]);
+
+  useEffect(() => {
+    localStorage.setItem('monitorpro_theme', theme);
+    if (theme === 'light') {
+      document.body.classList.add('light');
+    } else {
+      document.body.classList.remove('light');
+    }
+  }, [theme]);
+
+  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   const {
     editais,
@@ -157,8 +175,16 @@ const App: React.FC = () => {
   };
 
   return (
-    <Layout activeView={activeView} setActiveView={setActiveView} userEmail={userEmail || 'Usuário Offline'} onLogout={handleLogout} missaoAtiva={missaoAtiva}>
-      {dataLoading && <div className="fixed top-0 left-0 right-0 h-1 bg-gradient-to-r from-purple-500 to-cyan-500 animate-pulse z-[60]" />}
+    <Layout
+      activeView={activeView}
+      setActiveView={setActiveView}
+      userEmail={userEmail || 'Usuário Offline'}
+      onLogout={handleLogout}
+      missaoAtiva={missaoAtiva}
+      theme={theme}
+      toggleTheme={toggleTheme}
+    >
+      {dataLoading && <div className="fixed top-0 left-0 right-0 h-1 bg-[var(--accent)] animate-pulse z-[60]" />}
       {backgroundSyncing && !isOfflineMode && (<div className="fixed bottom-4 right-4 bg-slate-800 text-slate-400 text-xs px-3 py-1.5 rounded-full flex items-center gap-2 shadow-lg border border-white/5 z-[100] animate-in fade-in"><RefreshCw size={10} className="animate-spin" /> v{APP_VERSION}</div>)}
       {isOfflineMode && !isError && (
         <div className="bg-yellow-500/10 border border-yellow-500/20 text-yellow-400 p-3 rounded-xl mb-6 flex items-center justify-between gap-4 text-xs font-bold shadow-lg animate-in slide-in-from-top-2">
