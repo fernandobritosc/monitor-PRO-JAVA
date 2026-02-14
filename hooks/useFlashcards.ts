@@ -150,6 +150,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
   const [podcastStatus, setPodcastStatus] = useState("");
   const [activeAiTool, setActiveAiTool] = useState<'explanation' | 'mnemonic' | 'mapa' | 'fluxo' | 'tabela' | 'info'>('explanation');
+  const lastCardIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setGeminiKeyAvailable(!!getGeminiKey());
@@ -504,18 +505,41 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     if (nextIndex < studyQueue.length) { setCurrentCardIndex(nextIndex); } else { setShowSessionSummary(true); }
   };
 
+
   useEffect(() => {
     if (studyQueue.length > 0 && currentCardIndex < studyQueue.length) {
       const card = studyQueue[currentCardIndex];
-      setIsFlipped(false);
-      setFollowUpQuery("");
-      setAiStreamText(card.ai_generated_assets?.explanation ?? "");
-      setMnemonicText(card.ai_generated_assets?.mnemonic ?? "");
-      setExtraContent('');
-      setExtraFormat(null);
-      setActiveAiTool('explanation');
+
+      if (lastCardIdRef.current !== card.id) {
+        setIsFlipped(false);
+        setFollowUpQuery("");
+        setAiStreamText(card.ai_generated_assets?.explanation ?? "");
+        setMnemonicText(card.ai_generated_assets?.mnemonic ?? "");
+        setExtraContent('');
+        setExtraFormat(null);
+        setActiveAiTool('explanation');
+        lastCardIdRef.current = card.id;
+      }
     }
   }, [currentCardIndex, studyQueue]);
+
+  // Sincroniza o conteúdo ao trocar de ferramenta
+  useEffect(() => {
+    if (!currentCard) return;
+    const assets = currentCard.ai_generated_assets;
+    if (!assets) return;
+
+    if (activeAiTool === 'explanation') {
+      if (!aiLoading && assets.explanation) setAiStreamText(assets.explanation);
+    } else if (activeAiTool === 'mnemonic') {
+      if (!mnemonicLoading && assets.mnemonic) setMnemonicText(assets.mnemonic);
+    } else if (assets[activeAiTool]) {
+      if (!extraLoading) {
+        setExtraContent(assets[activeAiTool]!);
+        setExtraFormat(activeAiTool as any);
+      }
+    }
+  }, [activeAiTool, currentCard?.id, aiLoading, mnemonicLoading, extraLoading]); // Added loading states to dependencies
 
   useEffect(() => {
     setAiStreamText("");
