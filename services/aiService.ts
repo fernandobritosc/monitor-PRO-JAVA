@@ -76,7 +76,7 @@ const streamWithGemini = async (
   callbacks: AIStreamCallback,
   context: 'flashcard' | 'general' = 'general'
 ): Promise<void> => {
-  const models = ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError: any = null;
 
   // Prompts sincronizados com o snippet do usuário
@@ -222,9 +222,10 @@ export const streamAIContent = async (
         const isFlashcard = prompt.toLowerCase().includes('flashcard') || prompt.toLowerCase().includes('mnemônico');
         await streamWithGemini(config.apiKey, prompt, callbacks, isFlashcard ? 'flashcard' : 'general');
       } catch (err: any) {
+        console.error("🔴 Falha crítica no Gemini:", err);
         // Fallback para Groq se Gemini falhar
         if (groqKey && groqKey.length > 10) {
-          callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou. Ativando Groq automaticamente...]\n\n`);
+          callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou (${err.message}). Ativando Groq automaticamente...]\n\n`);
           await streamWithGroq(groqKey, prompt, callbacks);
         } else {
           throw err;
@@ -265,7 +266,7 @@ export const generateAIContent = async (
   }
 
   const runGemini = async (key: string) => {
-    const models = ['gemini-3-flash-preview', 'gemini-2.5-pro', 'gemini-1.5-pro', 'gemini-1.5-flash'];
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     let lastError: any = null;
 
     let finalPrompt = "";
