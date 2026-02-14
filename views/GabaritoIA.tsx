@@ -5,6 +5,7 @@ import { GoogleGenAI, Type } from "@google/genai";
 import { GabaritoItem, SavedGabarito } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { UploadCloud, Loader2, Sparkles, Download, FileCheck, Check, X, AlertTriangle, ChevronDown, ChevronUp, FileText, Trash2, Save, ArrowLeft, History, BarChart, Type as TypeIcon, PlusCircle, Brain, CheckCircle2, CheckSquare } from 'lucide-react';
+import { CustomSelector } from '../components/CustomSelector';
 
 // Declarações para TypeScript reconhecer as bibliotecas globais
 declare global {
@@ -541,15 +542,14 @@ const GabaritoIA: React.FC = () => {
                           <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Gabarito Oficial (Banca)
                         </h5>
                         <div className="relative group">
-                          <div className="absolute left-4 top-1/2 -translate-y-1/2 text-emerald-500"><CheckCircle2 size={16} /></div>
-                          <select
-                            onChange={e => setOfficialAnswers(p => ({ ...p, [res.numero_questao]: e.target.value }))}
+                          <CustomSelector
+                            label="Gabarito"
                             value={officialAnswers[res.numero_questao] || ''}
-                            className="w-full bg-[hsl(var(--bg-user-block))] border-2 border-[hsl(var(--border))] rounded-2xl pl-12 pr-4 py-3 text-xs font-black text-white focus:ring-2 focus:ring-emerald-500/30 outline-none appearance-none transition-all cursor-pointer group-hover:border-emerald-500/30"
-                          >
-                            <option value="">Não divulgado</option>
-                            {['A', 'B', 'C', 'D', 'E'].map(opt => <option key={opt}>{opt}</option>)}
-                          </select>
+                            options={['A', 'B', 'C', 'D', 'E']}
+                            onChange={val => setOfficialAnswers(p => ({ ...p, [res.numero_questao]: val }))}
+                            placeholder="Não divulgado"
+                            icon={<CheckCircle2 size={16} />}
+                          />
                         </div>
                       </div>
                     </div>

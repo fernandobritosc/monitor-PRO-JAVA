@@ -2,6 +2,7 @@ import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { StudyRecord, EditalMateria } from '../types';
 import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp } from 'lucide-react';
+import { CustomSelector } from '../components/CustomSelector';
 
 interface HistoryProps {
    records: StudyRecord[];
@@ -403,15 +404,13 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
                               <BookOpen size={12} /> Matéria
                            </label>
-                           <select
-                              className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium appearance-none"
+                           <CustomSelector
+                              label="Matéria"
                               value={editForm.materia}
-                              onChange={(e) => setEditForm({ ...editForm, materia: e.target.value, assunto: '' })}
-                           >
-                              {isSimuladoEdit && <option value="Geral">Geral / Completo</option>}
-                              {materiasDisponiveis.includes(editForm.materia) ? null : <option value={editForm.materia}>{editForm.materia} (Legado)</option>}
-                              {materiasDisponiveis.map(m => <option key={m} value={m}>{m}</option>)}
-                           </select>
+                              options={isSimuladoEdit ? ["Geral", ...materiasDisponiveis] : materiasDisponiveis}
+                              onChange={(val) => setEditForm({ ...editForm, materia: val, assunto: '' })}
+                              placeholder="Selecione a disciplina..."
+                           />
                         </div>
                      </div>
 
@@ -442,7 +441,13 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                               </button>
                            )}
                            {showHistoryTopicsDropdown && !isSimuladoEdit && topicosDisponiveis.length > 0 && (
-                              <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                              <div className="absolute top-full left-0 right-0 mt-2 bg-[#1a1d26] border border-white/10 rounded-xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 backdrop-blur-3xl">
+                                 <div
+                                    onClick={() => { setEditForm({ ...editForm, assunto: '' }); setShowHistoryTopicsDropdown(false); }}
+                                    className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
+                                 >
+                                    Limpar Seleção
+                                 </div>
                                  {topicosDisponiveis.map((t, idx) => (
                                     <div
                                        key={idx}
@@ -450,9 +455,10 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                                           setEditForm({ ...editForm, assunto: t });
                                           setShowHistoryTopicsDropdown(false);
                                        }}
-                                       className="px-4 py-3 text-sm text-slate-300 hover:bg-white/5 hover:text-white cursor-pointer border-b border-white/5 last:border-0 transition-colors"
+                                       className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${editForm.assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
                                     >
-                                       {t}
+                                       <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${editForm.assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
+                                       <span className="flex-1 leading-relaxed truncate">{t}</span>
                                     </div>
                                  ))}
                               </div>

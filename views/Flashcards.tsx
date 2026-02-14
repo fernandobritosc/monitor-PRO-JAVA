@@ -6,33 +6,112 @@ import {
   Globe, Database, Copy, ChevronDown, Eye, Sparkles, AlertTriangle, Volume2, Info, Lock, ChevronLeft, ChevronRight, Trophy, Target, Tag, Send, MessageSquarePlus, ChevronUp, Headphones, Square, Mic2, FileAudio, RefreshCw, User, Music, FileText, Share2, ArrowRightLeft, Table, Map as MapIcon
 } from 'lucide-react';
 import { EditalMateria, Flashcard } from '../types';
+import { CustomSelector } from '../components/CustomSelector';
 
-// NOVO: Componente para renderizar Markdown simples
+// NOVO: Componente para renderizar Markdown técnico com visual premium
 const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({ content, visualMode = false }) => {
   const parts = useMemo(() => {
     if (!content) return [];
 
-    const tableRegex = /(\|.*\|(?:\r?\n\|.*\|)+)/g;
-    const splitByTables = content.split(tableRegex);
+    // Nova estratégia: Detectar blocos de tabelas por linhas que começam com "|"
+    // e separá-los do restante do texto.
+    const lines = content.split(/\r?\n/);
+    const result: any[] = [];
+    let currentTable: string[] = [];
+    let currentText: string[] = [];
 
-    return splitByTables.map((part, index) => {
-      if (part.match(tableRegex)) {
-        const rows = part.trim().split('\n');
-        const header = rows[0].split('|').slice(1, -1).map(h => h.trim());
-        const body = rows.slice(2).map(r => r.split('|').slice(1, -1).map(c => c.trim()));
+    const flushText = () => {
+      if (currentText.length > 0) {
+        result.push({ type: 'text', content: currentText.join('\n') });
+        currentText = [];
+      }
+    };
 
+    const flushTable = () => {
+      if (currentTable.length > 0) {
+        result.push({ type: 'table', content: currentTable.join('\n') });
+        currentTable = [];
+      }
+    };
+
+    lines.forEach(line => {
+      if (line.trim().startsWith('|')) {
+        flushText();
+        currentTable.push(line);
+      } else {
+        if (currentTable.length > 0) {
+          // Se for uma linha vazia entre tabelas, ignora
+          if (line.trim() === '') {
+            currentTable.push(line);
+          } else {
+            flushTable();
+            currentText.push(line);
+          }
+        } else {
+          currentText.push(line);
+        }
+      }
+    });
+    flushText();
+    flushTable();
+
+    return result.flatMap((item, index) => {
+      if (item.type === 'table') {
+        const rows = item.content.trim().split('\n').filter((row: string) => row.includes('|'));
+        if (rows.length < 2) return [];
+
+        const headerRow = rows[0];
+        const hasSeparator = rows[1]?.includes('---');
+
+        const header = headerRow.split('|').map((h: string) => h.trim()).filter(Boolean);
+        const dataRows = (hasSeparator ? rows.slice(2) : rows.slice(1))
+          .map((r: string) => r.split('|').map((c: string) => c.trim()).filter(Boolean));
+
+        // MODO VISUAL: Renderiza como Grid Interativo de Comparação
+        if (visualMode && dataRows.length > 0) {
+          return (
+            <div key={`table-grid-${index}`} className="grid gap-6 my-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
+              {dataRows.map((row: string[], i: number) => (
+                <div key={i} className="group relative overflow-hidden bg-white/5 border border-white/10 rounded-[2rem] p-6 hover:bg-white/10 hover:border-cyan-500/30 transition-all duration-500 shadow-xl">
+                  {/* Critério Tag */}
+                  <div className="flex items-center gap-3 mb-4">
+                    <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] group-hover:scale-125 transition-transform" />
+                    <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/80">{row[0] || 'Critério'}</span>
+                  </div>
+
+                  {/* Grid de Comparação */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div className="flex flex-col gap-2 p-4 bg-slate-900/40 rounded-2xl border border-white/5 group-hover:bg-slate-900/60 transition-colors">
+                      <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{header[1] || 'Conceito'}</span>
+                      <span className="text-sm font-semibold text-slate-100 leading-relaxed">{row[1]}</span>
+                    </div>
+                    <div className="flex flex-col gap-2 p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 group-hover:bg-indigo-500/10 transition-colors">
+                      <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-wider">{header[2] || 'Comparativo'}</span>
+                      <span className="text-sm font-semibold text-slate-200 leading-relaxed">{row[2]}</span>
+                    </div>
+                  </div>
+
+                  {/* Efeito Visual de Fundo */}
+                  <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-cyan-500/5 blur-3xl rounded-full group-hover:bg-cyan-500/10 transition-colors" />
+                </div>
+              ))}
+            </div>
+          );
+        }
+
+        // MODO PADRÃO: Tabela Clássica Refinada
         return (
-          <div key={index} className={`overflow-x-auto my-6 ${visualMode ? 'bg-white/5 border-2 border-cyan-500/20 shadow-lg' : 'bg-slate-950/30'} rounded-2xl border border-slate-700`}>
+          <div key={`table-${index}`} className={`overflow-x-auto my-6 bg-slate-950/30 rounded-2xl border border-slate-700`}>
             <table className="w-full text-left border-collapse">
               <thead>
                 <tr className="bg-white/5 border-b border-white/10">
-                  {header.map((h, i) => <th key={i} className="p-4 text-[10px] font-black uppercase text-cyan-400 tracking-widest">{h}</th>)}
+                  {header.map((h: string, i: number) => <th key={i} className="p-4 text-[10px] font-black uppercase text-cyan-400 tracking-widest">{h}</th>)}
                 </tr>
               </thead>
               <tbody>
-                {body.map((row, i) => (
+                {dataRows.map((row: string[], i: number) => (
                   <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/10 transition-colors">
-                    {row.map((cell, j) => <td key={j} className="p-4 text-xs text-slate-200 font-medium">{cell}</td>)}
+                    {row.map((cell: string, j: number) => <td key={j} className="p-4 text-xs text-slate-200 font-medium">{cell}</td>)}
                   </tr>
                 ))}
               </tbody>
@@ -40,39 +119,68 @@ const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({
           </div>
         );
       } else {
-        return part.split('\n').map((line, lineIndex) => {
+        // Processamento de Texto Padrão (Fluxo, Mapas, Parágrafos)
+        const part = item.content;
+        return part.split('\n').map((line: string, lineIndex: number) => {
           const trimmedLine = line.trim();
+          if (!trimmedLine) return <div key={`${index}-${lineIndex}`} className="h-4" />;
 
-          if (trimmedLine.startsWith('➡️') || trimmedLine.includes('➡️')) {
+          // DETECÇÃO DE FLUXOGRAMA: 1. [TAG] Texto
+          const flowMatch = trimmedLine.match(/^(\d+)\.\s*\[(.*?)\]\s*(.*)$/);
+          if (flowMatch) {
+            const [, num, tag, text] = flowMatch;
+            const tagColors: Record<string, string> = {
+              'INÍCIO': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
+              'AÇÃO': 'bg-blue-500/20 text-blue-400 border-blue-500/40',
+              'DECISÃO': 'bg-orange-500/20 text-orange-400 border-orange-500/40',
+              'RESULTADO': 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40',
+              'FIM': 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+            };
+            const colorClass = tagColors[tag.toUpperCase()] || 'bg-slate-500/20 text-slate-400 border-slate-500/40';
+
             return (
-              <div key={`${index}-${lineIndex}`} className="flex items-center gap-4 my-4 p-4 bg-orange-500/5 border border-orange-500/20 rounded-xl animate-in slide-in-from-left-4">
-                <div className="w-8 h-8 rounded-full bg-orange-500/20 flex items-center justify-center text-orange-400">
-                  <ArrowRightLeft size={16} />
+              <div key={`${index}-${lineIndex}`} className="relative flex flex-col items-center group">
+                {/* Linha de Conexão Vertical */}
+                {num !== '1' && (
+                  <div className="w-0.5 h-8 bg-gradient-to-b from-white/10 to-indigo-500/50 mb-2" />
+                )}
+
+                <div className="flex items-center gap-4 w-full p-5 bg-white/5 border border-white/10 rounded-3xl hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300">
+                  <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs font-black text-indigo-400">
+                    {num}
+                  </div>
+                  <div className="flex flex-col gap-1.5 flex-grow">
+                    <span className={`w-fit px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-widest border ${colorClass}`}>
+                      {tag}
+                    </span>
+                    <span className="text-sm font-semibold text-slate-100 leading-relaxed">{text}</span>
+                  </div>
                 </div>
-                <div className="text-sm font-bold text-slate-200">{line.replace(/➡️/g, '').trim()}</div>
               </div>
             );
+          }
+
+          // MAPA MENTAL: Hierarquia H1, H2, H3
+          if (trimmedLine.startsWith('#')) {
+            const level = (trimmedLine.match(/^#+/)?.[0].length || 1);
+            const text = trimmedLine.replace(/^#+\s/, '');
+
+            if (level === 1) return <h1 key={`${index}-${lineIndex}`} className="text-2xl font-black uppercase tracking-tighter mt-10 mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 border-b border-white/10 pb-4">{text}</h1>;
+            if (level === 2) return <h2 key={`${index}-${lineIndex}`} className="text-lg font-black uppercase tracking-widest mt-8 mb-4 text-indigo-400 flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />{text}</h2>;
+            if (level === 3) return <h3 key={`${index}-${lineIndex}`} className="text-sm font-black uppercase tracking-wider mt-6 mb-3 text-cyan-400 border-l-4 border-cyan-500/30 pl-4">{text}</h3>;
+            return <h4 key={`${index}-${lineIndex}`} className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-slate-400 pl-8">{text}</h4>;
           }
 
           if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
             return (
-              <div key={`${index}-${lineIndex}`} className="flex items-start gap-3 my-2 group">
-                <div className="mt-1.5 w-1.5 h-1.5 rounded-full bg-purple-500 shadow-[0_0_8px_rgba(168,85,247,0.5)] group-hover:scale-125 transition-transform" />
-                <span className="text-sm text-slate-300 leading-relaxed">{line.replace(/[-*]\s/, '')}</span>
+              <div key={`${index}-${lineIndex}`} className="flex items-start gap-3 my-2 group pl-8">
+                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-purple-500 transition-colors" />
+                <span className="text-sm text-slate-300 font-medium leading-relaxed">{line.replace(/[-*]\s/, '')}</span>
               </div>
             );
           }
 
-          if (trimmedLine.match(/^#{1,4}\s/)) {
-            const level = (trimmedLine.match(/^#+/)?.[0].length || 1) as 1 | 2 | 3 | 4;
-            const text = trimmedLine.replace(/^#+\s/, '');
-            const sizes = { 1: 'text-2xl', 2: 'text-xl', 3: 'text-lg', 4: 'text-base' };
-            return <h4 key={`${index}-${lineIndex}`} className={`${sizes[level]} font-black uppercase tracking-tighter mt-8 mb-4 text-cyan-400 border-l-4 border-cyan-500/30 pl-5`}>{text}</h4>;
-          }
-
-          if (!trimmedLine) return <div key={`${index}-${lineIndex}`} className="h-2" />;
-
-          return <p key={`${index}-${lineIndex}`} className="my-2 text-sm text-slate-300 whitespace-pre-wrap leading-loose font-medium">{line}</p>;
+          return <p key={`${index}-${lineIndex}`} className="my-3 text-sm text-slate-300 font-medium leading-loose pl-1">{line}</p>;
         });
       }
     });
@@ -113,7 +221,7 @@ const AIContentBox: React.FC<{
   };
 
   return (
-    <div className={`mt-4 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-[2rem] p-8 animate-in zoom-in-95 duration-500 shadow-inner`}>
+    <div id="neural-content-box" className={`mt-4 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-[2rem] p-8 animate-in zoom-in-95 duration-500 shadow-inner`}>
       <div className="flex justify-between items-center mb-6">
         <div className={`flex items-center gap-3 font-black text-xs uppercase tracking-[0.2em] ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
           <div className={`p-2 rounded-xl bg-white/5 border ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
@@ -148,7 +256,7 @@ const AIContentBox: React.FC<{
           <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Sincronizando Sinapses...</p>
         </div>
       ) : (
-        <div className="leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar pr-4 pb-4 scroll-smooth">
+        <div className="leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar pr-4 pb-4 scroll-smooth neural-content-viewport">
           {isMarkdown ? (
             <MarkdownRenderer
               content={content}
@@ -707,13 +815,13 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
               <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mb-8 relative z-30">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Matéria</label>
-                  <div className="relative">
-                    <select value={newCard.materia} onChange={(e) => setNewCard({ ...newCard, materia: e.target.value })} className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 text-sm text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] outline-none appearance-none transition-all cursor-pointer">
-                      <option value="">Selecione a disciplina...</option>
-                      {materias.filter((m: string) => m !== 'Todas' && m !== 'Todos').map((m: string) => <option key={m} value={m}>{m}</option>)}
-                    </select>
-                    <ChevronDown className="absolute right-5 top-1/2 -translate-y-1/2 pointer-events-none text-[hsl(var(--text-muted))]" size={16} />
-                  </div>
+                  <CustomSelector
+                    label="Matéria"
+                    value={newCard.materia}
+                    options={materias.filter((m: string) => m !== 'Todas' && m !== 'Todos')}
+                    onChange={(val) => setNewCard({ ...newCard, materia: val })}
+                    placeholder="Selecione a disciplina..."
+                  />
                 </div>
 
                 <div className="md:col-span-2 space-y-3" ref={dropdownRef}>
@@ -740,18 +848,24 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                       </button>
                     )}
                     {showTopicsDropdown && availableTopics.length > 0 && (
-                      <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                      <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 backdrop-blur-3xl">
+                        <div
+                          onClick={() => { setNewCard((prev: any) => ({ ...prev, assunto: '' })); setShowTopicsDropdown(false); }}
+                          className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
+                        >
+                          Limpar Seleção
+                        </div>
                         {availableTopics.map((t: string, idx: number) => (
                           <div
                             key={idx}
                             onClick={() => {
-                              setNewCard((prev: typeof newCard) => ({ ...prev, assunto: t }));
+                              setNewCard((prev: any) => ({ ...prev, assunto: t }));
                               setShowTopicsDropdown(false);
                             }}
-                            className="px-6 py-4 text-xs font-bold text-[hsl(var(--text-muted))] hover:bg-white/5 hover:text-white cursor-pointer border-b border-[hsl(var(--border))] last:border-0 transition-colors flex items-center gap-3"
+                            className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${newCard.assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
                           >
-                            <div className="w-1.5 h-1.5 bg-[hsl(var(--accent)/0.5)] rounded-full"></div>
-                            {t}
+                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${newCard.assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
+                            <span className="flex-1 leading-relaxed truncate">{t}</span>
                           </div>
                         ))}
                       </div>

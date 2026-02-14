@@ -233,7 +233,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 max-w-7xl mx-auto w-full p-4 lg:p-10 pb-28 relative">
+        <div className="flex-1 max-w-screen-2xl mx-auto w-full p-4 lg:p-10 pb-28 relative">
 
           {/* View Title Section */}
           <header className="mb-12 animate-in fade-in slide-in-from-top-4 duration-700">

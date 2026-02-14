@@ -161,6 +161,33 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
     return days;
   }, [records, missaoAtiva]);
 
+  // Inactivity Streak Calculation (Days since last study)
+  const inactiveStreak = useMemo(() => {
+    const studyMap = new Map<string, number>();
+    records
+      .filter(r => r.concurso === missaoAtiva)
+      .forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
+
+    let streak = 0;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    for (let i = 0; i < 120; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() - i);
+      const year = d.getFullYear();
+      const month = String(d.getMonth() + 1).padStart(2, '0');
+      const day = String(d.getDate()).padStart(2, '0');
+      const dateStr = `${year}-${month}-${day}`;
+
+      if ((studyMap.get(dateStr) || 0) > 0) {
+        break;
+      }
+      streak++;
+    }
+    return streak;
+  }, [records, missaoAtiva]);
+
   // Helper para formatar data DD/MM no gráfico
   const formatDateLabel = (dateStr: string) => {
     const [year, month, day] = dateStr.split('-');
@@ -389,11 +416,13 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
       {/* ROW 3: HEATMAP & ANALYSIS (ESTÉTICA WOW) */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
         <div className="glass-premium rounded-[2.5rem] p-8 md:p-10">
-          <div className="flex justify-between items-center mb-8">
-            <h3 className="text-lg font-black flex items-center gap-3 tracking-tighter text-[hsl(var(--text-bright))] uppercase">
-              <Calendar className="text-[hsl(var(--accent))]" />
-              Mapa de Constância
-            </h3>
+          <div className="flex justify-between items-center mb-12 select-none">
+            <div className="flex items-center gap-4">
+              <h3 className="text-lg font-black flex items-center gap-3 tracking-tighter text-[hsl(var(--text-bright))] uppercase">
+                <Calendar className="text-[hsl(var(--accent))]" />
+                Mapa de Constância
+              </h3>
+            </div>
             <span className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">Últimos 120 Dias</span>
           </div>
 
@@ -418,19 +447,32 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
             })}
           </div>
 
-          <div className="flex items-center gap-4 mt-8 opacity-40">
-            <span className="text-[8px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))]">Menos</span>
-            <div className="flex gap-1.5">
-              {[0, 1, 2, 3, 4].map(idx => (
-                <div key={idx} className={`w-2.5 h-2.5 rounded-sm ${idx === 0 ? 'bg-[hsl(var(--bg-user-block))]' :
-                  idx === 1 ? 'bg-[hsl(var(--accent)/0.2)]' :
-                    idx === 2 ? 'bg-[hsl(var(--accent)/0.4)]' :
-                      idx === 3 ? 'bg-[hsl(var(--accent)/0.7)]' :
-                        'bg-[hsl(var(--accent))]'
-                  }`} />
-              ))}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-6 mt-10">
+            <div className="flex items-center gap-4 opacity-40">
+              <span className="text-[8px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))]">Menos</span>
+              <div className="flex gap-1.5">
+                {[0, 1, 2, 3, 4].map(idx => (
+                  <div key={idx} className={`w-2.5 h-2.5 rounded-sm ${idx === 0 ? 'bg-[hsl(var(--bg-user-block))]' :
+                    idx === 1 ? 'bg-[hsl(var(--accent)/0.2)]' :
+                      idx === 2 ? 'bg-[hsl(var(--accent)/0.4)]' :
+                        idx === 3 ? 'bg-[hsl(var(--accent)/0.7)]' :
+                          'bg-[hsl(var(--accent))]'
+                    }`} />
+                ))}
+              </div>
+              <span className="text-[8px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))]">Mais</span>
             </div>
-            <span className="text-[8px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))]">Mais</span>
+
+            {inactiveStreak > 0 && (
+              <div className="px-4 py-1.5 bg-red-500/10 border border-red-500/20 rounded-full animate-in slide-in-from-bottom-2 duration-700">
+                <div className="flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-[10px] font-black text-red-400 uppercase tracking-widest">
+                    Pausa Detectada: {inactiveStreak} {inactiveStreak === 1 ? 'dia' : 'dias'} Off-line
+                  </span>
+                </div>
+              </div>
+            )}
           </div>
         </div>
 
@@ -454,21 +496,36 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
             {analysisTab === 'time' ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
-                  <Pie data={timeData} cx="50%" cy="50%" innerRadius={60} outerRadius={85} paddingAngle={8} dataKey="value">
+                  <Pie data={timeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
                     {timeData.map((e, i) => <Cell key={`c-${i}`} fill={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 55%)`} stroke="none" />)}
                   </Pie>
                   <Tooltip
                     contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }}
-                    itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '12px', textTransform: 'uppercase' }}
-                    formatter={(v: number) => [`${Math.floor(v / 60)}h ${v % 60}m`, 'TEMPO DE ESTUDO']}
+                    itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '10px', textTransform: 'uppercase' }}
+                    formatter={(v: number) => [`${Math.floor(v / 60)}h ${v % 60}m`, 'TEMPO']}
+                  />
+                  <Legend
+                    verticalAlign="bottom"
+                    height={36}
+                    iconType="circle"
+                    formatter={(value) => <span className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))] ml-2">{value}</span>}
                   />
                 </PieChart>
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={errorData} layout="vertical" margin={{ left: -30, right: 20 }}>
+                <BarChart data={errorData} layout="vertical" margin={{ left: 20, right: 40, top: 0, bottom: 0 }}>
                   <XAxis type="number" hide />
-                  <YAxis dataKey="materia" type="category" stroke="hsl(var(--text-muted))" fontSize={9} width={100} tick={{ fill: 'hsl(var(--text-muted))', fontWeight: 'bold' }} axisLine={false} tickLine={false} />
+                  <YAxis
+                    dataKey="materia"
+                    type="category"
+                    stroke="hsl(var(--text-muted))"
+                    fontSize={10}
+                    width={180}
+                    tick={{ fill: 'hsl(var(--text-muted))', fontWeight: '900' }}
+                    axisLine={false}
+                    tickLine={false}
+                  />
                   <Tooltip
                     cursor={{ fill: 'rgba(255,255,255,0.03)' }}
                     contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }}

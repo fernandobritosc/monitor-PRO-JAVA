@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { CustomSelector } from '../components/CustomSelector';
 
 interface StudyFormProps {
     editais: EditalMateria[];
@@ -474,7 +475,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
                         {/* PASSO 1: IDENTIFICAÇÃO */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6">
+                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative z-20">
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><BookOpen size={18} className="text-[hsl(var(--accent))]" /> Identificação</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
@@ -483,13 +484,13 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                 </div>
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Matéria</label>
-                                    <div className="relative">
-                                        <select required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-bold appearance-none cursor-pointer" value={materia} onChange={(e) => setMateria(e.target.value)}>
-                                            <option value="">Selecione...</option>
-                                            {materiasDisponiveis.map(m => <option key={m.materia} value={m.materia}>{m.materia}</option>)}
-                                        </select>
-                                        <ChevronDown size={18} className="absolute right-5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] pointer-events-none" />
-                                    </div>
+                                    <CustomSelector
+                                        label="Matéria"
+                                        value={materia}
+                                        options={materiasDisponiveis.map(m => m.materia)}
+                                        onChange={(val) => setMateria(val)}
+                                        placeholder="Selecione a disciplina..."
+                                    />
                                 </div>
                             </div>
                             <div className="space-y-2" ref={dropdownRef}>
@@ -519,7 +520,13 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                         </button>
                                     )}
                                     {showTopicsDropdown && materia && topicosDisponiveis.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
+                                        <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
+                                            <div
+                                                onClick={() => { setAssunto(''); setShowTopicsDropdown(false); }}
+                                                className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
+                                            >
+                                                Limpar Seleção
+                                            </div>
                                             {topicosDisponiveis.map((t, index) => (
                                                 <div
                                                     key={index}
@@ -527,9 +534,10 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                                         setAssunto(t);
                                                         setShowTopicsDropdown(false);
                                                     }}
-                                                    className="px-6 py-4 text-sm font-bold text-[hsl(var(--text-main))] hover:bg-[hsl(var(--accent)/0.1)] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] last:border-0 transition-all"
+                                                    className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
                                                 >
-                                                    {t}
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
+                                                    <span className="flex-1 leading-relaxed truncate">{t}</span>
                                                 </div>
                                             ))}
                                         </div>
@@ -539,7 +547,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         </div>
 
                         {/* PASSO 2: PERFORMANCE */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6">
+                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative z-10">
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><Target size={18} className="text-[hsl(var(--accent))]" /> Performance</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Tempo (HH:MM)</label><input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} /></div>

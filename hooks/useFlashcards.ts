@@ -657,52 +657,105 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const getActiveProviderName = () => { if (selectedAI === 'gemini') return geminiKeyAvailable ? 'Gemini' : 'Groq (Fallback)'; if (selectedAI === 'groq') return groqKeyAvailable ? 'Groq' : 'Gemini (Fallback)'; return geminiKeyAvailable ? 'Gemini (Auto)' : 'Groq (Auto)'; }
 
   const handleExportLabPDF = async () => {
-    if (!currentCard || (!aiStreamText && !mnemonicText && !extraContent)) return;
+    if (!currentCard) return;
+    try {
+      const html2canvas = (await import('html2canvas')).default;
+      const element = document.getElementById('neural-content-box');
+      const viewport = element?.querySelector('.neural-content-viewport') as HTMLElement;
 
-    const { jsPDF } = await import('jspdf');
-    const doc = new jsPDF();
+      if (!element || !viewport) {
+        alert("Erro: Conteúdo do Laboratório não encontrado.");
+        return;
+      }
 
-    // Configuração de Estilo
-    doc.setFont("helvetica", "bold");
-    doc.setFontSize(22);
-    doc.setTextColor(40, 44, 52);
-    doc.text("Neural Study Guide", 20, 30);
+      // Preparação para captura total (remover Scroll e Max-Height temporariamente)
+      const originalMaxHeight = viewport.style.maxHeight;
+      const originalOverflow = viewport.style.overflowY;
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(100);
-    doc.text(`Gerado por Monitor Pro AI - ${new Date().toLocaleDateString()}`, 20, 40);
+      viewport.style.maxHeight = 'none';
+      viewport.style.overflowY = 'visible';
 
-    doc.setLineWidth(0.5);
-    doc.line(20, 45, 190, 45);
+      // Captura o elemento como canvas com escala 2x
+      const canvas = await html2canvas(element, {
+        scale: 2,
+        backgroundColor: '#0F172A', // Slate-900 para o fundo do PDF
+        logging: false,
+        useCORS: true,
+        windowWidth: element.scrollWidth,
+        windowHeight: element.scrollHeight
+      });
 
-    // Conteúdo
-    doc.setFontSize(16);
-    doc.setTextColor(40, 44, 52);
-    doc.text(`Tópico: ${currentCard.front}`, 20, 60);
+      // Restaurar estilos originais
+      viewport.style.maxHeight = originalMaxHeight;
+      viewport.style.overflowY = originalOverflow;
 
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    const activeToolLabel = {
-      explanation: 'Análise Profunda',
-      mnemonic: 'Mnemônico',
-      mapa: 'Mapa Mental',
-      tabela: 'Tabela Comparativa',
-      fluxo: 'Fluxograma',
-      info: 'Infográfico'
-    }[activeAiTool];
+      const imgData = canvas.toDataURL('image/png');
+      const { jsPDF } = await import('jspdf');
 
-    doc.text(`Ferramenta: ${activeToolLabel}`, 20, 75);
+      // Dimensões A4 em pontos (pt)
+      const pdfWidth = 595.28;
+      const pdfHeight = 841.89;
 
-    doc.setFont("helvetica", "normal");
-    const content = activeAiTool === 'explanation' ? aiStreamText :
-      activeAiTool === 'mnemonic' ? mnemonicText :
-        extraContent;
+      // Configuração de Margens
+      const margin = 40; // Margem de segurança em pt
+      const contentWidth = pdfWidth - (margin * 2);
+      const contentHeight = pdfHeight - (margin * 2);
 
-    const splitText = doc.splitTextToSize(content.replace(/[*#]/g, ''), 170);
-    doc.text(splitText, 20, 90);
+      // Proporção do canvas para o PDF (respeitando a largura útil)
+      const imgWidth = contentWidth;
+      const imgHeight = (canvas.height * imgWidth) / canvas.width;
 
-    doc.save(`Neural_Lab_${activeAiTool}_${currentCard.id.substring(0, 5)}.pdf`);
+      let heightLeft = imgHeight;
+      let position = margin; // Inicia na margem superior
+
+      const doc = new jsPDF('p', 'pt', 'a4');
+      const bgColor = [15, 23, 42]; // RGB para #0F172A
+
+      // Função auxiliar para desenhar o fundo e máscaras (margens limpas)
+      const setupPageLayout = () => {
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        // Fundo total da página para eliminar buracos brancos
+        doc.rect(0, 0, pdfWidth, pdfHeight, 'F');
+
+        // Máscaras de margem (topo e base para transição suave)
+        doc.rect(0, 0, pdfWidth, margin, 'F');
+        doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
+      };
+
+      // Adiciona primeira página
+      setupPageLayout();
+      doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+
+      // Repetir as máscaras no topo da imagem para garantir o respiro
+      doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+      doc.rect(0, 0, pdfWidth, margin, 'F');
+      doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
+
+      heightLeft -= contentHeight;
+
+      // Adiciona páginas subsequentes se necessário
+      while (heightLeft > 0) {
+        position = (heightLeft - imgHeight) + margin;
+        doc.addPage();
+        setupPageLayout();
+        doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
+
+        // Máscaras sobrepostas
+        doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
+        doc.rect(0, 0, pdfWidth, margin, 'F');
+        doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
+
+        heightLeft -= contentHeight;
+      }
+
+      const fileName = `Neural_Lab_${activeAiTool}_${currentCard.id.substring(0, 5)}.pdf`;
+      doc.save(fileName);
+
+      console.log("✅ PDF Multi-página com margens exportado!");
+    } catch (err: any) {
+      console.error("Erro ao exportar PDF visual:", err);
+      alert("Erro ao gerar PDF visual: " + err.message);
+    }
   };
 
   return {

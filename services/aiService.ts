@@ -274,25 +274,47 @@ export const generateAIContent = async (
     if (context === 'flashcard') {
       finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${prompt}`;
     } else if (context === 'mapa') {
-      finalPrompt = `Você é um especialista em visualização de dados. Crie um MAPA MENTAL em formato de texto aninhado EXTREMAMENTE DETALHADO sobre: ${prompt}. 
-      Use traços (-) e sub-traços para ramificar. 
-      Use Markdown (negrito para termos chave). 
-      Estrutura esperada:
-      - **Conceito Central**
-        - **Ramo Principal 1**
-          - Detalhe A
-          - Detalhe B
-      Seja pedagógico e profundo.`;
+      finalPrompt = `Você é um especialista em mapas mentais pedagógicos. Crie um MAPA MENTAL ESTRUTURADO sobre: ${prompt}.
+      Use a seguinte sintaxe Markdown rigorosa:
+      # [TÍTULO CENTRAL]
+      ## [RAMO PRINCIPAL]
+      ### [SUB-TÓPICO]
+      - [DETALHE]
+      
+      Regras:
+      1. Use no máximo 4 níveis de profundidade.
+      2. Mantenha os termos curtos e impactantes.
+      3. Seja extremamente minucioso na lógica jurídica/técnica.`;
     } else if (context === 'tabela') {
-      finalPrompt = `Crie uma TABELA COMPARATIVA em Markdown sobre: ${prompt}. 
-      A tabela DEVE ter colunas como "Critério", "Conceito Principal" e "Comparativo/Oposto". 
-      Use pelo menos 3 a 5 linhas de critérios técnicos. 
-      Garanta que a sintaxe de tabela Markdown (|---|) esteja perfeita para renderização.`;
+      finalPrompt = `Você é um mestre em didática e síntese. Crie uma TABELA COMPARATIVA técnica sobre: ${prompt}.
+      
+      REGRAS DE OURO:
+      1. NÃO adicione nenhum texto introdutório ou conclusivo. Responda APENAS com a tabela em Markdown.
+      2. Use exatamente 3 colunas: | Critério | Conceito Principal | Comparativo/Oposto |
+      3. Seja rigoroso nos termos e use de 4 a 6 linhas de comparação.
+      
+      Exemplo de Saída:
+      | Critério | Conceito Principal | Comparativo/Oposto |
+      |---|---|---|
+      | Definição | Texto... | Texto... |
+      | Fundamento | Texto... | Texto... |`;
     } else if (context === 'fluxo') {
-      finalPrompt = `Gere um FLUXOGRAMA LÓGICO em texto descrevendo o processo ou sequência de: ${prompt}. 
-      Use emojis ➡️ para as setas e [ ] para as etapas. 
-      Exemplo: [Início] ➡️ [Etapa 1] ➡️ [Fim]. 
-      Se for um conceito estático, crie uma "Linha do Tempo de Raciocínio" para explicá-lo passo a passo.`;
+      finalPrompt = `Você é um analista de processos e lógica jurídica. Gere um FLUXOGRAMA LÓGICO VERTICAL para explicar: ${prompt}.
+      Use obrigatoriamente as seguintes tags para cada etapa:
+      [INÍCIO] -> Breve introdução.
+      [AÇÃO] -> Procedimento ou fato.
+      [DECISÃO] -> Pergunta ou bifurcação.
+      [RESULTADO] -> Conseqüência de uma ação/decisão.
+      [FIM] -> Conclusão.
+      
+      Exemplo de Saída:
+      1. [INÍCIO] Texto
+      2. [DECISÃO] Texto?
+      3. [RESULTADO] Texto
+      
+      Regras:
+      - Seja analítico.
+      - Use lógica de causa e efeito clara.`;
     } else if (context === 'info') {
       finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${prompt}. 
       Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
@@ -341,25 +363,25 @@ export const generateAIContent = async (
 
   const runGroq = async (key: string) => {
     try {
-      const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito. Se possível, use um cenário de concurso público.`;
+      const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade.Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos: \n - **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n - **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito.Se possível, use um cenário de concurso público.`;
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${key}`,
+          'Authorization': `Bearer ${key} `,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Contexto: ${context}\nAnálise: ${prompt}` }
+            { role: 'user', content: `Contexto: ${context} \nAnálise: ${prompt} ` }
           ],
           temperature: 0.5,
           max_tokens: 4096,
         }),
       });
 
-      if (!response.ok) throw new Error(`Groq status ${response.status}`);
+      if (!response.ok) throw new Error(`Groq status ${response.status} `);
       const data = await response.json();
       return data.choices[0].message.content;
     } catch (error: any) {
@@ -529,7 +551,7 @@ export const handlePlayRevisionAudio = async (
 export const deleteCachedAudio = async (revisionId: string) => {
   const bucketName = 'audio-revisions';
   try {
-    await supabase.storage.from(bucketName).remove([`${revisionId}.wav`, `${revisionId}_podcast.wav`]);
+    await supabase.storage.from(bucketName).remove([`${revisionId}.wav`, `${revisionId} _podcast.wav`]);
   } catch (e) { }
 };
 
@@ -546,7 +568,7 @@ export const generatePodcastAudio = async (
   let source: AudioBufferSourceNode | null = null;
 
   try {
-    const fileName = `${referenceId}_podcast.wav`;
+    const fileName = `${referenceId} _podcast.wav`;
     const bucketName = 'audio-revisions';
 
     // Verificação de cache simplificada
@@ -565,7 +587,7 @@ export const generatePodcastAudio = async (
 
     const ai = new GoogleGenAI({ apiKey });
     onStatusChange("Escrevendo roteiro...");
-    const scriptPrompt = `Converta o seguinte texto em um diálogo de podcast curto entre Alex e Bia. Formato estrito: Alex: [fala] Bia: [fala]. Texto: "${originalText.substring(0, 3000)}"`;
+    const scriptPrompt = `Converta o seguinte texto em um diálogo de podcast curto entre Alex e Bia.Formato estrito: Alex: [fala] Bia: [fala].Texto: "${originalText.substring(0, 3000)}"`;
     const scriptResponse = await ai.models.generateContent({
       model: 'gemini-1.5-flash',
       contents: [{ role: 'user', parts: [{ text: scriptPrompt }] }]

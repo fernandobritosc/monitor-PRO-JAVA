@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { Question, EditalMateria } from '../types';
 import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock } from 'lucide-react';
+import { CustomSelector } from '../components/CustomSelector';
 
 interface QuestionsBankProps {
   missaoAtiva: string;
@@ -396,22 +397,13 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
                 <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
                   <Layers size={14} className="text-[hsl(var(--accent))]" /> Matéria Principal
                 </label>
-                <div className="relative">
-                  <select
-                    className="w-full appearance-none bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all cursor-pointer"
-                    value={formData.materia}
-                    onChange={e => setFormData({ ...formData, materia: e.target.value })}
-                  >
-                    <option value="">Selecione...</option>
-                    {editais
-                      .filter(e => e.concurso === missaoAtiva)
-                      .map(e => e.materia)
-                      .sort()
-                      .map(m => <option key={m} className="bg-[hsl(var(--bg-sidebar))]">{m}</option>)
-                    }
-                  </select>
-                  <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] pointer-events-none" />
-                </div>
+                <CustomSelector
+                  label="Matéria"
+                  value={formData.materia}
+                  options={editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort()}
+                  onChange={val => setFormData({ ...formData, materia: val })}
+                  placeholder="Selecione a disciplina..."
+                />
               </div>
               <div className="space-y-3" ref={dropdownRef}>
                 <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
@@ -439,7 +431,13 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
                     </button>
                   )}
                   {showTopicsDropdown && topicosDisponiveis.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
+                    <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
+                      <div
+                        onClick={() => { setFormData(prev => ({ ...prev, assunto: '' })); setShowTopicsDropdown(false); }}
+                        className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
+                      >
+                        Limpar Seleção
+                      </div>
                       {topicosDisponiveis.map((t, i) => (
                         <div
                           key={i}
@@ -447,9 +445,10 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
                             setFormData(prev => ({ ...prev, assunto: t }));
                             setShowTopicsDropdown(false);
                           }}
-                          className="px-6 py-4 text-sm font-bold text-[hsl(var(--text-main))] hover:bg-[hsl(var(--accent)/0.1)] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] last:border-0 transition-all"
+                          className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${formData.assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
                         >
-                          {t}
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${formData.assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
+                          <span className="flex-1 leading-relaxed truncate">{t}</span>
                         </div>
                       ))}
                     </div>
@@ -487,18 +486,13 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
               </div>
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Status da Revisão</label>
-                <div className="relative">
-                  <select
-                    className="w-full appearance-none bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-xl px-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all cursor-pointer"
-                    value={formData.status}
-                    onChange={e => setFormData({ ...formData, status: e.target.value as Question['status'] })}
-                  >
-                    <option value="Pendente">🔴 Pendente</option>
-                    <option value="Em andamento">🔵 Em Andamento</option>
-                    <option value="Concluída">🟢 Concluída</option>
-                  </select>
-                  <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] pointer-events-none" />
-                </div>
+                <CustomSelector
+                  label="Status"
+                  value={formData.status}
+                  options={['Pendente', 'Em andamento', 'Concluída']}
+                  onChange={val => setFormData({ ...formData, status: val as any })}
+                  placeholder="Selecione o status..."
+                />
               </div>
               <div className="space-y-3">
                 <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Tags (Separar por Vírgula)</label>
@@ -549,14 +543,13 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
               />
             </div>
             <div className="relative w-full md:w-64">
-              <select
-                className="w-full appearance-none bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-6 py-4 text-sm font-black uppercase tracking-widest text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all cursor-pointer"
+              <CustomSelector
+                label="Matéria"
                 value={filterMateria}
-                onChange={e => setFilterMateria(e.target.value)}
-              >
-                {materiasDisponiveis.map(m => <option key={m} className="bg-[hsl(var(--bg-sidebar))]">{m}</option>)}
-              </select>
-              <ChevronDown size={18} className="absolute right-6 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] pointer-events-none" />
+                options={materiasDisponiveis}
+                onChange={val => setFilterMateria(val)}
+                className="!py-0"
+              />
             </div>
           </div>
         </div>
