@@ -21,7 +21,7 @@ import GabaritoIA from './views/GabaritoIA';
 import { useAppData } from './hooks/useAppData';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 
-const APP_VERSION = '1.0.29'; // Tradução e Restauração de Navegação
+const APP_VERSION = '1.0.30'; // Build: 17/02/2026 19:10 (Brasília)
 
 import { preserveMissaoOnClear } from './utils/localStorage';
 import { logger } from './utils/logger';

@@ -38,7 +38,19 @@ interface LayoutProps {
   onLogout?: () => void;
 }
 
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.27';
+
+
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.30';
+const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
+  ? new Date(Number(__BUILD_TIMESTAMP__)).toLocaleString('pt-BR', {
+    timeZone: 'America/Sao_Paulo',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  })
+  : '17/02/2026 19:10';
 
 const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, missaoAtiva, theme, toggleTheme, userEmail: propEmail, onLogout: propLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -212,6 +224,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
           {!isCollapsed && (
             <div className="text-center text-[9px] text-[hsl(var(--text-muted))] font-bold tracking-widest uppercase opacity-20 px-4 pt-2">
               MonitorPro v{APP_VERSION}
+              <br />
+              {BUILD_TIME} (BRT)
             </div>
           )}
         </div>
