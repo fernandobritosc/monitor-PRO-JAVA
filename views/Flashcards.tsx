@@ -35,13 +35,6 @@ const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({
     };
 
     lines.forEach(line => {
-      // Detecção de SVG
-      if (line.trim().startsWith('<svg')) {
-        flushText();
-        result.push({ type: 'svg', content: line });
-        return;
-      }
-
       if (line.trim().startsWith('|')) {
         flushText();
         currentTable.push(line);
@@ -62,30 +55,7 @@ const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({
     flushText();
     flushTable();
 
-    // Detecção de Bloco SVG (Se o conteúdo for apenas um SVG grande)
-    const rawContent = content.trim().replace(/^```(xml|svg)?\n?/i, '').replace(/\n?```$/i, '').trim();
-
-    if (rawContent.startsWith('<svg')) {
-      return [
-        <div
-          key="svg-main"
-          className="flex justify-center my-8 p-6 bg-[hsl(var(--bg-main))] rounded-[2.5rem] border border-[hsl(var(--border))] shadow-2xl animate-in zoom-in-95 duration-1000 overflow-hidden"
-          dangerouslySetInnerHTML={{ __html: rawContent }}
-        />
-      ];
-    }
-
     return result.flatMap((item, index) => {
-      if (item.type === 'svg') {
-        return (
-          <div
-            key={`svg-${index}`}
-            className="flex justify-center my-8 p-4 bg-white/5 rounded-[2rem] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-1000 overflow-hidden"
-            dangerouslySetInnerHTML={{ __html: item.content }}
-          />
-        );
-      }
-
       if (item.type === 'table') {
         const rows = item.content.trim().split('\n').filter((row: string) => row.includes('|'));
         if (rows.length < 2) return [];

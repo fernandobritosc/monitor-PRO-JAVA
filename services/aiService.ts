@@ -316,23 +316,10 @@ export const generateAIContent = async (
       | Definição | Texto... | Texto... |
       | Fundamento | Texto... | Texto... |`;
     } else if (context === 'info') {
-      finalPrompt = `Atue como um designer de dados de elite (estilo NotebookLM/Canva). 
-      Crie um INFOGRÁFICO COMPLEXO e VISUALMENTE IMPACTANTE em código SVG 100% autocontido.
-
-      Objetivo: Resumir o conteúdo de forma densa, elegante e ultra-didática.
-
-      Instruções Estéticas:
-      1. Formato: SVG puro (sem markdown) em viewBox="0 0 800 1000" (layout vertical longo).
-      2. Fundo: Use um gradiente suave e premium (ex: Slate-900 para Slate-950).
-      3. Estrutura: 
-         - Cabeçalho com título em destaque e uma linha divisória neon.
-         - 3 a 5 "Cards" ou "Seções" internas com bordas arredondadas e fundos semitransparentes.
-         - Cada seção deve ter um ícone geométrico simples (SVG Path ou formas básicas).
-         - Use uma tipografia clara (font-family="Montserrat, Inter, sans-serif").
-      4. Paleta: Cyan-400 (#22D3EE), Indigo-500 (#6366F1), White (#FFFFFF) e Slate-400.
-      5. Detalhamento: Seja DENSO. Extraia definições, pontos chave, exceções e a lógica final. 
-
-      Conteúdo para processar: ${prompt}`;
+      finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${prompt}. 
+      Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
+      Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
+      Use Markdown para dar um visual premium.`;
     } else {
       finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${prompt}`;
     }
