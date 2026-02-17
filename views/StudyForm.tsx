@@ -69,6 +69,17 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
     }, [editais, missaoAtiva, materia]);
 
+    // Reseta o formulário quando a missão ativa muda
+    useEffect(() => {
+        setMateria('');
+        setAssunto('');
+        setAcertos('');
+        setTotal('');
+        setComentarios('');
+        setSimuladoScores({});
+        console.log('📋 Formulário resetado para nova missão:', missaoAtiva);
+    }, [missaoAtiva]);
+
     // Reseta o assunto quando a matéria muda
     useEffect(() => {
         if (!isSimulado) setAssunto('');
@@ -263,12 +274,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 setMsg({ type: 'error', text: 'Selecione uma matéria.' });
                 return;
             }
-            if (singleStats.numericTotal <= 0) {
-                setLoading(false);
-                setMsg({ type: 'error', text: 'Total de questões deve ser maior que zero.' });
-                return;
-            }
-            if (singleStats.numericAcertos > singleStats.numericTotal) {
+            // Permite total = 0 para estudos teóricos (sem questões)
+            // Valida apenas se acertos > total quando há questões
+            if (singleStats.numericTotal > 0 && singleStats.numericAcertos > singleStats.numericTotal) {
                 setLoading(false);
                 setMsg({ type: 'error', text: 'Acertos não podem ser maiores que o total.' });
                 return;
@@ -552,7 +560,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Tempo (HH:MM)</label><input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Acertos</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-green-400 font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={acertos} onChange={(e) => setAcertos(e.target.value)} /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Total Questões</label><input type="number" min="1" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Total Questões</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
                             </div>
                             {singleStats.numericTotal > 0 && <div className={`flex flex-col items-center justify-center bg-[hsl(var(--bg-user-block))] rounded-2xl p-6 border transition-all duration-500 ${singleStats.percentage >= 80 ? 'border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]' : singleStats.percentage >= 60 ? 'border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.1)]' : 'border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'}`}><span className="text-[10px] text-[hsl(var(--text-muted))] font-black uppercase tracking-[0.2em] mb-2">Taxa de Aproveitamento</span><div className={`text-4xl font-black tracking-tighter ${singleStats.percentage >= 80 ? 'text-green-400' : singleStats.percentage >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>{singleStats.percentage.toFixed(0)}%</div></div>}
                         </div>

@@ -496,13 +496,64 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
   const endSession = () => { setStudyQueue([]); setCurrentCardIndex(0); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery(""); setMnemonicText(""); setShowSessionSummary(false); };
 
-  const handleCardResult = async (status: Flashcard['status']) => {
+  const handleCardResult = async (rating: 1 | 2 | 3 | 4) => {
     if (!currentCard) return;
-    if (status === 'aprendendo' || status === 'aprendido') { setSessionStats(prev => ({ ...prev, learned: prev.learned + 1 })); }
-    else if (status === 'revisando' || status === 'revisar') { setSessionStats(prev => ({ ...prev, review: prev.review + 1 })); }
-    updateCardStatus(currentCard.id, status);
+
+    // SM-2 Algorithm Implementation
+    // rating: 1: Novamente, 2: Difícil, 3: Bom, 4: Fácil
+
+    let newInterval = currentCard.interval || 0;
+    let newEaseFactor = currentCard.ease_factor || 2.5;
+    let newStatus = currentCard.status;
+
+    if (rating === 1) { // Novamente
+      newInterval = 0; // Reinicia o aprendizado
+      newEaseFactor = Math.max(1.3, newEaseFactor - 0.2);
+      newStatus = 'revisando';
+      setSessionStats(prev => ({ ...prev, review: prev.review + 1 }));
+    } else {
+      if (newInterval === 0) {
+        newInterval = 1;
+      } else if (newInterval === 1) {
+        newInterval = 6;
+      } else {
+        const multiplier = rating === 2 ? 1.2 : (rating === 3 ? newEaseFactor : newEaseFactor * 1.5);
+        newInterval = Math.ceil(newInterval * multiplier);
+      }
+
+      if (rating === 2) { // Difícil
+        newEaseFactor = Math.max(1.3, newEaseFactor - 0.15);
+      } else if (rating === 4) { // Fácil
+        newEaseFactor = Math.min(5.0, newEaseFactor + 0.15);
+      }
+
+      newStatus = 'aprendido';
+      setSessionStats(prev => ({ ...prev, learned: prev.learned + 1 }));
+    }
+
+    const nextReview = new Date();
+    nextReview.setDate(nextReview.getDate() + newInterval);
+
+    try {
+      const { error } = await supabase.from('flashcards').update({
+        status: newStatus,
+        interval: newInterval,
+        ease_factor: newEaseFactor,
+        next_review: nextReview.toISOString()
+      }).eq('id', currentCard.id);
+
+      if (error) throw error;
+      loadFlashcards();
+    } catch (error) {
+      console.error('Erro ao atualizar card:', error);
+    }
+
     const nextIndex = currentCardIndex + 1;
-    if (nextIndex < studyQueue.length) { setCurrentCardIndex(nextIndex); } else { setShowSessionSummary(true); }
+    if (nextIndex < studyQueue.length) {
+      setCurrentCardIndex(nextIndex);
+    } else {
+      setShowSessionSummary(true);
+    }
   };
 
 
@@ -653,6 +704,18 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     syncPodcastCache();
     if (activeTab === 'community') loadCommunityDecks();
   }, [activeTab]);
+
+  // Recarrega flashcards e reseta filtros quando a missão muda
+  useEffect(() => {
+    setFilterMateria('Todas');
+    setFilterAssunto('Todos');
+    setFilterStatus('Todos');
+    setFilterPodcast('Todos');
+    setNewCard({ front: '', back: '', materia: '', assunto: '' });
+    setEditingId(null);
+    console.log('🔄 Flashcards: Filtros resetados para nova missão:', missaoAtiva);
+    loadFlashcards();
+  }, [missaoAtiva]);
 
   const getActiveProviderName = () => { if (selectedAI === 'gemini') return geminiKeyAvailable ? 'Gemini' : 'Groq (Fallback)'; if (selectedAI === 'groq') return groqKeyAvailable ? 'Groq' : 'Gemini (Fallback)'; return geminiKeyAvailable ? 'Gemini (Auto)' : 'Groq (Auto)'; }
 

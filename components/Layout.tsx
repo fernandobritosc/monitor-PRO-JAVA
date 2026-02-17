@@ -23,6 +23,7 @@ import {
   Sparkles
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
+import { preserveMissaoOnClear } from '../utils/localStorage';
 
 type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA';
 
@@ -59,7 +60,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
       propLogout();
       return;
     }
+
     await supabase.auth.signOut();
+    preserveMissaoOnClear(); // Usa função utilitária
     window.location.reload();
   };
 

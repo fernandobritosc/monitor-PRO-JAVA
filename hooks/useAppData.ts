@@ -1,6 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
 import { supabase } from '../services/supabase';
 import { StudyRecord, EditalMateria } from '../types';
+import { getMissaoAtiva, saveMissaoAtiva, migrateMissaoToUserKey } from '../utils/localStorage';
+import { logger } from '../utils/logger';
 // FIX: The `Session` type is often not correctly re-exported by `@supabase/supabase-js` due to bundler issues.
 // Importing it directly from `@supabase/auth-js` is a reliable workaround.
 import type { Session } from '@supabase/auth-js';
@@ -8,33 +10,47 @@ import type { Session } from '@supabase/auth-js';
 export const useAppData = (session: Session | null) => {
   const [editais, setEditais] = useState<EditalMateria[]>([]);
   const [studyRecords, setStudyRecords] = useState<StudyRecord[]>([]);
-  const [missaoAtiva, setMissaoAtiva] = useState<string>('');
-  
+  const [missaoAtivaInternal, setMissaoAtivaInternal] = useState<string>('');
+
   const [showOnboarding, setShowOnboarding] = useState(false);
   const [dataLoading, setDataLoading] = useState(false);
   const [backgroundSyncing, setBackgroundSyncing] = useState(false);
   const [isOfflineMode, setIsOfflineMode] = useState(false);
   const [isError, setIsError] = useState(false);
 
+  // Wrapper para setMissaoAtiva que sempre persiste no localStorage com chave específica do usuário
+  const setMissaoAtiva = useCallback((newMissao: string | ((prev: string) => string)) => {
+    setMissaoAtivaInternal(prev => {
+      const finalMissao = typeof newMissao === 'function' ? newMissao(prev) : newMissao;
+      if (finalMissao !== prev) {
+        const userId = session?.user?.id;
+        logger.missaoChanged(prev, finalMissao, userId, 'manual');
+        saveMissaoAtiva(finalMissao, userId);
+      }
+      return finalMissao;
+    });
+  }, [session?.user?.id]);
+
   const loadFromCache = useCallback(() => {
     try {
       const cachedEditais = localStorage.getItem('monitorpro_cache_editais');
       const cachedRecords = localStorage.getItem('monitorpro_cache_records');
-      
+
       if (cachedEditais && cachedRecords) {
         const parsedEditais = JSON.parse(cachedEditais);
         const parsedRecords = JSON.parse(cachedRecords);
-        
+
         if (parsedEditais.length > 0) {
           setEditais(parsedEditais);
           setStudyRecords(parsedRecords);
-          
-          const cachedMissao = localStorage.getItem('monitorpro_cache_missao');
+
+          // Usa função utilitária para obter missão (sem userId no modo offline)
+          const cachedMissao = getMissaoAtiva();
           if (cachedMissao) {
-            setMissaoAtiva(cachedMissao);
+            setMissaoAtivaInternal(cachedMissao);
           } else {
             const principal = parsedEditais.find((e: any) => e.is_principal);
-            setMissaoAtiva(principal ? principal.concurso : parsedEditais[0].concurso);
+            setMissaoAtivaInternal(principal ? principal.concurso : parsedEditais[0].concurso);
           }
           setIsOfflineMode(true);
           return true;
@@ -49,10 +65,10 @@ export const useAppData = (session: Session | null) => {
 
   const fetchData = useCallback(async (userId: string, retryCount = 0) => {
     const hasData = editais.length > 0;
-    
+
     if (!hasData && retryCount === 0) setDataLoading(true);
     if (hasData) setBackgroundSyncing(true);
-    
+
     try {
       const { data: loadedEditais, error: editaisError } = await supabase.from('editais_materias').select('*').eq('user_id', userId);
       if (editaisError) throw editaisError;
@@ -67,37 +83,61 @@ export const useAppData = (session: Session | null) => {
       setStudyRecords(finalRecords);
 
       if (finalEditais.length > 0) {
+        // Migra missão da chave global para chave do usuário (se necessário)
+        const userId = session?.user?.id;
+        if (userId) {
+          migrateMissaoToUserKey(userId);
+        }
+
+        // Busca missão em cache: tenta chave do usuário primeiro, depois global
+        let cachedMissao = getMissaoAtiva(userId);
+        if (!cachedMissao) {
+          // Fallback: tenta chave global (caso userId ainda não esteja disponível)
+          cachedMissao = getMissaoAtiva();
+          logger.debug('CACHE', 'Tentando carregar de chave global (fallback)', { cachedMissao });
+        }
+
         setMissaoAtiva(prev => {
-           if (prev && finalEditais.some((e: any) => e.concurso === prev)) return prev;
-           const principal = finalEditais.find((e: any) => e.is_principal);
-           const newMissao = principal ? principal.concurso : finalEditais[0].concurso;
-           localStorage.setItem('monitorpro_cache_missao', newMissao);
-           return newMissao;
+          // 1º: Se há cache E existe nos editais, usa o cache (prioridade máxima)
+          if (cachedMissao && finalEditais.some((e: any) => e.concurso === cachedMissao)) {
+            logger.missaoLoaded(cachedMissao, 'cache', userId);
+            return cachedMissao;
+          }
+          // 2º: Se prev existe nos editais, mantém prev
+          if (prev && finalEditais.some((e: any) => e.concurso === prev)) {
+            logger.missaoLoaded(prev, 'state', userId);
+            return prev;
+          }
+          // 3º: Seleciona principal ou primeira como fallback
+          const principal = finalEditais.find((e: any) => e.is_principal);
+          const newMissao = principal ? principal.concurso : finalEditais[0].concurso;
+          logger.missaoLoaded(newMissao, 'auto', userId);
+          return newMissao;
         });
         setShowOnboarding(false);
       } else {
         setShowOnboarding(true);
       }
-      
+
       localStorage.setItem('monitorpro_cache_editais', JSON.stringify(finalEditais));
       localStorage.setItem('monitorpro_cache_records', JSON.stringify(finalRecords));
-      
+
       setIsOfflineMode(false);
       setIsError(false);
 
     } catch (error: any) {
       console.error(`Erro de sincronização (Tentativa ${retryCount + 1}):`, error);
       if (retryCount < 2) {
-          setTimeout(() => fetchData(userId, retryCount + 1), 2000);
+        setTimeout(() => fetchData(userId, retryCount + 1), 2000);
       } else {
-          if (!hasData) {
-              const loaded = loadFromCache();
-              if (loaded) {
-                  setIsOfflineMode(true);
-              } else {
-                  setIsError(true);
-              }
+        if (!hasData) {
+          const loaded = loadFromCache();
+          if (loaded) {
+            setIsOfflineMode(true);
+          } else {
+            setIsError(true);
           }
+        }
       }
     } finally {
       setDataLoading(false);
@@ -112,16 +152,16 @@ export const useAppData = (session: Session | null) => {
       // Se não há sessão, tenta carregar o cache para o modo offline.
       const loaded = loadFromCache();
       setIsOfflineMode(loaded);
-      if(!loaded) {
-          setEditais([]);
-          setStudyRecords([]);
+      if (!loaded) {
+        setEditais([]);
+        setStudyRecords([]);
       }
     }
 
     const handleOnline = () => {
-        if (session?.user?.id) {
-            fetchData(session.user.id);
-        }
+      if (session?.user?.id) {
+        fetchData(session.user.id);
+      }
     };
     window.addEventListener('online', handleOnline);
     return () => window.removeEventListener('online', handleOnline);
@@ -130,14 +170,14 @@ export const useAppData = (session: Session | null) => {
 
   const handleRecordUpdate = async (updatedRecord: StudyRecord) => {
     setStudyRecords(prev => prev.map(r => r.id === updatedRecord.id ? updatedRecord : r));
-    if (isOfflineMode) { 
-      alert("Modo Offline: Alteração salva localmente (visualização). Conecte-se para salvar no servidor."); 
-      return; 
+    if (isOfflineMode) {
+      alert("Modo Offline: Alteração salva localmente (visualização). Conecte-se para salvar no servidor.");
+      return;
     }
     const { error } = await supabase.from('registros_estudos').update(updatedRecord).eq('id', updatedRecord.id);
-    if (error) { 
-      alert("Erro ao salvar online."); 
-      if (session?.user?.id) fetchData(session.user.id); 
+    if (error) {
+      alert("Erro ao salvar online.");
+      if (session?.user?.id) fetchData(session.user.id);
     }
   };
 
@@ -145,9 +185,9 @@ export const useAppData = (session: Session | null) => {
     const original = [...studyRecords];
     setStudyRecords(prev => prev.filter(r => r.id !== recordId));
     const { error } = await supabase.from('registros_estudos').delete().eq('id', recordId);
-    if (error) { 
-      alert("Erro ao excluir."); 
-      setStudyRecords(original); 
+    if (error) {
+      alert("Erro ao excluir.");
+      setStudyRecords(original);
     }
   };
 
@@ -155,16 +195,16 @@ export const useAppData = (session: Session | null) => {
     const original = [...studyRecords];
     setStudyRecords(prev => prev.filter(r => !recordIds.includes(r.id)));
     const { error } = await supabase.from('registros_estudos').delete().in('id', recordIds);
-    if (error) { 
-      alert("Erro ao excluir em massa."); 
-      setStudyRecords(original); 
+    if (error) {
+      alert("Erro ao excluir em massa.");
+      setStudyRecords(original);
     }
   };
 
   return {
     editais,
     studyRecords,
-    missaoAtiva,
+    missaoAtiva: missaoAtivaInternal,
     setMissaoAtiva,
     showOnboarding,
     setShowOnboarding,

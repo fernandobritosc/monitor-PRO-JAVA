@@ -544,14 +544,26 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
 
                 {/* Study Actions */}
                 <div className="mt-10 flex flex-col gap-5">
-                  <div className="grid grid-cols-2 gap-6">
-                    <button onClick={() => handleCardResult('revisando')} className="group flex flex-col items-center justify-center gap-3 px-8 py-8 bg-[hsl(var(--bg-user-block))] hover:bg-yellow-500/10 text-yellow-400 border border-[hsl(var(--border))] hover:border-yellow-500/30 rounded-[1.5rem] font-black uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg">
-                      <RotateCcw size={28} className="transition-transform group-hover:rotate-[-45deg]" />
-                      <span className="text-[10px]">Retornar em Breve</span>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <button onClick={() => handleCardResult(1)} className="group flex flex-col items-center justify-center gap-2 p-6 bg-red-500/10 hover:bg-red-500/20 text-red-400 border border-red-500/30 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg">
+                      <RotateCcw size={24} className="group-hover:rotate-[-45deg] transition-transform" />
+                      <span className="text-[9px]">Novamente</span>
+                      <span className="text-[7px] opacity-60">Reiniciar</span>
                     </button>
-                    <button onClick={() => handleCardResult('aprendendo')} className="group flex flex-col items-center justify-center gap-3 px-8 py-8 bg-gradient-to-r from-green-600 to-emerald-500 text-[hsl(var(--bg-main))] rounded-[1.5rem] font-black uppercase tracking-[0.2em] transition-all active:scale-95 shadow-xl shadow-green-500/20">
-                      <CheckCircle2 size={28} className="transition-transform group-hover:scale-110" />
-                      <span className="text-[10px]">Conhecimento Retido</span>
+                    <button onClick={() => handleCardResult(2)} className="group flex flex-col items-center justify-center gap-2 p-6 bg-orange-500/10 hover:bg-orange-500/20 text-orange-400 border border-orange-500/30 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg">
+                      <Brain size={24} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px]">Difícil</span>
+                      <span className="text-[7px] opacity-60">Mais Cedo</span>
+                    </button>
+                    <button onClick={() => handleCardResult(3)} className="group flex flex-col items-center justify-center gap-2 p-6 bg-green-500/10 hover:bg-green-500/20 text-green-400 border border-green-500/30 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg">
+                      <CheckCircle2 size={24} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px]">Bom</span>
+                      <span className="text-[7px] opacity-60">Padrão</span>
+                    </button>
+                    <button onClick={() => handleCardResult(4)} className="group flex flex-col items-center justify-center gap-2 p-6 bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 border border-cyan-500/30 rounded-2xl font-black uppercase tracking-widest transition-all active:scale-95 shadow-lg">
+                      <Zap size={24} className="group-hover:scale-110 transition-transform" />
+                      <span className="text-[9px]">Fácil</span>
+                      <span className="text-[7px] opacity-60">Mais Longe</span>
                     </button>
                   </div>
 

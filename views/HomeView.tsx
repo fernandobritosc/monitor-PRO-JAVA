@@ -11,6 +11,34 @@ import {
 } from 'lucide-react';
 import KPICard from '../components/KPICard';
 
+// Custom Y-Axis Tick para truncar nomes longos de matérias
+const CustomYAxisTick = (props: any) => {
+  const { x, y, payload } = props;
+  const maxLength = 32;
+  let text = payload.value;
+
+  // Trunca com reticências se muito longo
+  if (text.length > maxLength) {
+    text = text.substring(0, maxLength - 3) + '...';
+  }
+
+  return (
+    <g transform={`translate(${x},${y})`}>
+      <text
+        x={0}
+        y={0}
+        dy={4}
+        textAnchor="end"
+        fill="hsl(var(--text-muted))"
+        fontSize={9}
+        fontWeight={900}
+      >
+        {text}
+      </text>
+    </g>
+  );
+};
+
 interface HomeViewProps {
   records: StudyRecord[];
   missaoAtiva: string;
@@ -514,15 +542,15 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={errorData} layout="vertical" margin={{ left: 20, right: 40, top: 0, bottom: 0 }}>
+                <BarChart data={errorData} layout="vertical" margin={{ left: 10, right: 40, top: 10, bottom: 10 }}>
                   <XAxis type="number" hide />
                   <YAxis
                     dataKey="materia"
                     type="category"
                     stroke="hsl(var(--text-muted))"
-                    fontSize={10}
-                    width={180}
-                    tick={{ fill: 'hsl(var(--text-muted))', fontWeight: '900' }}
+                    fontSize={9}
+                    width={220}
+                    tick={<CustomYAxisTick />}
                     axisLine={false}
                     tickLine={false}
                   />

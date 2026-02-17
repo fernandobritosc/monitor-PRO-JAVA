@@ -23,6 +23,9 @@ import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 
 const APP_VERSION = '1.0.29'; // Tradução e Restauração de Navegação
 
+import { preserveMissaoOnClear } from './utils/localStorage';
+import { logger } from './utils/logger';
+
 const App: React.FC = () => {
   const [session, setSession] = useState<any | null>(null);
   const [userEmail, setUserEmail] = useState<string>('');
@@ -79,9 +82,16 @@ const App: React.FC = () => {
 
   const handleLogout = async () => {
     setLoading(true);
+
+    const userId = session?.user?.id;
+    logger.logoutExecuted(userId);
+
     // FIX: Cast supabase.auth to any to resolve TypeScript error regarding missing 'signOut' property.
     await (supabase.auth as any).signOut();
-    localStorage.clear();
+
+    // Usa função utilitária para preservar missão e limpar cache
+    preserveMissaoOnClear(userId);
+
     window.location.reload();
   };
 

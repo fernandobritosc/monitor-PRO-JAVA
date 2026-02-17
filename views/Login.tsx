@@ -1,8 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { supabase, getAiKey } from '../services/supabase';
+import { preserveMissaoOnClear } from '../utils/localStorage';
 import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Loader2, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 
-interface LoginProps {}
+interface LoginProps { }
 
 // Safe version check
 const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.17';
@@ -17,7 +18,7 @@ const Login: React.FC<LoginProps> = () => {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [rememberEmail, setRememberEmail] = useState(false);
   const [showDiagnostics, setShowDiagnostics] = useState(false);
-  
+
   // Diagnóstico
   const [configSource, setConfigSource] = useState<'Checking...' | 'ENV' | 'STORAGE' | 'MISSING'>('Checking...');
   const [configUrl, setConfigUrl] = useState('');
@@ -35,24 +36,24 @@ const Login: React.FC<LoginProps> = () => {
     // @ts-ignore
     const envUrl = typeof __SUPABASE_URL__ !== 'undefined' ? __SUPABASE_URL__ : import.meta.env?.VITE_SUPABASE_URL;
     const storedUrl = localStorage.getItem('monitorpro_supabase_url');
-    
+
     if (envUrl && envUrl.length > 5) {
-        setConfigSource('ENV');
-        setConfigUrl(envUrl);
+      setConfigSource('ENV');
+      setConfigUrl(envUrl);
     } else if (storedUrl) {
-        setConfigSource('STORAGE');
-        setConfigUrl(storedUrl);
+      setConfigSource('STORAGE');
+      setConfigUrl(storedUrl);
     } else {
-        setConfigSource('MISSING');
+      setConfigSource('MISSING');
     }
 
     // Check AI Key
     const key = getAiKey();
     if (key && key.length > 10) {
-        setAiKeyStatus('LOADED');
-        setAiKeyPrefix(key.substring(0, 4) + '...');
+      setAiKeyStatus('LOADED');
+      setAiKeyPrefix(key.substring(0, 4) + '...');
     } else {
-        setAiKeyStatus('MISSING');
+      setAiKeyStatus('MISSING');
     }
 
   }, []);
@@ -65,16 +66,16 @@ const Login: React.FC<LoginProps> = () => {
 
     try {
       if (isSignUp) {
-        const { data, error } = await (supabase.auth as any).signUp({ 
-          email, 
+        const { data, error } = await (supabase.auth as any).signUp({
+          email,
           password,
         });
 
         if (error) throw error;
-        
+
         if (data.user) {
-           setSuccessMsg('Conta criada! Faça login para continuar.');
-           setIsSignUp(false);
+          setSuccessMsg('Conta criada! Faça login para continuar.');
+          setIsSignUp(false);
         }
         setLoading(false);
 
@@ -89,8 +90,8 @@ const Login: React.FC<LoginProps> = () => {
         }
 
         if (data.session) {
-            setSuccessMsg('Login realizado! Entrando...');
-            // O App.tsx detectará a sessão automaticamente
+          setSuccessMsg('Login realizado! Entrando...');
+          // O App.tsx detectará a sessão automaticamente
         }
       }
     } catch (err: any) {
@@ -100,9 +101,9 @@ const Login: React.FC<LoginProps> = () => {
   };
 
   const handleClearCache = () => {
-    if(confirm('Isso limpará TODOS os dados locais deste site. Continuar?')) {
-        localStorage.clear();
-        window.location.reload();
+    if (confirm('Isso limpará TODOS os dados locais deste site. Continuar?')) {
+      preserveMissaoOnClear(); // Usa função utilitária
+      window.location.reload();
     }
   };
 
@@ -123,7 +124,7 @@ const Login: React.FC<LoginProps> = () => {
         </div>
 
         <form onSubmit={handleAuth} className="glass rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl border-white/5 relative mx-2">
-          
+
           <div className="space-y-2">
             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
               <Mail size={12} /> E-mail
@@ -144,24 +145,24 @@ const Login: React.FC<LoginProps> = () => {
               <Lock size={12} /> Senha
             </label>
             <div className="relative">
-                <input
-                    type={showPassword ? "text" : "password"}
-                    autoComplete={isSignUp ? "new-password" : "current-password"}
-                    required
-                    className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
-                    placeholder="••••••••"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                />
-                <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-0 top-0 h-full px-4 text-slate-500 hover:text-white transition-colors flex items-center justify-center z-20"
-                    tabIndex={-1}
-                    title={showPassword ? "Ocultar senha" : "Ver senha"}
-                >
-                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+              <input
+                type={showPassword ? "text" : "password"}
+                autoComplete={isSignUp ? "new-password" : "current-password"}
+                required
+                className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
+                placeholder="••••••••"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-0 top-0 h-full px-4 text-slate-500 hover:text-white transition-colors flex items-center justify-center z-20"
+                tabIndex={-1}
+                title={showPassword ? "Ocultar senha" : "Ver senha"}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
             </div>
           </div>
 
@@ -179,8 +180,8 @@ const Login: React.FC<LoginProps> = () => {
           {error && (
             <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl flex flex-col gap-1 animate-in shake">
               <div className="flex items-center gap-2">
-                 <AlertOctagon size={16} className="shrink-0" />
-                 <span className="font-bold">{error}</span>
+                <AlertOctagon size={16} className="shrink-0" />
+                <span className="font-bold">{error}</span>
               </div>
             </div>
           )}
@@ -216,11 +217,11 @@ const Login: React.FC<LoginProps> = () => {
             </button>
           </div>
         </form>
-        
+
         {/* NOVO PAINEL DE DIAGNÓSTICO */}
         <div className="mt-4 mx-2">
           <div className="glass rounded-xl border border-white/5 overflow-hidden">
-            <button 
+            <button
               onClick={() => setShowDiagnostics(!showDiagnostics)}
               className="w-full p-3 flex justify-between items-center hover:bg-white/5 transition-colors"
             >
@@ -237,15 +238,15 @@ const Login: React.FC<LoginProps> = () => {
                 </div>
                 <p className="truncate"><strong className="text-white">URL:</strong> {configUrl || 'N/A'}</p>
                 <div className="flex items-center gap-2">
-                   <KeyRound size={12} className={aiKeyStatus === 'LOADED' ? 'text-cyan-400' : 'text-slate-600'} />
-                   <p><strong className="text-white">Chave IA:</strong> <span className={aiKeyStatus === 'LOADED' ? 'text-cyan-400 font-bold' : 'text-slate-500'}>{aiKeyStatus} {aiKeyPrefix && `(${aiKeyPrefix})`}</span></p>
+                  <KeyRound size={12} className={aiKeyStatus === 'LOADED' ? 'text-cyan-400' : 'text-slate-600'} />
+                  <p><strong className="text-white">Chave IA:</strong> <span className={aiKeyStatus === 'LOADED' ? 'text-cyan-400 font-bold' : 'text-slate-500'}>{aiKeyStatus} {aiKeyPrefix && `(${aiKeyPrefix})`}</span></p>
                 </div>
-                <button 
-                    type="button" 
-                    onClick={handleClearCache}
-                    className="w-full mt-3 inline-flex items-center justify-center gap-2 text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase font-bold tracking-widest border border-white/5 hover:border-red-500/20 px-3 py-1.5 rounded-full"
+                <button
+                  type="button"
+                  onClick={handleClearCache}
+                  className="w-full mt-3 inline-flex items-center justify-center gap-2 text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase font-bold tracking-widest border border-white/5 hover:border-red-500/20 px-3 py-1.5 rounded-full"
                 >
-                    <Trash2 size={10} /> Resetar Dados Locais
+                  <Trash2 size={10} /> Resetar Dados Locais
                 </button>
               </div>
             )}
