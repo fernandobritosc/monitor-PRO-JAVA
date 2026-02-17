@@ -274,38 +274,34 @@ export const generateAIContent = async (
     if (context === 'flashcard') {
       finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${prompt}`;
     } else if (context === 'mapa') {
-      finalPrompt = `Você é um especialista em diagramas e visualização de dados. 
-      Crie um MAPA MENTAL usando a sintaxe Mermaid.js (mindmap).
+      finalPrompt = `Você é um especialista em mapas mentais pedagógicos. Crie um MAPA MENTAL ESTRUTURADO sobre: ${prompt}.
+      Use a seguinte sintaxe Markdown rigorosa:
+      # [TÍTULO CENTRAL]
+      ## [RAMO PRINCIPAL]
+      ### [SUB-TÓPICO]
+      - [DETALHE]
       
       Regras:
-      1. Responda APENAS com o código do diagrama Mermaid, sem explicações.
-      2. Use cores e temas que combinem com um sistema dark (Cyan/Indigo).
-      3. Estruture os ramos de forma lógica para facilitar a revisão.
-      
-      Exemplo de Saída:
-      mindmap
-        root((Título))
-          Ramo 1
-            Sub 1
-          Ramo 2
-            Sub 2
-      
-      Conteúdo para o mapa: ${prompt}`;
+      1. Use no máximo 4 níveis de profundidade.
+      2. Mantenha os termos curtos e impactantes.
+      3. Seja extremamente minucioso na lógica jurídica/técnica.`;
     } else if (context === 'fluxo') {
-      finalPrompt = `Você é um arquiteto de processos. Gere um FLUXOGRAMA usando a sintaxe Mermaid.js (graph TD).
-      
-      Regras:
-      1. Responda APENAS com o código Mermaid, sem texto adicional.
-      2. Use formas variadas (subgraphs, shapes like [ ], (( )), { }) para diferenciar etapas.
-      3. Use cores para indicar status (ex: Green para sucesso, Red para erro/exceção).
+      finalPrompt = `Você é um analista de processos e lógica jurídica. Gere um FLUXOGRAMA LÓGICO VERTICAL para explicar: ${prompt}.
+      Use obrigatoriamente as seguintes tags para cada etapa:
+      [INÍCIO] -> Breve introdução.
+      [AÇÃO] -> Procedimento ou fato.
+      [DECISÃO] -> Pergunta ou bifurcação.
+      [RESULTADO] -> Conseqüência de uma ação/decisão.
+      [FIM] -> Conclusão.
       
       Exemplo de Saída:
-      graph TD
-        A[Início] --> B{Decisão?}
-        B -- Sim --> C[Sucesso]
-        B -- Não --> D[Erro]
+      1. [INÍCIO] Texto
+      2. [DECISÃO] Texto?
+      3. [RESULTADO] Texto
       
-      Tema do fluxo: ${prompt}`;
+      Regras:
+      - Seja analítico.
+      - Use lógica de causa e efeito clara.`;
     } else if (context === 'tabela') {
       finalPrompt = `Você é um mestre em didática e síntese. Crie uma TABELA COMPARATIVA técnica sobre: ${prompt}.
       
@@ -320,18 +316,23 @@ export const generateAIContent = async (
       | Definição | Texto... | Texto... |
       | Fundamento | Texto... | Texto... |`;
     } else if (context === 'info') {
-      finalPrompt = `Atue como um designer de dados e infográficos premium. 
-      Crie um INFOGRÁFICO visualmente rico sobre o tema abaixo, mas em vez de texto, gere um código SVG 100% autocontido.
-      
-      Instruções Técnicas:
-      1. Formato de saída: RETORNE APENAS O CÓDIGO <svg>...</svg>. Não use blocos de código markdown.
-      2. Dimensões: viewBox="0 0 800 600".
-      3. Estilo: Moderno, Minimalista, Flat Design. Use transparências e gradientes.
-      4. Cores: Use paleta Cyan (#22D3EE), Indigo (#6366F1) e Slate.
-      5. Conteúdo: Inclua o título, 3 a 5 pontos chave com ícones geométricos simples (círculos, linhas) e uma conclusão curta na base.
-      6. Tipografia: Use font-family="Montserrat, Inter, sans-serif".
-      
-      Texto para converter em infográfico: ${prompt}`;
+      finalPrompt = `Atue como um designer de dados de elite (estilo NotebookLM/Canva). 
+      Crie um INFOGRÁFICO COMPLEXO e VISUALMENTE IMPACTANTE em código SVG 100% autocontido.
+
+      Objetivo: Resumir o conteúdo de forma densa, elegante e ultra-didática.
+
+      Instruções Estéticas:
+      1. Formato: SVG puro (sem markdown) em viewBox="0 0 800 1000" (layout vertical longo).
+      2. Fundo: Use um gradiente suave e premium (ex: Slate-900 para Slate-950).
+      3. Estrutura: 
+         - Cabeçalho com título em destaque e uma linha divisória neon.
+         - 3 a 5 "Cards" ou "Seções" internas com bordas arredondadas e fundos semitransparentes.
+         - Cada seção deve ter um ícone geométrico simples (SVG Path ou formas básicas).
+         - Use uma tipografia clara (font-family="Montserrat, Inter, sans-serif").
+      4. Paleta: Cyan-400 (#22D3EE), Indigo-500 (#6366F1), White (#FFFFFF) e Slate-400.
+      5. Detalhamento: Seja DENSO. Extraia definições, pontos chave, exceções e a lógica final. 
+
+      Conteúdo para processar: ${prompt}`;
     } else {
       finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${prompt}`;
     }

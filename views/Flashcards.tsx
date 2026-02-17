@@ -8,50 +8,6 @@ import {
 import { EditalMateria, Flashcard } from '../types';
 import { CustomSelector } from '../components/CustomSelector';
 
-// NOVO: Componente para renderizar diagramas Mermaid
-const MermaidRenderer: React.FC<{ chart: string }> = ({ chart }) => {
-  const [svg, setSvg] = useState<string>("");
-  const containerRef = useRef<HTMLDivElement>(null);
-  const id = useMemo(() => `mermaid-${Math.random().toString(36).substr(2, 9)}`, []);
-
-  useEffect(() => {
-    const renderChart = async () => {
-      if (typeof window !== "undefined" && (window as any).mermaid) {
-        try {
-          const mermaid = (window as any).mermaid;
-          mermaid.initialize({
-            startOnLoad: false,
-            theme: 'dark',
-            securityLevel: 'loose',
-            fontFamily: 'Montserrat',
-            themeVariables: {
-              primaryColor: '#6366F1',
-              primaryTextColor: '#fff',
-              primaryBorderColor: '#6366F1',
-              lineColor: '#22D3EE',
-              secondaryColor: '#22D3EE',
-              tertiaryColor: '#1e293b'
-            }
-          });
-          const { svg } = await mermaid.render(id, chart);
-          setSvg(svg);
-        } catch (error) {
-          console.error("Mermaid Render Error:", error);
-          setSvg(`<div class="text-red-400 text-[10px] font-bold p-4 border border-red-500/20 rounded-xl bg-red-500/5">Erro ao renderizar diagrama. Verifique a sintaxe.</div>`);
-        }
-      }
-    };
-    renderChart();
-  }, [chart, id]);
-
-  return (
-    <div
-      className="flex justify-center p-6 bg-slate-900/50 rounded-3xl border border-white/5 overflow-x-auto custom-scrollbar my-4"
-      dangerouslySetInnerHTML={{ __html: svg }}
-    />
-  );
-};
-
 // NOVO: Componente para renderizar Markdown técnico com visual premium
 const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({ content, visualMode = false }) => {
   const parts = useMemo(() => {
@@ -106,19 +62,14 @@ const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({
     flushText();
     flushTable();
 
-    // Detecção de Bloco Mermaid (se houver keywords do Mermaid)
-    // Limpeza de blocos de código markdown caso a IA os inclua (roboticamente)
-    const rawContent = content.trim().replace(/^```(mermaid|xml|svg)?\n?/i, '').replace(/\n?```$/i, '').trim();
-
-    if (rawContent.startsWith('graph ') || rawContent.startsWith('mindmap') || rawContent.startsWith('flowchart ') || rawContent.startsWith('sequenceDiagram')) {
-      return [<MermaidRenderer key="mermaid-main" chart={rawContent} />];
-    }
+    // Detecção de Bloco SVG (Se o conteúdo for apenas um SVG grande)
+    const rawContent = content.trim().replace(/^```(xml|svg)?\n?/i, '').replace(/\n?```$/i, '').trim();
 
     if (rawContent.startsWith('<svg')) {
       return [
         <div
           key="svg-main"
-          className="flex justify-center my-8 p-4 bg-white/5 rounded-[2rem] border border-white/10 shadow-2xl animate-in zoom-in-95 duration-1000 overflow-hidden"
+          className="flex justify-center my-8 p-6 bg-[hsl(var(--bg-main))] rounded-[2.5rem] border border-[hsl(var(--border))] shadow-2xl animate-in zoom-in-95 duration-1000 overflow-hidden"
           dangerouslySetInnerHTML={{ __html: rawContent }}
         />
       ];
