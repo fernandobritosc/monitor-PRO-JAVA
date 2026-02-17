@@ -483,7 +483,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
                         {/* PASSO 1: IDENTIFICAÇÃO */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative z-20">
+                        <div className={`glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative ${showTopicsDropdown ? 'z-40' : 'z-30'}`}>
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><BookOpen size={18} className="text-[hsl(var(--accent))]" /> Identificação</h4>
                             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                                 <div className="space-y-2">
