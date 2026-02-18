@@ -27,6 +27,14 @@ export interface StudyRecord {
   rev_07d: boolean;
   rev_15d: boolean;
   rev_30d: boolean;
+  analise_erros?: ErrorAnalysis[]; // Qualitativo: O "porquê" do erro
+}
+
+export interface ErrorAnalysis {
+  questao_preview: string;
+  tipo_erro: 'Atenção' | 'Lacuna de Base' | 'Interpretação';
+  gatilho: string;
+  sugestao: string;
 }
 
 export interface EditalMateria {

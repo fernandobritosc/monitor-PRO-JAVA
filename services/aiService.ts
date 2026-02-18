@@ -74,7 +74,7 @@ const streamWithGemini = async (
   apiKey: string,
   prompt: string,
   callbacks: AIStreamCallback,
-  context: 'flashcard' | 'general' = 'general'
+  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' = 'general'
 ): Promise<void> => {
   const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
   let lastError: any = null;
@@ -257,7 +257,7 @@ export const generateAIContent = async (
   geminiKey?: string,
   groqKey?: string,
   preferredProvider?: AIProvider,
-  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' = 'general'
+  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' = 'general'
 ): Promise<string> => {
   const config = detectAIProvider(geminiKey, groqKey, preferredProvider);
 
@@ -320,6 +320,30 @@ export const generateAIContent = async (
       Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
       Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
       Use Markdown para dar um visual premium.`;
+    } else if (context === 'analise_erros') {
+      finalPrompt = `Você é um analista sênior de desempenho em concursos (Especialista FGV).
+      Sua tarefa é analisar o arquivo de erros do aluno e classificar a CAUSA REAL de cada erro.
+
+      ENTRADA: Texto contendo questões, alternativas e o erro do aluno.
+      FORMATO DE SAÍDA: RIGOROSAMENTE UM ARRAY JSON (sem markdown fences, sem texto extra).
+
+      ESQUEMA DO JSON:
+      [
+        {
+          "questao_preview": "Primeiras palavras da questão para identificar...",
+          "tipo_erro": "Atenção" | "Lacuna de Base" | "Interpretação",
+          "gatilho": "O termo, pegadinha ou conceito exato que causou o erro",
+          "sugestao": "Ação imediata recomendada (Ex: 'Revisar Art 5º', 'Grifar negativos')"
+        }
+      ]
+
+      CRITÉRIOS DE CLASSIFICAÇÃO:
+      - Atenção: O aluno marcou a oposta, ignorou "Exceto/Não", ou caiu em pegadinha óbvia.
+      - Lacuna de Base: O aluno não conhecia o conceito jurídico ou técnico básico.
+      - Interpretação: O aluno errou o entendimento luso-textual da pergunta.
+
+      CONTEÚDO PARA ANALISAR:
+      ${prompt}`;
     } else {
       finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${prompt}`;
     }

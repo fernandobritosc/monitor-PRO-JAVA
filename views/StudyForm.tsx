@@ -3,6 +3,8 @@ import { supabase } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CustomSelector } from '../components/CustomSelector';
+import { generateAIContent } from '../services/aiService';
+import { ErrorAnalysis } from '../types';
 
 interface StudyFormProps {
     editais: EditalMateria[];
@@ -41,7 +43,12 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
 
     // UI States
     const [loading, setLoading] = useState(false);
+    const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error' | null, text: string }>({ type: null, text: '' });
+
+    // Error Algorithm States
+    const [errorText, setErrorText] = useState('');
+    const [errorAnalysis, setErrorAnalysis] = useState<ErrorAnalysis[]>([]);
 
     // Custom Dropdown State
     const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
@@ -84,6 +91,47 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
     useEffect(() => {
         if (!isSimulado) setAssunto('');
     }, [materia, isSimulado]);
+
+    // Lógica do Algoritmo de Erros
+    const handleAnalyzeErrors = async (text: string) => {
+        if (!text.trim()) return;
+        setIsAnalyzing(true);
+        try {
+            // Pegar chaves das configurações
+            const savedGeminiKey = localStorage.getItem('gemini_api_key') || '';
+
+            const result = await generateAIContent(
+                text,
+                savedGeminiKey,
+                undefined,
+                'gemini',
+                'analise_erros'
+            );
+
+            // Tentar parsear o JSON retornado pela IA
+            const cleanedJson = result.replace(/```json|```/g, '').trim();
+            const parsed: ErrorAnalysis[] = JSON.parse(cleanedJson);
+            setErrorAnalysis(parsed);
+        } catch (error) {
+            console.error('Erro na análise de IA:', error);
+            setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
+        } finally {
+            setIsAnalyzing(false);
+        }
+    };
+
+    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (event) => {
+            const content = event.target?.result as string;
+            setErrorText(content);
+            handleAnalyzeErrors(content);
+        };
+        reader.readAsText(file);
+    };
 
     // Stats do Simulado (Live)
     const simuladoStats = useMemo(() => {
@@ -298,7 +346,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 rev_24h: false,
                 rev_07d: false,
                 rev_15d: false,
-                rev_30d: false
+                rev_30d: false,
+                analise_erros: errorAnalysis.length > 0 ? errorAnalysis : null
             };
 
             const { error } = await supabase.from('registros_estudos').insert(payload);
@@ -334,6 +383,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 setComentarios('');
                 setSaveToBank(false);
                 setTempoHHMM('');
+                setErrorText('');
+                setErrorAnalysis([]);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             }
         }
@@ -573,6 +624,49 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                 <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1 flex justify-between"><span>Relevância</span><span className="text-[hsl(var(--accent))]">{relevancia}/10</span></label><input type="range" min="1" max="10" className="w-full accent-[hsl(var(--accent))] h-2 bg-[hsl(var(--bg-user-block))] rounded-full appearance-none cursor-pointer" value={relevancia} onChange={(e) => setRelevancia(parseInt(e.target.value))} /></div>
                             </div>
                             <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações / Observações</label><textarea className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all h-32 text-sm text-[hsl(var(--text-main))] font-bold placeholder-[hsl(var(--text-muted)/0.5)] resize-none" placeholder="Pontos chave, links, impressões..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} /></div>
+
+                            {/* NOVO: ALGORITMO DE ERROS IA */}
+                            <div className="pt-6 border-t border-[hsl(var(--border))] space-y-6">
+                                <div className="flex items-center justify-between">
+                                    <h5 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] flex items-center gap-2">
+                                        <Zap size={14} /> Algoritmo de Erros (IA)
+                                    </h5>
+                                    <label className="cursor-pointer bg-[hsl(var(--accent)/0.1)] hover:bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-[hsl(var(--accent)/0.2)]">
+                                        {isAnalyzing ? 'Analisando...' : 'Fazer Upload .txt'}
+                                        <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} disabled={isAnalyzing} />
+                                    </label>
+                                </div>
+
+                                {errorAnalysis.length > 0 && (
+                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
+                                        {errorAnalysis.map((err, idx) => (
+                                            <div key={idx} className="bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl p-5 space-y-3 relative overflow-hidden group">
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
+                                                    err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
+                                                    }`} />
+                                                <div className="flex justify-between items-start">
+                                                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                        err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
+                                                        }`}>
+                                                        {err.tipo_erro}
+                                                    </span>
+                                                    <span className="text-[9px] text-[hsl(var(--text-muted))] font-bold italic truncate flex-1 ml-3">
+                                                        "{err.questao_preview}..."
+                                                    </span>
+                                                </div>
+                                                <div className="space-y-1">
+                                                    <p className="text-[10px] text-[hsl(var(--text-bright))] font-bold tracking-tight">
+                                                        <span className="text-[hsl(var(--accent))] mr-2">🎯 GATILHO:</span> {err.gatilho}
+                                                    </p>
+                                                    <p className="text-[10px] text-[hsl(var(--text-muted))] font-bold leading-relaxed">
+                                                        <span className="text-green-400 mr-2">💡 AÇÃO:</span> {err.sugestao}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        ))}
+                                    </div>
+                                )}
+                            </div>
                         </div>
                     </>
                 )}
