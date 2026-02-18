@@ -46,6 +46,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
     const [isAnalyzing, setIsAnalyzing] = useState(false);
     const [msg, setMsg] = useState<{ type: 'success' | 'error' | null, text: string }>({ type: null, text: '' });
 
+    // New Meta State
+    const [meta, setMeta] = useState('');
+
     // Error Algorithm States
     const [errorText, setErrorText] = useState('');
     const [errorAnalysis, setErrorAnalysis] = useState<ErrorAnalysis[]>([]);
@@ -347,6 +350,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 rev_07d: false,
                 rev_15d: false,
                 rev_30d: false,
+                meta: meta.trim() || null,
                 analise_erros: errorAnalysis.length > 0 ? errorAnalysis : null
             };
 
@@ -381,6 +385,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 setAcertos('');
                 setTotal('');
                 setComentarios('');
+                setMeta('');
                 setSaveToBank(false);
                 setTempoHHMM('');
                 setErrorText('');
@@ -612,6 +617,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Tempo (HH:MM)</label><input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Acertos</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-green-400 font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={acertos} onChange={(e) => setAcertos(e.target.value)} /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Total Questões</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
+                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Nº da Meta</label><input type="text" placeholder="Ex: Meta 05" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={meta} onChange={(e) => setMeta(e.target.value)} /></div>
                             </div>
                             {singleStats.numericTotal > 0 && <div className={`flex flex-col items-center justify-center bg-[hsl(var(--bg-user-block))] rounded-2xl p-6 border transition-all duration-500 ${singleStats.percentage >= 80 ? 'border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]' : singleStats.percentage >= 60 ? 'border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.1)]' : 'border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'}`}><span className="text-[10px] text-[hsl(var(--text-muted))] font-black uppercase tracking-[0.2em] mb-2">Taxa de Aproveitamento</span><div className={`text-4xl font-black tracking-tighter ${singleStats.percentage >= 80 ? 'text-green-400' : singleStats.percentage >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>{singleStats.percentage.toFixed(0)}%</div></div>}
                         </div>

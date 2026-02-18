@@ -14,3 +14,4 @@ export { default as EditalProgress } from './EditalProgress';
 export { default as Flashcards } from './Flashcards';
 export { default as Discursiva } from './Discursiva';
 export { default as GabaritoIA } from './GabaritoIA';
+export { ErrorAnalysisView } from './ErrorAnalysisView';

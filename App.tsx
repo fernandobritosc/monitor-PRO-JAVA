@@ -18,10 +18,11 @@ import EditalProgress from './views/EditalProgress';
 import Flashcards from './views/Flashcards';
 import Discursiva from './views/Discursiva';
 import GabaritoIA from './views/GabaritoIA';
+import { ErrorAnalysisView } from './views/ErrorAnalysisView';
 import { useAppData } from './hooks/useAppData';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 
-const APP_VERSION = '1.0.30'; // Build: 17/02/2026 19:10 (Brasília)
+const APP_VERSION = '1.0.31'; // Build: 17/02/2026 23:30 (Brasília)
 
 import { preserveMissaoOnClear } from './utils/localStorage';
 import { logger } from './utils/logger';
@@ -178,6 +179,7 @@ const App: React.FC = () => {
       case 'HISTORICO': return <History records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onRecordDelete={handleRecordDelete} />;
       case 'SIMULADOS': return <Simulados records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onGroupDelete={handleMultipleRecordDelete} setActiveView={setActiveView} />;
       case 'REGISTRAR_SIMULADO': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => { session?.user?.id && fetchData(session.user.id); setActiveView('SIMULADOS'); }} isSimulado={true} onCancel={() => setActiveView('SIMULADOS')} />;
+      case 'ANALISE_ERROS': return <ErrorAnalysisView records={studyRecords} missaoAtiva={missaoAtiva} />;
       case 'RELATORIOS': return <Reports records={studyRecords} missaoAtiva={missaoAtiva} />;
       case 'CONFIGURAR': return <Configurar editais={editais} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />;
       default: return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;

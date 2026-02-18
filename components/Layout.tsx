@@ -24,8 +24,7 @@ import {
 } from 'lucide-react';
 import { supabase } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
-
-type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA';
+import { ViewType } from '../types';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,7 +39,7 @@ interface LayoutProps {
 
 
 
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.30';
+const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.31';
 const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
   ? new Date(Number(__BUILD_TIMESTAMP__)).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',
@@ -50,7 +49,7 @@ const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
     hour: '2-digit',
     minute: '2-digit'
   })
-  : '17/02/2026 19:10';
+  : '17/02/2026 23:30';
 
 const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, missaoAtiva, theme, toggleTheme, userEmail: propEmail, onLogout: propLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
@@ -90,6 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
     { id: 'FLASHCARDS', label: 'Mega Flashcards', icon: Zap },
     { id: 'DISCURSIVA', label: 'IA Discursiva', icon: FileText, isNew: true },
     { id: 'GABARITO_IA', label: 'Gabarito IA', icon: Sparkles },
+    { id: 'ANALISE_ERROS', label: 'Algoritmo de Erros', icon: Zap, isNew: true },
     { id: 'RELATORIOS', label: 'Relatórios Pro', icon: TrendingUp },
     { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
   ];

@@ -27,6 +27,7 @@ export interface StudyRecord {
   rev_07d: boolean;
   rev_15d: boolean;
   rev_30d: boolean;
+  meta?: string | number;
   analise_erros?: ErrorAnalysis[]; // Qualitativo: O "porquê" do erro
 }
 
@@ -58,42 +59,31 @@ export interface Question {
   assunto: string;
   simulado?: string;
   relevancia: number;
-  meta: number;
   anotacoes?: string;
-  status: 'Pendente' | 'Em andamento' | 'Concluída';
-  tags: string[];
-  // Campos opcionais para registro de desempenho integrado
-  acertos?: number;
-  total?: number;
-  tempo?: number;
+  status: 'Pendente' | 'Revisado' | 'Dominado';
+  tags?: string[];
+  meta: number;
 }
 
-export interface Flashcard {
-  id: string;
-  user_id: string;
-  concurso?: string;
+export interface EditalProgress {
   materia: string;
-  assunto?: string;
-  front: string;
-  back: string;
-  ai_generated_assets?: any;
-  original_audio_id?: string;
-  author_name?: string; // NOVO
-  status: 'novo' | 'aprendendo' | 'revisando' | 'aprendido' | 'revisar' | 'pendente'; // ATUALIZADO
-  next_review: string;
-  interval: number;
-  ease_factor: number;
-  created_at?: string; // NOVO
+  total: number;
+  concluido: number;
+  porcentagem: number;
 }
 
-export interface Discursiva {
-  id: string;
-  user_id: string;
-  created_at: string;
-  title: string;
-  prompt?: string; // NOVO: Enunciado da questão
-  image_url: string;
-  analysis_text: string;
+export interface AIProvider {
+  name: string;
+  icon: string;
+  color: string;
+  description: string;
+  available: boolean;
+}
+
+export interface AIResponse {
+  content: string;
+  provider: string;
+  tokens?: number;
 }
 
 export interface GabaritoItem {
@@ -113,4 +103,4 @@ export interface SavedGabarito {
   official_answers_json: Record<number, string>;
 }
 
-export type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA';
+export type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS';
