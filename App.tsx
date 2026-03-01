@@ -24,7 +24,7 @@ const GabaritoIA = lazy(() => import('./views/GabaritoIA'));
 const ErrorAnalysisView = lazy(() => import('./views/ErrorAnalysisView').then(m => ({ default: m.ErrorAnalysisView })));
 import { useAppData } from './hooks/useAppData';
 import { useStore } from './hooks/useStore';
-import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
+import { WifiOff, Loader2, RefreshCw, Database, LogIn, AlertOctagon } from 'lucide-react';
 import { DashboardSkeleton, FlashcardSkeleton } from './components/shared/Skeleton';
 
 const APP_VERSION = '1.0.33'; // Build: 01/03/2026 10:45 (Brasília)
@@ -240,11 +240,66 @@ const App: React.FC = () => {
           {session ? (<button onClick={() => session?.user?.id && fetchData(session.user.id)} className="underline hover:text-white flex items-center gap-1"><RefreshCw size={12} /> Tentar Conectar</button>) : (<button onClick={handleLogout} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-3 py-1.5 rounded-lg flex items-center gap-2 transition-all"><LogIn size={12} /> Fazer Login</button>)}
         </div>
       )}
-      {isError && (<div className="bg-red-500/10 border border-red-500/20 text-red-400 p-4 rounded-xl mb-6 flex flex-col md:flex-row items-center gap-4 text-sm font-bold shadow-lg animate-in slide-in-from-top-2"><div className="flex items-center gap-3"><div className="p-2 bg-red-500/20 rounded-full animate-pulse"><WifiOff size={20} /></div><div className="flex flex-col"><span>Falha na Conexão.</span><span className="text-[10px] opacity-70 font-normal">Não foi possível baixar seus dados e não há cópia local.</span></div></div><button onClick={() => session?.user?.id && fetchData(session.user.id)} className="md:ml-auto flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 px-4 py-2 rounded-lg transition-all active:scale-95"><RefreshCw size={14} /> Tentar Novamente</button></div>)}
-      {!isError && renderView()}
+      {!isError ? (
+        <ErrorBoundary>
+          {renderView()}
+        </ErrorBoundary>
+      ) : (
+        <div className="flex flex-col items-center justify-center py-20 px-6 text-center">
+          <div className="w-16 h-16 bg-red-500/10 rounded-full flex items-center justify-center mb-6 border border-red-500/20">
+            <WifiOff className="text-red-500" size={32} />
+          </div>
+          <h2 className="text-2xl font-black text-white uppercase tracking-tighter mb-2">Erro de Inicialização</h2>
+          <p className="text-slate-500 text-sm max-w-md mb-8">
+            Não conseguimos conectar ao seu banco de dados. Verifique sua conexão ou as configurações de acesso.
+          </p>
+          <button
+            onClick={() => session?.user?.id && fetchData(session.user.id)}
+            className="flex items-center gap-2 bg-red-500/20 hover:bg-red-500/30 text-red-400 px-6 py-3 rounded-xl font-bold transition-all"
+          >
+            <RefreshCw size={18} /> Tentar Reconectar
+          </button>
+        </div>
+      )}
     </Layout>
   );
 };
+
+// Componente simples de Error Boundary
+class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { hasError: boolean, error: any }> {
+  constructor(props: any) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error: any) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error: any, errorInfo: any) {
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-8 bg-red-900/20 border border-red-500/30 rounded-[2rem] text-center my-10">
+          <AlertOctagon className="text-red-500 mx-auto mb-4" size={48} />
+          <h2 className="text-xl font-black text-white uppercase mb-2">Ops! Algo deu errado na interface</h2>
+          <p className="text-red-200/60 text-xs mb-6 font-mono break-all">{this.state.error?.message || "Erro desconhecido"}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-full text-xs font-bold transition-all"
+          >
+            Recarregar Aplicativo
+          </button>
+        </div>
+      );
+    }
+
+    return this.props.children;
+  }
+}
 
 const LoadingFallback: React.FC = () => (
   <div className="flex flex-col items-center justify-center py-20 gap-4 animate-in fade-in duration-500">
