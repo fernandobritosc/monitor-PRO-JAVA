@@ -23,6 +23,9 @@ export default defineConfig(({ mode }) => {
       VitePWA({
         registerType: 'autoUpdate',
         includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
+        workbox: {
+          maximumFileSizeToCacheInBytes: 5000000 // Aumentado para 5MB para suportar o bundle de vendor
+        },
         manifest: {
           name: 'MonitorPro AI',
           short_name: 'MonitorPro',
