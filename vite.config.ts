@@ -68,8 +68,7 @@ export default defineConfig(({ mode }) => {
     },
     build: {
       rollupOptions: {
-        // IMPORTANTE: Marca @google/genai como externo para usar o CDN do index.html
-        external: ['@google/genai'],
+        external: [],
         output: {
           entryFileNames: `assets/[name]-${timestamp}.js`,
           chunkFileNames: `assets/[name]-${timestamp}.js`,
