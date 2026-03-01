@@ -27,15 +27,17 @@ export interface StudyRecord {
   rev_07d: boolean;
   rev_15d: boolean;
   rev_30d: boolean;
-  meta?: string | number;
+  meta?: string | number | null;
   analise_erros?: ErrorAnalysis[]; // Qualitativo: O "porquê" do erro
 }
 
 export interface ErrorAnalysis {
   questao_preview: string;
+  enunciado_completo?: string; // NOVO: Texto na íntegra
   tipo_erro: 'Atenção' | 'Lacuna de Base' | 'Interpretação';
   gatilho: string;
   sugestao: string;
+  sugestao_mentor?: string;
 }
 
 export interface EditalMateria {
@@ -59,10 +61,50 @@ export interface Question {
   assunto: string;
   simulado?: string;
   relevancia: number;
+  enunciado?: string; // NOVO: Texto rico Tiptap
+  resposta?: string;  // NOVO: Texto rico Tiptap
   anotacoes?: string;
   status: 'Pendente' | 'Revisado' | 'Dominado';
   tags?: string[];
   meta: number;
+  next_review?: string; // NOVO: SRS
+  interval?: number;    // NOVO: SRS
+  tec_id?: string;      // ID do Tec Concursos
+  banca?: string;       // Ex: CESPE, FCC, FGV
+  ano?: number;
+  tipo?: 'Multipla Escolha' | 'Certo/Errado';
+  alternativas?: {
+    id: string;
+    texto: string;
+    label: string; // A, B, C, D, E ou Certo, Errado
+    is_correct: boolean;
+  }[];
+  images?: string[]; // URLs de imagens no enunciado/alternativas
+  ai_generated_assets?: {
+    explanation?: string;
+    mnemonic?: string;
+    mapa?: string;
+    fluxo?: string;
+    tabela?: string;
+    info?: string;
+    [key: string]: string | undefined;
+  };
+  original_audio_id?: string;
+}
+
+export interface GlobalQuestion extends Omit<Question, 'user_id' | 'status' | 'meta' | 'next_review' | 'interval'> {
+  orgao?: string;
+  cargo?: string;
+  created_by: string; // Admin ID
+}
+
+export interface QuestionAttempt {
+  id?: string;
+  question_id: string;
+  user_id: string;
+  selected_alt: string;
+  is_correct: boolean;
+  attempted_at: string;
 }
 
 export interface EditalProgress {
@@ -103,4 +145,39 @@ export interface SavedGabarito {
   official_answers_json: Record<number, string>;
 }
 
-export type ViewType = 'HOME' | 'REGISTRAR' | 'DASHBOARD' | 'EDITAL' | 'REVISOES' | 'GUIA_SEMANAL' | 'QUESTOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'REGISTRAR_SIMULADO' | 'RELATORIOS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS';
+export interface Flashcard {
+  id: string;
+  user_id: string;
+  materia: string;
+  assunto: string;
+  front: string;
+  back: string;
+  status: 'novo' | 'revisando' | 'aprendido' | 'pendente';
+  interval?: number;
+  ease_factor?: number;
+  next_review?: string;
+  created_at?: string;
+  original_audio_id?: string;
+  author_name?: string;
+  ai_generated_assets?: {
+    explanation?: string;
+    mnemonic?: string;
+    mapa?: string;
+    tabela?: string;
+    fluxo?: string;
+    info?: string;
+    [key: string]: string | undefined;
+  };
+}
+
+export interface Discursiva {
+  id: string;
+  user_id: string;
+  title: string;
+  prompt?: string;
+  image_url: string;
+  analysis_text: string;
+  created_at: string;
+}
+
+export type ViewType = 'HOME' | 'DASHBOARD' | 'EDITAL' | 'QUESTOES' | 'REGISTRAR' | 'REVISOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'RELATORIOS' | 'ONBOARDING' | 'EDITAL_PROGRESS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS' | 'REGISTRAR_SIMULADO' | 'HUB' | 'RANKING';

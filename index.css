@@ -1,0 +1,77 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    /* Deep Ocean Premium (Dark) */
+    --bg-main: 222 47% 4%;
+    --bg-sidebar: 222 47% 2%;
+    --bg-card: 222 47% 8% / 0.6;
+    --bg-user-block: 217 33% 17% / 0.4;
+    --text-main: 215 20% 65%;
+    --text-muted: 215 16% 47%;
+    --text-bright: 210 40% 98%;
+    --accent: 188 86% 53%;
+    --accent-secondary: 262 83% 58%;
+    --accent-glow: 188 86% 53% / 0.15;
+    --border: 188 86% 53% / 0.1;
+    --shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    --glass-blur: 16px;
+  }
+
+  .light {
+    /* Soft Premium Pearl (Gentle Light) */
+    --bg-main: 222 47% 95%;
+    --bg-sidebar: 222 47% 97%;
+    --bg-card: 222 47% 100% / 0.5;
+    --bg-user-block: 222 47% 91%;
+    --text-main: 222 30% 25%;
+    --text-muted: 222 20% 45%;
+    --text-bright: 222 40% 15%;
+    --accent: 188 91% 35%;
+    --accent-secondary: 262 70% 45%;
+    --accent-glow: 188 91% 35% / 0.1;
+    --border: 222 47% 10% / 0.04;
+    --shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08);
+    --glass-blur: 24px;
+  }
+
+  body {
+    @apply antialiased min-h-screen text-[hsl(var(--text-main))];
+    background-color: hsl(var(--bg-main));
+    font-family: 'Montserrat', 'Inter', sans-serif;
+    transition: background-color 0.5s cubic-bezier(0.4, 0, 0.2, 1);
+  }
+}
+
+@layer components {
+  .glass {
+    @apply backdrop-blur-[var(--glass-blur)];
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow);
+  }
+
+  .glass-premium {
+    @apply backdrop-blur-[var(--glass-blur)];
+    background: linear-gradient(135deg, hsl(var(--bg-card)) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid hsl(var(--border));
+  }
+
+  .text-gradient {
+    @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))];
+  }
+}
+
+@layer utilities {
+  .custom-scrollbar::-webkit-scrollbar {
+    @apply w-1.5 h-1.5;
+  }
+  .custom-scrollbar::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  .custom-scrollbar::-webkit-scrollbar-thumb {
+    @apply rounded-full bg-gradient-to-b from-[hsl(var(--accent))] to-[#0891B2];
+  }
+}

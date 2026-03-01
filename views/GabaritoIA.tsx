@@ -1,11 +1,13 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { generateAIContent } from '../services/aiService';
+import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { GoogleGenAI, Type } from "@google/genai";
 import { GabaritoItem, SavedGabarito } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
 import { UploadCloud, Loader2, Sparkles, Download, FileCheck, Check, X, AlertTriangle, ChevronDown, ChevronUp, FileText, Trash2, Save, ArrowLeft, History, BarChart, Type as TypeIcon, PlusCircle, Brain, CheckCircle2, CheckSquare } from 'lucide-react';
 import { CustomSelector } from '../components/CustomSelector';
+import { PieChartComponent } from '../components/shared/PieChartComponent';
+import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 
 // Declarações para TypeScript reconhecer as bibliotecas globais
 declare global {
@@ -19,20 +21,24 @@ if (typeof window !== 'undefined' && window.pdfjsLib) {
 }
 
 const AI_PROMPT_GABARITO_IMAGE = `
-Você é um examinador especialista em concursos, membro de uma banca examinadora rigorosa. Sua tarefa é analisar a IMAGEM de uma página de prova.
+Você é um examinador especialista em concursos. Sua tarefa é analisar a IMAGEM de uma página de prova.
 
-1.  **IDENTIFIQUE TODAS AS QUESTÕES:** Examine a imagem e identifique **TODAS** as questões numeradas.
-2.  **EXTRAIA O ENUNCIADO COMPLETO:** Para cada questão, transcreva o **texto completo do enunciado**, incluindo o texto base se houver.
-3.  **RESOLVA E JUSTIFIQUE:** Determine a alternativa correta (A, B, C, D ou E) e forneça uma justificativa técnica detalhada para a resposta.
-4.  **SAÍDA ESTRITA EM JSON:** Sua resposta DEVE ser um array JSON válido. Se não encontrar questões, retorne um array JSON vazio \`[]\`.
+REGRAS DE OURO (SISTEMA):
+1.  **NUNCA USE "..."**: O campo "enunciado" DEVE conter o texto integral. Se você resumir, a análise será descartada.
+2.  **COPIA FIEL**: Transcreva cada palavra do enunciado e das alternativas.
+3.  **IDENTIFIQUE DEZENAS DE QUESTÕES**: Se houver 50 questões na imagem, analise as 50.
+
+SAÍDA: Array JSON [\n  {\n    "numero_questao": X,\n    "enunciado": "TEXTO VERBATIM",\n    "alternativa_correta_ia": "X",\n    "justificativa": "RESPOSTA TÉCNICA"\n  }\n]
 `;
 
 const AI_PROMPT_GABARITO_TEXT = `
-Você é um examinador especialista em concursos. Sua tarefa é analisar o TEXTO fornecido, que pode conter uma ou mais questões.
+Você é um examinador sênior. Analise o TEXTO fornecido.
 
-1.  **IDENTIFIQUE CADA QUESTÃO:** Separe o texto em questões individuais. Use a numeração como guia principal.
-2.  **EXTRAIA OS DADOS:** Para cada questão, extraia: o número da questão, o enunciado completo, a alternativa correta (A, B, C, D ou E) e uma justificativa técnica detalhada para sua resposta.
-3.  **SAÍDA ESTRITA EM JSON:** Sua resposta DEVE ser um array JSON válido, usando o schema fornecido. Se não encontrar questões, retorne um array JSON vazio \`[]\`.
+REGRAS CRÍTICAS:
+1.  **INTEGRIDADE ABSOLUTA**: O campo "enunciado" DEVE conter 100% do texto da questão. É PROIBIDO omitir partes com reticências.
+2.  **FORMATO**: Retorne EXCLUSIVAMENTE um array JSON.
+
+SCHEMA: [{ "numero_questao": number, "enunciado": string, "alternativa_correta_ia": string, "justificativa": string }]
 `;
 
 const AI_PROMPT_SINGLE_QUESTION = `
@@ -70,27 +76,6 @@ const responseSchema = {
   }
 };
 
-const PieChartComponent: React.FC<{ data: any[], colors: string[], score: number, total: number }> = ({ data, colors, score, total }) => {
-  const percentage = total > 0 ? (score / total) * 100 : 0;
-  return (
-    <div className="relative h-40 flex flex-col items-center justify-center">
-      <ResponsiveContainer width="100%" height="100%">
-        <PieChart>
-          <Pie data={data} cx="50%" cy="50%" innerRadius={40} outerRadius={60} dataKey="value" paddingAngle={5}>
-            {data.map((entry, index) => <Cell key={`cell-${index}`} fill={colors[index % colors.length]} />)}
-          </Pie>
-        </PieChart>
-      </ResponsiveContainer>
-      <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-        <span className="text-3xl font-black text-white">{percentage.toFixed(0)}%</span>
-      </div>
-      <div className="absolute bottom-0 flex items-center gap-4 text-xs">
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500" /> <span className="text-slate-400">Acertos:</span> <span className="font-bold text-white">{score}</span></div>
-        <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500" /> <span className="text-slate-400">Erros:</span> <span className="font-bold text-white">{total - score}</span></div>
-      </div>
-    </div>
-  );
-};
 
 const GabaritoIA: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
@@ -184,7 +169,7 @@ const GabaritoIA: React.FC = () => {
         // Mas para manter a consistência com o pedido de resiliência, usaremos o serviço unificado.
 
         try {
-          const pageResults = JSON.parse(responseText.replace(/```json|```/g, '').trim() || '[]');
+          const pageResults = parseAIJSON(responseText) as any;
           if (Array.isArray(pageResults)) allResults.push(...pageResults);
         } catch (e) { console.warn(`Página ${i} JSON inválido.`); }
       }
@@ -219,7 +204,7 @@ const GabaritoIA: React.FC = () => {
 
       let analysisResults: GabaritoItem[] = [];
       try {
-        const parsed = JSON.parse(responseText.replace(/```json|```/g, '').trim() || '[]');
+        const parsed = parseAIJSON(responseText) as any;
         if (!Array.isArray(parsed)) throw new Error("AI did not return an array.");
         analysisResults = parsed;
       } catch (e) { throw new Error("A IA retornou um formato de dados inválido."); }
@@ -257,7 +242,7 @@ const GabaritoIA: React.FC = () => {
         getGroqKey()
       );
 
-      const newQuestionPartial = JSON.parse(responseText.replace(/```json|```/g, '').trim() || '{}');
+      const newQuestionPartial = parseAIJSON(responseText) as any;
       const newQuestion: GabaritoItem = {
         numero_questao: parseInt(manualQuestionData.numero),
         enunciado: manualQuestionData.enunciado,
@@ -593,8 +578,8 @@ const GabaritoIA: React.FC = () => {
                         <h5 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-3">
                           <div className="w-1 h-3 bg-purple-500 rounded-full" /> Justificativa Neural
                         </h5>
-                        <div className="bg-[hsl(var(--bg-main)/0.5)] p-6 rounded-[1.5rem] border border-[hsl(var(--border))] text-xs leading-relaxed text-indigo-100/80 whitespace-pre-wrap italic">
-                          {res.justificativa}
+                        <div className="bg-[hsl(var(--bg-main)/0.5)] p-6 rounded-[1.5rem] border border-[hsl(var(--border))] text-sm leading-relaxed text-indigo-100/80 whitespace-pre-wrap">
+                          <MarkdownRenderer content={res.justificativa} />
                         </div>
                       </div>
                     </div>

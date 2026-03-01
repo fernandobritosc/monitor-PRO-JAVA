@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { supabase } from '../services/supabase';
+import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CustomSelector } from '../components/CustomSelector';
-import { generateAIContent } from '../services/aiService';
+import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { ErrorAnalysis } from '../types';
 
 interface StudyFormProps {
@@ -100,20 +100,29 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         if (!text.trim()) return;
         setIsAnalyzing(true);
         try {
-            // Pegar chaves das configurações
-            const savedGeminiKey = localStorage.getItem('gemini_api_key') || '';
+            const geminiKey = getGeminiKey();
+            const groqKey = getGroqKey();
 
             const result = await generateAIContent(
-                text,
-                savedGeminiKey,
-                undefined,
+                {
+                    content: text,
+                    stats: {
+                        materia,
+                        assunto,
+                        tempo: tempoHHMM,
+                        acertos,
+                        total,
+                        percentage: singleStats.percentage
+                    }
+                },
+                geminiKey,
+                groqKey,
                 'gemini',
                 'analise_erros'
             );
 
             // Tentar parsear o JSON retornado pela IA
-            const cleanedJson = result.replace(/```json|```/g, '').trim();
-            const parsed: ErrorAnalysis[] = JSON.parse(cleanedJson);
+            const parsed: ErrorAnalysis[] = parseAIJSON(result);
             setErrorAnalysis(parsed);
         } catch (error) {
             console.error('Erro na análise de IA:', error);
@@ -637,11 +646,31 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                     <h5 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] flex items-center gap-2">
                                         <Zap size={14} /> Algoritmo de Erros (IA)
                                     </h5>
-                                    <label className="cursor-pointer bg-[hsl(var(--accent)/0.1)] hover:bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-[hsl(var(--accent)/0.2)]">
-                                        {isAnalyzing ? 'Analisando...' : 'Fazer Upload .txt'}
-                                        <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} disabled={isAnalyzing} />
-                                    </label>
+                                    <div className="flex gap-2">
+                                        <label className="cursor-pointer bg-[hsl(var(--accent)/0.1)] hover:bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-[hsl(var(--accent)/0.2)]">
+                                            {isAnalyzing ? '...' : 'Upload .txt'}
+                                            <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} disabled={isAnalyzing} />
+                                        </label>
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                if (errorText.trim()) handleAnalyzeErrors(errorText);
+                                                else setMsg({ type: 'error', text: 'Cole o texto do erro primeiro.' });
+                                            }}
+                                            disabled={isAnalyzing}
+                                            className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-purple-600/20 active:scale-95"
+                                        >
+                                            Analisar Texto Colado
+                                        </button>
+                                    </div>
                                 </div>
+
+                                <textarea
+                                    className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all h-40 text-xs text-[hsl(var(--text-muted))] font-bold placeholder-[hsl(var(--text-muted)/0.3)] resize-none"
+                                    placeholder="Cole aqui o texto da questão e seu erro (ou use o upload ao lado)..."
+                                    value={errorText}
+                                    onChange={(e) => setErrorText(e.target.value)}
+                                />
 
                                 {errorAnalysis.length > 0 && (
                                     <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">

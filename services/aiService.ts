@@ -6,10 +6,10 @@ import { supabase } from "./supabase";
  * Suporta múltiplos provedores de IA com fallback automático e seleção manual
  */
 
-export type AIProvider = 'gemini' | 'groq';
+export type AIProviderName = 'gemini' | 'groq';
 
 interface AIConfig {
-  provider: AIProvider;
+  provider: AIProviderName;
   apiKey: string;
 }
 
@@ -44,7 +44,7 @@ const processAIError = (error: any, provider: 'Gemini' | 'Groq'): Error => {
 export const detectAIProvider = (
   geminiKey?: string,
   groqKey?: string,
-  preferredProvider?: AIProvider
+  preferredProvider?: AIProviderName
 ): AIConfig | null => {
   // Se houver preferência explícita e a chave estiver disponível
   if (preferredProvider === 'gemini' && geminiKey && geminiKey.length > 10) {
@@ -206,7 +206,7 @@ export const streamAIContent = async (
   callbacks: AIStreamCallback,
   geminiKey?: string,
   groqKey?: string,
-  preferredProvider?: AIProvider
+  preferredProvider?: AIProviderName
 ): Promise<void> => {
   const config = detectAIProvider(geminiKey, groqKey, preferredProvider);
 
@@ -250,103 +250,223 @@ export const streamAIContent = async (
 };
 
 /**
+ * Utilitário para Parsear JSON da IA de forma robusta
+ */
+export const parseAIJSON = <T>(jsonString: string): T => {
+  try {
+    // 1. Extração robusta: Localiza o primeiro '[' ou '{' e o último ']' ou '}'
+    const startIdx = Math.min(
+      jsonString.indexOf('[') !== -1 ? jsonString.indexOf('[') : Infinity,
+      jsonString.indexOf('{') !== -1 ? jsonString.indexOf('{') : Infinity
+    );
+    const endIdx = Math.max(
+      jsonString.lastIndexOf(']'),
+      jsonString.lastIndexOf('}')
+    );
+
+    if (startIdx === Infinity || endIdx === -1 || endIdx < startIdx) {
+      throw new Error("Nenhum bloco JSON encontrado na resposta da IA.");
+    }
+
+    let cleaned = jsonString.substring(startIdx, endIdx + 1).trim();
+
+    // 2. Remove Markdown fences residuais se houver (por segurança)
+    cleaned = cleaned.replace(/```(json)?/g, '').replace(/```/g, '').trim();
+
+    // 3. Tenta parse direto
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      console.warn("JSON Parse inicial falhou, tentando reparo...");
+    }
+
+    // 4. Corrige caracteres de controle e escapes inválidos
+    cleaned = cleaned.replace(/[\x00-\x09\x0B-\x0C\x0E-\x1F\x7F]/g, "");
+    cleaned = cleaned.replace(/(?<!\\)\\(?![\\/"bfnrtu])/g, "\\\\");
+
+    // 5. Reparo de JSON Truncado (Auto-close)
+    const closeTruncatedJson = (str: string): string => {
+      const stack: ("{" | "[")[] = [];
+      let inString = false;
+      let i = 0;
+
+      while (i < str.length) {
+        const char = str[i];
+        if (char === '"' && str[i - 1] !== '\\') {
+          inString = !inString;
+        } else if (!inString) {
+          if (char === '{') stack.push('{');
+          else if (char === '[') stack.push('[');
+          else if (char === '}') stack.pop();
+          else if (char === ']') stack.pop();
+        }
+        i++;
+      }
+
+      let result = str;
+      if (inString) result += '"'; // Fecha string aberta
+
+      const reversedStack = [...stack].reverse();
+      for (const open of reversedStack) {
+        if (open === '{') result += '}';
+        else if (open === '[') result += ']';
+      }
+      return result;
+    };
+
+    try {
+      return JSON.parse(cleaned);
+    } catch (e) {
+      const recovered = closeTruncatedJson(cleaned);
+      try {
+        return JSON.parse(recovered);
+      } catch (e2) {
+        // Se ainda falhar, tenta remover o último elemento incompleto se for array
+        if (recovered.startsWith('[')) {
+          const lastComma = recovered.lastIndexOf(',');
+          if (lastComma > 0) {
+            const cut = recovered.substring(0, lastComma) + ']';
+            try { return JSON.parse(cut); } catch (e3) { /* segue para erro final */ }
+          }
+        }
+      }
+    }
+
+    throw new Error("JSON irrecuperável");
+  } catch (error) {
+    console.error("Falha crítica no parse do JSON da IA:", error);
+    console.error("String recebida:", jsonString);
+    throw new Error("Resposta da IA incompleta ou inválida. Tente novamente com menos texto ou limpe o campo.");
+  }
+};
+
+/**
  * Geração sem streaming (fallback)
  */
 export const generateAIContent = async (
-  prompt: string,
+  prompt: string | { content: string; stats?: any },
   geminiKey?: string,
   groqKey?: string,
-  preferredProvider?: AIProvider,
-  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' = 'general'
+  preferredProvider?: AIProviderName,
+  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' | 'macro_diagnostico' = 'general'
 ): Promise<string> => {
+  const contentToAnalyze = typeof prompt === 'string' ? prompt : prompt.content;
+  const statsToAnalyze = typeof prompt === 'string' ? {} : (prompt.stats || {});
   const config = detectAIProvider(geminiKey, groqKey, preferredProvider);
 
   if (!config) {
     throw new Error('Nenhuma chave de IA configurada');
   }
 
+  // Define o finalPrompt for all providers
+  let finalPrompt = "";
+  if (context === 'flashcard') {
+    finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${contentToAnalyze}`;
+  } else if (context === 'mapa') {
+    finalPrompt = `Você é um especialista em mapas mentais pedagógicos. Crie um MAPA MENTAL ESTRUTURADO sobre: ${contentToAnalyze}.
+    Use a seguinte sintaxe Markdown rigorosa:
+    # [TÍTULO CENTRAL]
+    ## [RAMO PRINCIPAL]
+    ### [SUB-TÓPICO]
+    - [DETALHE]
+    
+    Regras:
+    1. Use no máximo 4 níveis de profundidade.
+    2. Mantenha os termos curtos e impactantes.
+    3. Seja extremamente minucioso na lógica jurídica/técnica.`;
+  } else if (context === 'fluxo') {
+    finalPrompt = `Você é um analista de processos e lógica jurídica. Gere um FLUXOGRAMA LÓGICO VERTICAL para explicar: ${contentToAnalyze}.
+    Use obrigatoriamente as seguintes tags para cada etapa:
+    [INÍCIO] -> Breve introdução.
+    [AÇÃO] -> Procedimento ou fato.
+    [DECISÃO] -> Pergunta ou bifurcação.
+    [RESULTADO] -> Conseqüência de uma ação/decisão.
+    [FIM] -> Conclusão.
+    
+    Exemplo de Saída:
+    1. [INÍCIO] Texto
+    2. [DECISÃO] Texto?
+    3. [RESULTADO] Texto
+    
+    Regras:
+    - Seja analítico.
+    - Use lógica de causa e efeito clara.`;
+  } else if (context === 'tabela') {
+    finalPrompt = `Você é um mestre em didática e síntese. Crie uma TABELA COMPARATIVA técnica sobre: ${contentToAnalyze}.
+    
+    REGRAS DE OURO:
+    1. NÃO adicione nenhum texto introdutório ou conclusivo. Responda APENAS com a tabela em Markdown.
+    2. Use exatamente 3 colunas: | Critério | Conceito Principal | Comparativo/Oposto |
+    3. Seja rigoroso nos termos e use de 4 a 6 linhas de comparação.
+    
+    Exemplo de Saída:
+    | Critério | Conceito Principal | Comparativo/Oposto |
+    |---|---|---|
+    | Definição | Texto... | Texto... |
+    | Fundamento | Texto... | Texto... |`;
+  } else if (context === 'info') {
+    finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${contentToAnalyze}. 
+    Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
+    Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
+    Use Markdown para dar um visual premium.`;
+  } else if (context === 'analise_erros') {
+    finalPrompt = `Você é um analista sênior de desempenho em concursos (Especialista FGV).
+    Sua tarefa é analisar o material de estudo e os erros do aluno para classificar a CAUSA REAL de cada falha.
+
+    REGRAS CRÍTICAS DE INTEGRIDADE:
+    1. ENUNCIADO NA ÍNTEGRA: O campo "enunciado_completo" DEVE conter o texto original do enunciado e de TODAS as alternativas exatamente como aparecem no texto de entrada. NÃO resuma, NÃO pule partes e NÃO use reticências.
+    2. FOCO NO NOVO: Ignore qualquer metadado de "Análise Anterior" ou JSON que possa estar misturado no texto colado pelo aluno. Foque apenas no conteúdo bruto da questão e do erro.
+    3. JSON PURO: Responda EXCLUSIVAMENTE com o array JSON. Proibido introduções, conclusões ou markdown fences.
+    4. NÃO TRUNQUE VALORES: Se um enunciado for muito longo, mantenha-o completo no JSON. O sistema está preparado para receber objetos grandes.
+
+    ENTRADA BRUTA: 
+    ${contentToAnalyze}
+
+    CONTEXTO DE PERFORMANCE: ${JSON.stringify(statsToAnalyze)}
+    
+    ESQUEMA DO JSON:
+    [
+      {
+        "questao_preview": "Snippet curto (máx 50 char)",
+        "enunciado_completo": "Texto ORIGINAL E COMPLETO (Enunciado + Alternativas) - Copie Verbatim!",
+        "tipo_erro": "Atenção" | "Lacuna de Base" | "Interpretação",
+        "gatilho": "O termo ou conceito exato que causou a falha",
+        "sugestao": "Ação imediata para o ALUNO",
+        "sugestao_mentor": "Dica técnica para o MENTOR"
+      }
+    ]
+
+    CRITÉRIOS DE CLASSIFICAÇÃO:
+    - Atenção: O aluno marcou a oposta, ignorou "Exceto/Não", ou caiu em pegadinha óbvia.
+    - Lacuna de Base: O aluno não conhecia o conceito jurídico ou técnico básico.
+    - Interpretação: O aluno errou o entendimento luso-textual da pergunta.
+
+    ORDEM FINAL: 
+    - Fale APENAS através do JSON.
+    - PROIBIDO usar "..." ou resumir enunciados. Se o texto for longo, COPIE CADA PALAVRA.
+    - O campo "enunciado_completo" deve ser uma réplica exata do texto de entrada.
+    - Se você resumir, a vida do aluno será prejudicada. NÃO RESUMA. COPIE TUDO.`;
+  } else if (context === 'macro_diagnostico') {
+    const reports = JSON.stringify(contentToAnalyze);
+    finalPrompt = `Você é um Mentor de Elite para Concursos Públicos. 
+Sua tarefa é analisar um conjunto de relatórios individuais de erros e mentorias e consolidar em um DIAGNÓSTICO DE PERFORMANCE ESTRATÉGICA.
+
+RELATÓRIOS PARA ANÁLISE:
+${reports}
+
+ESTRUTURA DA RESPOSTA (Markdown Premium):
+## 1. PERÍCIA DE DESEMPENHO (Resumo do padrão de comportamento detectado)
+## 2. FATOR CRÍTICO DE BLOQUEIO (O erro mais crítico ou recorrente que está impedindo a aprovação)
+## 3. PLANO DE SALTO EVOLUTIVO (Macroestratégia global para os próximos 15 dias)
+
+Seja direto, assertivo e use tom de alta performance. Use Markdown limpo e elegante. Não responda com JSON e NÃO use emojis.`;
+  } else {
+    finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${contentToAnalyze}`;
+  }
+
   const runGemini = async (key: string) => {
     const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
     let lastError: any = null;
-
-    let finalPrompt = "";
-
-    if (context === 'flashcard') {
-      finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${prompt}`;
-    } else if (context === 'mapa') {
-      finalPrompt = `Você é um especialista em mapas mentais pedagógicos. Crie um MAPA MENTAL ESTRUTURADO sobre: ${prompt}.
-      Use a seguinte sintaxe Markdown rigorosa:
-      # [TÍTULO CENTRAL]
-      ## [RAMO PRINCIPAL]
-      ### [SUB-TÓPICO]
-      - [DETALHE]
-      
-      Regras:
-      1. Use no máximo 4 níveis de profundidade.
-      2. Mantenha os termos curtos e impactantes.
-      3. Seja extremamente minucioso na lógica jurídica/técnica.`;
-    } else if (context === 'fluxo') {
-      finalPrompt = `Você é um analista de processos e lógica jurídica. Gere um FLUXOGRAMA LÓGICO VERTICAL para explicar: ${prompt}.
-      Use obrigatoriamente as seguintes tags para cada etapa:
-      [INÍCIO] -> Breve introdução.
-      [AÇÃO] -> Procedimento ou fato.
-      [DECISÃO] -> Pergunta ou bifurcação.
-      [RESULTADO] -> Conseqüência de uma ação/decisão.
-      [FIM] -> Conclusão.
-      
-      Exemplo de Saída:
-      1. [INÍCIO] Texto
-      2. [DECISÃO] Texto?
-      3. [RESULTADO] Texto
-      
-      Regras:
-      - Seja analítico.
-      - Use lógica de causa e efeito clara.`;
-    } else if (context === 'tabela') {
-      finalPrompt = `Você é um mestre em didática e síntese. Crie uma TABELA COMPARATIVA técnica sobre: ${prompt}.
-      
-      REGRAS DE OURO:
-      1. NÃO adicione nenhum texto introdutório ou conclusivo. Responda APENAS com a tabela em Markdown.
-      2. Use exatamente 3 colunas: | Critério | Conceito Principal | Comparativo/Oposto |
-      3. Seja rigoroso nos termos e use de 4 a 6 linhas de comparação.
-      
-      Exemplo de Saída:
-      | Critério | Conceito Principal | Comparativo/Oposto |
-      |---|---|---|
-      | Definição | Texto... | Texto... |
-      | Fundamento | Texto... | Texto... |`;
-    } else if (context === 'info') {
-      finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${prompt}. 
-      Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
-      Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
-      Use Markdown para dar um visual premium.`;
-    } else if (context === 'analise_erros') {
-      finalPrompt = `Você é um analista sênior de desempenho em concursos (Especialista FGV).
-      Sua tarefa é analisar o arquivo de erros do aluno e classificar a CAUSA REAL de cada erro.
-
-      ENTRADA: Texto contendo questões, alternativas e o erro do aluno.
-      FORMATO DE SAÍDA: RIGOROSAMENTE UM ARRAY JSON (sem markdown fences, sem texto extra).
-
-      ESQUEMA DO JSON:
-      [
-        {
-          "questao_preview": "Primeiras palavras da questão para identificar...",
-          "tipo_erro": "Atenção" | "Lacuna de Base" | "Interpretação",
-          "gatilho": "O termo, pegadinha ou conceito exato que causou o erro",
-          "sugestao": "Ação imediata recomendada (Ex: 'Revisar Art 5º', 'Grifar negativos')"
-        }
-      ]
-
-      CRITÉRIOS DE CLASSIFICAÇÃO:
-      - Atenção: O aluno marcou a oposta, ignorou "Exceto/Não", ou caiu em pegadinha óbvia.
-      - Lacuna de Base: O aluno não conhecia o conceito jurídico ou técnico básico.
-      - Interpretação: O aluno errou o entendimento luso-textual da pergunta.
-
-      CONTEÚDO PARA ANALISAR:
-      ${prompt}`;
-    } else {
-      finalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.\n\nConteúdo: ${prompt}`;
-    }
 
     for (const modelId of models) {
       try {
@@ -355,8 +475,8 @@ export const generateAIContent = async (
           model: modelId,
           contents: [{ role: 'user', parts: [{ text: finalPrompt }] }],
           config: {
-            temperature: 0.7,
-            maxOutputTokens: 2048,
+            temperature: 0.1,
+            maxOutputTokens: 8192,
           }
         }) as any;
 
@@ -387,25 +507,25 @@ export const generateAIContent = async (
 
   const runGroq = async (key: string) => {
     try {
-      const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade.Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos: \n - **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n - **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito.Se possível, use um cenário de concurso público.`;
+      const systemPrompt = `Você é um especialista sênior em concursos públicos.`;
       const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
         method: 'POST',
         headers: {
-          'Authorization': `Bearer ${key} `,
+          'Authorization': `Bearer ${key}`,
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           model: 'llama-3.3-70b-versatile',
           messages: [
             { role: 'system', content: systemPrompt },
-            { role: 'user', content: `Contexto: ${context} \nAnálise: ${prompt} ` }
+            { role: 'user', content: finalPrompt }
           ],
           temperature: 0.5,
-          max_tokens: 4096,
+          max_tokens: 8192,
         }),
       });
 
-      if (!response.ok) throw new Error(`Groq status ${response.status} `);
+      if (!response.ok) throw new Error(`Groq status ${response.status}`);
       const data = await response.json();
       return data.choices[0].message.content;
     } catch (error: any) {
@@ -575,7 +695,7 @@ export const handlePlayRevisionAudio = async (
 export const deleteCachedAudio = async (revisionId: string) => {
   const bucketName = 'audio-revisions';
   try {
-    await supabase.storage.from(bucketName).remove([`${revisionId}.wav`, `${revisionId} _podcast.wav`]);
+    await supabase.storage.from(bucketName).remove([`${revisionId}.wav`, `${revisionId}_podcast.wav`]);
   } catch (e) { }
 };
 
@@ -592,7 +712,7 @@ export const generatePodcastAudio = async (
   let source: AudioBufferSourceNode | null = null;
 
   try {
-    const fileName = `${referenceId} _podcast.wav`;
+    const fileName = `${referenceId}_podcast.wav`;
     const bucketName = 'audio-revisions';
 
     // Verificação de cache simplificada

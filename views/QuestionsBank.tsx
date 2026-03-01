@@ -1,8 +1,70 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { supabase } from '../services/supabase';
-import { Question, EditalMateria } from '../types';
-import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock } from 'lucide-react';
+import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
+import { Question, EditalMateria, GlobalQuestion, QuestionAttempt } from '../types';
+import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock, Plus, Brain, Volume2, Sparkles, Trophy, RotateCcw, ChevronLeft, ChevronRight, Save, Headphones, Music, Table, Map as MapIcon, Send, MessageSquarePlus } from 'lucide-react';
+import { streamAIContent, AIProviderName, generateAIContent, handlePlayRevisionAudio, generatePodcastAudio, deleteCachedAudio } from '../services/aiService';
 import { CustomSelector } from '../components/CustomSelector';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
+import { AIContentBox } from '../components/shared/AIContentBox';
+import { useStore } from '../hooks/useStore';
+import { Editor } from '@tiptap/react';
+
+interface EditorToolbarProps {
+  editor: Editor | null;
+}
+
+const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor }) => {
+  if (!editor) return null;
+
+  const addImage = () => {
+    const url = window.prompt('URL da imagem:');
+    if (url) {
+      editor.chain().focus().setImage({ src: url }).run();
+    }
+  };
+
+  return (
+    <div className="flex flex-wrap gap-1 p-2 bg-white/5 border-b border-white/10">
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleBold().run()}
+        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('bold') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
+        title="Negrito"
+      >
+        <span className="font-bold">B</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleItalic().run()}
+        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('italic') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
+        title="Itálico"
+      >
+        <span className="italic font-serif">I</span>
+      </button>
+      <button
+        type="button"
+        onClick={() => editor.chain().focus().toggleUnderline().run()}
+        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('underline') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
+        title="Sublinhado"
+      >
+        <span className="underline">U</span>
+      </button>
+      <div className="w-px h-6 bg-white/10 mx-1 self-center" />
+      <button
+        type="button"
+        onClick={addImage}
+        className="p-2 rounded hover:bg-white/10 transition-colors text-slate-400 hover:text-cyan-400"
+        title="Inserir Imagem"
+      >
+        <Zap size={16} />
+      </button>
+    </div>
+  );
+};
 
 interface QuestionsBankProps {
   missaoAtiva: string;
@@ -16,6 +78,34 @@ const getLocalToday = () => {
   const month = String(now.getMonth() + 1).padStart(2, '0');
   const day = String(now.getDate()).padStart(2, '0');
   return `${year}-${month}-${day}`;
+};
+
+const extractTecId = (tecField: string | undefined): { id: string, url: string } | null => {
+  if (!tecField) return null;
+  const numericRegex = /^\d+$/;
+  const urlRegex = /https?:\/\/www\.tecconcursos\.com\.br\/questoes\/(\d+)/;
+
+  if (numericRegex.test(tecField)) {
+    return {
+      id: tecField,
+      url: `https://www.tecconcursos.com.br/questoes/${tecField}`
+    };
+  }
+
+  const match = tecField.match(urlRegex);
+  if (match) {
+    return {
+      id: match[1],
+      url: tecField
+    };
+  }
+
+  // Se não bater no regex mas parecer uma URL, retornamos ela mas com ID vazio
+  if (tecField.startsWith('http')) {
+    return { id: 'Ver Link', url: tecField };
+  }
+
+  return { id: tecField, url: `https://www.tecconcursos.com.br/questoes/${tecField}` };
 };
 
 // Helper para links
@@ -41,57 +131,150 @@ const formatTextWithLinks = (text: string | undefined) => {
   });
 };
 
-const QuestionCard: React.FC<{
-  q: Question;
+interface QuestionCardProps {
+  q: GlobalQuestion;
   isExpanded: boolean;
+  isAdmin: boolean;
   onToggle: (id: string) => void;
-  onEdit: (q: Question) => void;
+  onEdit: (q: GlobalQuestion) => void;
   onDelete: (id: string) => void;
-  onStatusChange: (id: string, status: 'Pendente' | 'Em andamento' | 'Concluída') => void;
-}> = ({ q, isExpanded, onToggle, onEdit, onDelete, onStatusChange }) => {
+  onSolve: (question: GlobalQuestion, selectedAltId: string | null) => void;
+  // IA Lab Props
+  selectedAI: AIProviderName | 'auto';
+  setSelectedAI: (val: AIProviderName | 'auto') => void;
+  aiStreamText: string;
+  aiLoading: boolean;
+  mnemonicText: string;
+  mnemonicLoading: boolean;
+  extraContent: string;
+  extraLoading: boolean;
+  activeAiTool: string;
+  setActiveAiTool: (val: any) => void;
+  onGenerateExplanation: (q: GlobalQuestion) => void;
+  onGenerateMnemonic: (q: GlobalQuestion) => void;
+  onGenerateExtra: (q: GlobalQuestion, format: any) => void;
+  onSendFollowUp: (q: GlobalQuestion) => void;
+  followUpQuery: string;
+  setFollowUpQuery: (val: string) => void;
+  isPlayingNeural: boolean;
+  onPlayAudio: (q: GlobalQuestion, text: string) => void;
+  onPlayPodcast: (q: GlobalQuestion) => void;
+  isGeneratingPodcast: boolean;
+  podcastStatus: string;
+}
 
+const QuestionCard: React.FC<QuestionCardProps> = ({
+  q, isExpanded, isAdmin, onToggle, onEdit, onDelete, onSolve,
+  selectedAI, setSelectedAI, aiStreamText, aiLoading, mnemonicText, mnemonicLoading,
+  extraContent, extraLoading, activeAiTool, setActiveAiTool,
+  onGenerateExplanation, onGenerateMnemonic, onGenerateExtra, onSendFollowUp,
+  followUpQuery, setFollowUpQuery, isPlayingNeural, onPlayAudio, onPlayPodcast,
+  isGeneratingPodcast, podcastStatus
+}) => {
+  const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
+  const [isFlipped, setIsFlipped] = useState(false);
+
+  const handleConfirm = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    if (!selectedAlt) return;
+    setIsFlipped(true);
+    onSolve(q, selectedAlt);
+  };
   const statusInfo = {
     'Pendente': { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400', accent: 'bg-yellow-500' },
-    'Em andamento': { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', accent: 'bg-blue-500' },
-    'Concluída': { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', accent: 'bg-green-500' },
-  }[q.status];
+    'Revisado': { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', accent: 'bg-blue-500' },
+    'Dominado': { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', accent: 'bg-green-500' },
+  }[(q as any).status as 'Pendente' || 'Pendente'];
 
   return (
-    <div className={`glass-premium rounded-[2rem] overflow-hidden border transition-all duration-500 group ${isExpanded ? `border-[hsl(var(--accent)/0.4)] shadow-2xl` : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.2)]'}`}>
-      <div className="p-6 cursor-pointer" onClick={() => onToggle(q.id)}>
-        <div className="flex justify-between items-start gap-4">
-          <div className="flex-1 min-w-0">
-            <div className="flex items-center gap-3 mb-3">
-              <div className={`w-2 h-2 rounded-full ${statusInfo.accent} shadow-[0_0_8px_${statusInfo.accent.replace('bg-', '')}CC] animate-pulse`}></div>
-              <span className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em]">{q.materia}</span>
-              {q.simulado && (
-                <span className="text-[9px] font-black bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] px-3 py-1 rounded-full border border-[hsl(var(--accent)/0.2)] uppercase tracking-widest">
-                  {q.simulado}
-                </span>
-              )}
-            </div>
-            <h4 className={`text-xl font-black uppercase tracking-tighter transition-colors duration-300 ${isExpanded ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-bright))] group-hover:text-[hsl(var(--accent))]'}`}>
-              {q.assunto}
-            </h4>
+    <div className={`glass-premium rounded-[2.5rem] overflow-hidden border transition-all duration-500 group ${isExpanded ? `border-[hsl(var(--accent)/0.4)] shadow-2xl` : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.2)]'}`}>
+      <div className="p-8 cursor-pointer" onClick={() => onToggle(q.id)}>
+        <div className="flex flex-col gap-6">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[10px] font-black text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 uppercase tracking-widest">{q.materia}</span>
+            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.banca}</span>
+            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.orgao}</span>
+            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.cargo}</span>
+            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.ano}</span>
+            {q.tec_id && (() => {
+              const tecInfo = extractTecId(q.tec_id);
+              if (!tecInfo) return null;
+              return (
+                <a
+                  href={tecInfo.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(e) => e.stopPropagation()}
+                  className="group/link flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-black transition-all cursor-pointer"
+                >
+                  <span className="text-[9px] font-black uppercase tracking-widest">TEC: {tecInfo.id}</span>
+                  <ExternalLink size={8} className="transition-transform group-hover/link:translate-x-0.5" />
+                </a>
+              );
+            })()}
           </div>
-          <div className="text-right shrink-0">
-            <div className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] mb-1">Impacto</div>
-            <div className={`text-2xl font-black tracking-tighter ${q.relevancia >= 8 ? 'text-red-400' : 'text-[hsl(var(--text-bright))]'}`}>
-              {q.relevancia}<span className="text-xs opacity-30">/10</span>
-            </div>
-          </div>
+          <h4 className={`text-2xl font-black uppercase tracking-tighter transition-colors duration-300 ${isExpanded ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-bright))] group-hover:text-[hsl(var(--accent))]'}`}>
+            {q.assunto}
+          </h4>
         </div>
-        {!isExpanded && q.tags?.length > 0 && (
-          <div className="flex flex-wrap gap-2 mt-4">
-            {q.tags.slice(0, 3).map((tag, i) => (
-              <span key={i} className="text-[9px] font-black bg-[hsl(var(--bg-user-block))] text-[hsl(var(--text-muted))] px-3 py-1.5 rounded-xl border border-[hsl(var(--border))] uppercase tracking-widest">{tag}</span>
-            ))}
-          </div>
-        )}
       </div>
 
       {isExpanded && (
-        <div className="bg-black/5 border-t border-[hsl(var(--border))] p-8 space-y-8 animate-in slide-in-from-top-4 duration-500">
+        <div className="bg-black/5 border-t border-[hsl(var(--border))] p-10 space-y-10 animate-in slide-in-from-top-4 duration-500">
+          <div className="prose prose-invert max-w-none">
+            <div dangerouslySetInnerHTML={{ __html: isFlipped && q.resposta ? q.resposta : (q.enunciado || 'Enunciado não disponível') }} className="text-lg font-black tracking-tight text-[hsl(var(--text-bright))] leading-relaxed" />
+          </div>
+
+          <div className="space-y-4">
+            {q.alternativas?.map((alt, idx) => {
+              const letter = String.fromCharCode(65 + idx);
+              const isSelected = selectedAlt === alt.id;
+
+              let statusClasses = "border-white/5 hover:border-[hsl(var(--accent)/0.3)] hover:bg-white/5";
+              if (isFlipped) {
+                if (alt.is_correct) statusClasses = "border-green-500 bg-green-500/10 text-green-400 shadow-[0_0_20px_rgba(34,197,94,0.1)]";
+                else if (isSelected) statusClasses = "border-red-500 bg-red-500/10 text-red-400";
+                else statusClasses = "border-white/5 opacity-50";
+              } else if (isSelected) {
+                statusClasses = "border-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]";
+              }
+
+              return (
+                <button
+                  key={alt.id}
+                  disabled={isFlipped}
+                  onClick={(e) => { e.stopPropagation(); setSelectedAlt(alt.id); }}
+                  className={`w-full flex gap-6 items-center p-6 rounded-2xl border text-left transition-all ${statusClasses}`}
+                >
+                  <div className={`w-10 h-10 rounded-xl flex items-center justify-center font-black transition-all ${isSelected ? 'bg-[hsl(var(--accent))] text-black' : 'bg-white/10'}`}>
+                    {letter}
+                  </div>
+                  <div className="flex-1 font-bold text-sm uppercase tracking-wide">{alt.texto}</div>
+                  {isFlipped && alt.is_correct && <CheckCircle2 size={20} className="text-green-500" />}
+                  {isFlipped && isSelected && !alt.is_correct && <X size={20} className="text-red-500" />}
+                </button>
+              );
+            })}
+          </div>
+
+          {!isFlipped ? (
+            <button
+              onClick={handleConfirm}
+              disabled={!selectedAlt}
+              className="w-full py-6 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl text-black font-black uppercase tracking-[0.4em] text-xs shadow-2xl shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-20 transition-all"
+            >
+              Confirmar Resposta
+            </button>
+          ) : (
+            <div className="flex gap-4 p-4 bg-white/5 rounded-3xl border border-white/10 items-center justify-center">
+              <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Resultado Processado</span>
+              <div className="w-1 h-1 rounded-full bg-slate-700" />
+              <button onClick={(e) => { e.stopPropagation(); setIsFlipped(false); setSelectedAlt(null); }} className="text-[10px] font-black uppercase text-[hsl(var(--accent))] hover:underline flex items-center gap-2">
+                <RotateCcw size={12} /> Tentar Novamente
+              </button>
+            </div>
+          )}
+
           {q.anotacoes && (
             <div className="space-y-3">
               <h5 className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] flex items-center gap-2">
@@ -102,26 +285,166 @@ const QuestionCard: React.FC<{
               </div>
             </div>
           )}
-          {q.tags?.length > 0 && (
-            <div className="flex flex-wrap gap-2 pt-6 border-t border-[hsl(var(--border))]">
-              {q.tags.map((tag, i) => (
-                <span key={i} className="text-[9px] font-black bg-[hsl(var(--bg-card))] text-[hsl(var(--text-bright))] px-4 py-2 rounded-full border border-[hsl(var(--border))] uppercase tracking-[0.15em]">{tag}</span>
-              ))}
+
+          {/* LABORATÓRIO NEURAL (IA) */}
+          <div className="pt-10 border-t border-white/5 space-y-8">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
+                <div className="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20 text-purple-400">
+                  <Brain size={24} />
+                </div>
+                <div>
+                  <h4 className="text-lg font-black uppercase tracking-tighter text-white">Laboratório Neural</h4>
+                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Powered by {selectedAI === 'auto' ? 'Sincronização Híbrida' : selectedAI.toUpperCase()}</p>
+                </div>
+              </div>
+
+              <div className="flex flex-wrap gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/5 backdrop-blur-sm self-start md:self-center">
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('explanation'); if (!aiStreamText) onGenerateExplanation(q); }}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'explanation' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  <Sparkles size={12} /> Análise
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('mnemonic'); if (!mnemonicText && !q.ai_generated_assets?.mnemonic) onGenerateMnemonic(q); }}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'mnemonic' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  <Music size={12} /> Mnemônico
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('mapa'); if (!q.ai_generated_assets?.mapa) onGenerateExtra(q, 'mapa'); }}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'mapa' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  <MapIcon size={12} /> Mapa
+                </button>
+                <button
+                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('tabela'); if (!q.ai_generated_assets?.tabela) onGenerateExtra(q, 'tabela'); }}
+                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'tabela' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                >
+                  <Table size={12} /> Tabela
+                </button>
+              </div>
             </div>
-          )}
-          <div className="flex flex-col md:flex-row justify-between items-center gap-6 pt-6 border-t border-[hsl(var(--border))]">
-            <div className="flex gap-4 w-full md:w-auto">
-              <button onClick={() => onEdit(q)} className="flex-1 md:flex-none p-4 bg-[hsl(var(--bg-user-block))] rounded-2xl text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:border-[hsl(var(--accent)/0.3)] transition-all border border-[hsl(var(--border))] active:scale-95"><Edit size={20} /></button>
-              <button onClick={() => onDelete(q.id)} className="flex-1 md:flex-none p-4 bg-[hsl(var(--bg-user-block))] rounded-2xl text-[hsl(var(--text-muted))] hover:text-red-400 hover:border-red-500/30 transition-all border border-[hsl(var(--border))] active:scale-95"><Trash2 size={20} /></button>
+
+            {/* Content Display */}
+            <div className="relative">
+              {activeAiTool === 'explanation' && (
+                <AIContentBox
+                  title="Análise Profunda"
+                  icon={<Sparkles size={16} />}
+                  content={aiStreamText}
+                  isLoading={aiLoading}
+                  isMarkdown={true}
+                  accentColor="purple"
+                  activeTool="explanation"
+                  onRegenerate={() => onGenerateExplanation(q)}
+                >
+                  {aiStreamText && !aiLoading && (
+                    <div className="mt-8 pt-8 border-t border-white/5 space-y-6">
+                      <div className="flex flex-wrap gap-4 items-center">
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onPlayAudio(q, aiStreamText); }}
+                          disabled={isPlayingNeural}
+                          className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isPlayingNeural ? 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/20 shadow-xl'}`}
+                        >
+                          <Headphones size={16} /> {isPlayingNeural ? "Reproduzindo..." : "Ouvir Explicação"}
+                        </button>
+
+                        <button
+                          onClick={(e) => { e.stopPropagation(); onPlayPodcast(q); }}
+                          disabled={isGeneratingPodcast || isPlayingNeural}
+                          className="flex items-center gap-3 px-6 py-3 bg-purple-600/10 hover:bg-purple-600/20 rounded-2xl text-purple-400 font-black text-xs uppercase tracking-widest transition-all border border-purple-500/20 hover:border-purple-500/40 shadow-xl"
+                        >
+                          <Headphones size={16} /> {isGeneratingPodcast ? podcastStatus : "Podcast Duo (Alex & Bia)"}
+                        </button>
+                      </div>
+
+                      <div className="bg-black/20 rounded-[1.5rem] p-6 border border-white/5 group-within:border-purple-500/30 transition-all shadow-inner">
+                        <div className="flex items-center gap-4 mb-4" onClick={(e) => e.stopPropagation()}>
+                          <div className="p-2 bg-purple-500/10 rounded-lg">
+                            <MessageSquarePlus size={14} className="text-purple-400" />
+                          </div>
+                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tutor Neural: Ficou com alguma dúvida?</span>
+                        </div>
+                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+                          <input
+                            type="text"
+                            value={followUpQuery}
+                            onChange={(e) => setFollowUpQuery(e.target.value)}
+                            onKeyDown={(e) => e.key === 'Enter' && onSendFollowUp(q)}
+                            placeholder="Pergunte sobre a questão ou a explicação..."
+                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500/50 transition-all pr-12 font-medium"
+                          />
+                          <button
+                            onClick={() => onSendFollowUp(q)}
+                            disabled={!followUpQuery.trim() || aiLoading}
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-400 hover:text-purple-300 disabled:opacity-20 transition-all hover:scale-110 active:scale-95"
+                          >
+                            <Send size={18} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </AIContentBox>
+              )}
+
+              {activeAiTool === 'mnemonic' && (
+                <AIContentBox
+                  title="Mnemônico Fixador"
+                  icon={<Music size={16} />}
+                  content={mnemonicText || q.ai_generated_assets?.mnemonic || ''}
+                  isLoading={mnemonicLoading}
+                  isMarkdown={true}
+                  accentColor="orange"
+                  activeTool="mnemonic"
+                  onRegenerate={() => onGenerateMnemonic(q)}
+                />
+              )}
+
+              {(['mapa', 'fluxo', 'tabela', 'info'] as const).includes(activeAiTool as any) && activeAiTool !== 'explanation' && activeAiTool !== 'mnemonic' && (
+                <AIContentBox
+                  title={activeAiTool.toUpperCase()}
+                  icon={activeAiTool === 'mapa' ? <MapIcon size={16} /> : activeAiTool === 'tabela' ? <Table size={16} /> : <Zap size={16} />}
+                  content={extraContent || q.ai_generated_assets?.[activeAiTool as keyof typeof q.ai_generated_assets] || ''}
+                  isLoading={extraLoading}
+                  isMarkdown={true}
+                  accentColor={activeAiTool === 'mapa' ? 'emerald' : 'cyan'}
+                  activeTool={activeAiTool}
+                  onRegenerate={() => onGenerateExtra(q, activeAiTool as any)}
+                />
+              )}
             </div>
-            <div className="flex gap-4 w-full md:w-auto">
-              <button onClick={() => onStatusChange(q.id, 'Pendente')} className="flex-1 px-8 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-yellow-500/10 text-yellow-400 text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl border border-[hsl(var(--border))] hover:border-yellow-500/30 transition-all active:scale-95">
-                Reciclar Erro
-              </button>
-              <button onClick={() => onStatusChange(q.id, 'Concluída')} className="flex-1 px-8 py-4 bg-gradient-to-r from-green-600 to-emerald-500 text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl shadow-lg shadow-green-500/20 transition-all hover:scale-105 active:scale-95">
-                Dominado
-              </button>
+          </div>
+
+          <div className="flex justify-between items-center pt-8 border-t border-white/10">
+            <div className="flex gap-4">
+              {isAdmin && (
+                <>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onEdit(q); }}
+                    className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-[hsl(var(--accent))] hover:bg-white/10 transition-all border border-white/10"
+                    title="Editar"
+                  >
+                    <Edit size={18} />
+                  </button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); onDelete(q.id); }}
+                    className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-red-400 hover:bg-white/10 transition-all border border-white/10"
+                    title="Excluir"
+                  >
+                    <Trash2 size={18} />
+                  </button>
+                </>
+              )}
             </div>
+
+            {q.simulado && (
+              <span className="text-[9px] font-black bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] px-4 py-2 rounded-full border border-[hsl(var(--accent)/0.2)] uppercase tracking-widest">
+                {q.simulado}
+              </span>
+            )}
           </div>
         </div>
       )}
@@ -130,145 +453,419 @@ const QuestionCard: React.FC<{
 };
 
 const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) => {
-  const [questions, setQuestions] = useState<Question[]>([]);
+  const [questions, setQuestions] = useState<GlobalQuestion[]>([]);
   const [loading, setLoading] = useState(true);
+  const [isAdmin, setIsAdmin] = useState(false);
+  const [currentUser, setCurrentUser] = useState<any>(null);
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
+  const [activeBankTab, setActiveBankTab] = useState<'gerador' | 'cadastro'>('gerador');
 
-  // Filtros
+  // Filtros Avançados
   const [searchTerm, setSearchTerm] = useState('');
   const [filterMateria, setFilterMateria] = useState<string>('Todas');
-
-  // Custom Dropdown State
-  const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
-  const dropdownRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    const handleClickOutside = (event: MouseEvent) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-        setShowTopicsDropdown(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
+  const [filterAssunto, setFilterAssunto] = useState<string>('Todos');
+  const [filterBanca, setFilterBanca] = useState<string>('Todas');
+  const [filterAno, setFilterAno] = useState<string>('Todos');
+  const [filterOrgao, setFilterOrgao] = useState<string>('Todos');
+  const [filterCargo, setFilterCargo] = useState<string>('Todos');
 
   // Form States
   const initialFormState = {
-    data: getLocalToday(), // Usar data local em vez de UTC
+    data: getLocalToday(),
     materia: '',
     assunto: '',
-    simulado: '',
-    relevancia: 5,
-    meta: 3,
+    banca: '',
+    ano: new Date().getFullYear(),
+    orgao: '',
+    cargo: '',
+    enunciado: '',
+    resposta: '',
     anotacoes: '',
     tags: '',
-    status: 'Pendente' as Question['status'],
+    tipo: 'Multipla Escolha' as Question['tipo'],
+    alternativas: [] as Question['alternativas'],
+    tec_id: '',
+    gabarito_oficial: '' as string,
   };
 
   const [formData, setFormData] = useState(initialFormState);
+  const [showSmartPaste, setShowSmartPaste] = useState(false);
+  const [smartPasteText, setSmartPasteText] = useState('');
+  const [viewMode, setViewMode] = useState<'list' | 'study'>('study');
+  const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  const materiasDisponiveis = useMemo(() => ['Todas', ...editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort()], [editais, missaoAtiva]);
+  const handleSmartPaste = (text: string) => {
+    setSmartPasteText(text);
+    if (!text.trim()) return;
 
-  const topicosDisponiveis = useMemo(() => {
-    const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === formData.materia);
-    return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
-  }, [editais, missaoAtiva, formData.materia]);
+    // Regex para identificar A), A -, [A], A. etc no início da linha
+    // Ou apenas a letra seguida de nova linha
+    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
+    const newAlts: any[] = [];
+    let currentAltText = '';
+    let currentLabel = '';
+
+    // Regex mais flexível para identificar A), A., A-, [A] ou apenas "A" isolado na linha
+    const labelRegex = /^([A-E]|[a-e])([\)\.\-\s]|$)/;
+
+    lines.forEach((line) => {
+      const match = line.match(labelRegex);
+      if (match) {
+        // Se já tínhamos uma alternativa sendo formada, salva ela
+        if (currentLabel) {
+          newAlts.push({
+            id: Math.random().toString(36).substr(2, 9),
+            label: currentLabel.toUpperCase(),
+            texto: currentAltText.trim(),
+            is_correct: false
+          });
+        }
+        currentLabel = match[1];
+        // Remove a etiqueta e possíveis separadores do início do texto
+        currentAltText = line.replace(/^([A-E]|[a-e])[\)\.\-\s]*/i, '').trim();
+      } else if (currentLabel) {
+        // Se não tem match mas temos uma letra ativa, acumula o texto
+        currentAltText += (currentAltText ? ' ' : '') + line;
+      }
+    });
+
+    // Adiciona a última
+    if (currentLabel) {
+      newAlts.push({
+        id: Math.random().toString(36).substr(2, 9),
+        label: currentLabel.toUpperCase(),
+        texto: currentAltText.trim(),
+        is_correct: false
+      });
+    }
+
+    if (newAlts.length > 0) {
+      setFormData(prev => ({
+        ...prev,
+        alternativas: newAlts,
+        tipo: 'Multipla Escolha'
+      }));
+    }
+  };
+  const [selectedAI, setSelectedAI] = useState<AIProviderName | 'auto'>('auto');
+  const [aiStreamText, setAiStreamText] = useState<string>("");
+  const [followUpQuery, setFollowUpQuery] = useState("");
+  const [aiLoading, setAiLoading] = useState(false);
+  const [mnemonicText, setMnemonicText] = useState<string>("");
+  const [mnemonicLoading, setMnemonicLoading] = useState(false);
+  const [extraFormat, setExtraFormat] = useState<'mapa' | 'fluxo' | 'tabela' | 'info' | null>(null);
+  const [extraContent, setExtraContent] = useState<string>('');
+  const [extraLoading, setExtraLoading] = useState<boolean>(false);
+  const [isPlayingNeural, setIsPlayingNeural] = useState(false);
+  const [stopNeural, setStopNeural] = useState<(() => void) | null>(null);
+  const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
+  const [podcastStatus, setPodcastStatus] = useState("");
+  const [activeAiTool, setActiveAiTool] = useState<'explanation' | 'mnemonic' | 'mapa' | 'fluxo' | 'tabela' | 'info'>('explanation');
+  const [geminiKeyAvailable, setGeminiKeyAvailable] = useState(false);
+  const [groqKeyAvailable, setGroqKeyAvailable] = useState(false);
+  const lastQuestionIdRef = useRef<string | null>(null);
+
+  useEffect(() => {
+    setGeminiKeyAvailable(!!getGeminiKey());
+    setGroqKeyAvailable(!!getGroqKey());
+  }, []);
+
+  // Tiptap Editors
+  const enunciadoEditor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Image,
+      Placeholder.configure({ placeholder: 'Digite o enunciado...' })
+    ],
+    content: formData.enunciado,
+    onUpdate: ({ editor }) => setFormData(prev => ({ ...prev, enunciado: editor.getHTML() })),
+    editorProps: { attributes: { class: 'prose prose-invert prose-sm max-w-none focus:outline-none min-h-[200px] p-6 text-[hsl(var(--text-bright))]' } },
+  });
+
+  const respostaEditor = useEditor({
+    extensions: [
+      StarterKit,
+      Underline,
+      Image,
+      Placeholder.configure({ placeholder: 'Digite o gabarito comentado...' })
+    ],
+    content: formData.resposta,
+    onUpdate: ({ editor }) => setFormData(prev => ({ ...prev, resposta: editor.getHTML() })),
+    editorProps: { attributes: { class: 'prose prose-invert prose-sm max-w-none focus:outline-none min-h-[200px] p-6 text-[hsl(var(--text-bright))]' } },
+  });
+
+  useEffect(() => {
+    if (isEditing && showForm) {
+      enunciadoEditor?.commands.setContent(formData.enunciado || '');
+      respostaEditor?.commands.setContent(formData.resposta || '');
+    } else if (!isEditing && showForm) {
+      enunciadoEditor?.commands.setContent('');
+      respostaEditor?.commands.setContent('');
+    }
+  }, [isEditing, showForm]);
+
 
   const fetchQuestions = async () => {
     setLoading(true);
     const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user) {
-      setLoading(false);
-      return;
-    }
+    if (!user) { setLoading(false); return; }
+    setCurrentUser(user);
 
-    const { data, error } = await supabase
-      .from('questoes_revisao')
-      .select('*')
-      .eq('user_id', user.id)
-      .eq('concurso', missaoAtiva);
+    try {
+      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
+      if (user.email === 'fernandobritosc@gmail.com' || profile?.is_admin === true) setIsAdmin(true);
+    } catch (e) { }
 
-    if (error) {
-      console.error('Erro ao buscar questões:', error);
-      setLoading(false);
-      return;
-    }
-
-    setQuestions(data || []);
+    const { data, error } = await supabase.from('banco_questoes').select('*').order('created_at', { ascending: false });
+    if (!error) setQuestions(data || []);
     setLoading(false);
   };
 
-  useEffect(() => {
-    fetchQuestions();
-  }, [missaoAtiva]);
+  useEffect(() => { fetchQuestions(); }, [missaoAtiva]);
 
-  // Filtrar questões com base nos filtros
   const reviewQueue = useMemo(() => {
     let filtered = questions;
-
-    // Filtrar por termo de busca
     if (searchTerm) {
       filtered = filtered.filter(q =>
         q.assunto.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        q.materia.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        (q.anotacoes && q.anotacoes.toLowerCase().includes(searchTerm.toLowerCase()))
+        q.materia.toLowerCase().includes(searchTerm.toLowerCase())
       );
     }
+    if (filterMateria !== 'Todas') filtered = filtered.filter(q => q.materia === filterMateria);
+    if (filterAssunto !== 'Todos') filtered = filtered.filter(q => q.assunto === filterAssunto);
+    if (filterBanca !== 'Todas') filtered = filtered.filter(q => q.banca === filterBanca);
+    if (filterAno !== 'Todos') filtered = filtered.filter(q => q.ano === Number(filterAno));
+    if (filterOrgao !== 'Todos') filtered = filtered.filter(q => q.orgao === filterOrgao);
+    if (filterCargo !== 'Todos') filtered = filtered.filter(q => q.cargo === filterCargo);
 
-    // Filtrar por matéria
-    if (filterMateria !== 'Todas') {
-      filtered = filtered.filter(q => q.materia === filterMateria);
+    return [...filtered].sort((a, b) => (Number(b.relevancia) || 0) - (Number(a.relevancia) || 0));
+  }, [questions, searchTerm, filterMateria, filterAssunto, filterBanca, filterAno, filterOrgao, filterCargo]);
+
+  const currentQuestion = viewMode === 'study' ? reviewQueue[currentQuestionIndex] : null;
+
+  useEffect(() => {
+    if (currentQuestion?.id !== lastQuestionIdRef.current) {
+      setAiStreamText("");
+      setAiLoading(false);
+      setMnemonicText("");
+      setMnemonicLoading(false);
+      setExtraContent("");
+      setExtraLoading(false);
+      setExtraFormat(null);
+      setFollowUpQuery("");
+      setActiveAiTool('explanation');
+      if (stopNeural) stopNeural();
+      setIsPlayingNeural(false);
+      lastQuestionIdRef.current = currentQuestion?.id || null;
+    }
+  }, [currentQuestion?.id]);
+
+  const saveAiAsset = async (questionId: string, assetType: string, content: string) => {
+    try {
+      const q = questions.find(item => item.id === questionId);
+      if (!q) return;
+
+      const updatedAssets = {
+        ...(q.ai_generated_assets || {}),
+        [assetType]: content
+      };
+
+      const { error } = await supabase
+        .from('banco_questoes')
+        .update({ ai_generated_assets: updatedAssets })
+        .eq('id', questionId);
+
+      if (error) throw error;
+      setQuestions(prev => prev.map(item => item.id === questionId ? { ...item, ai_generated_assets: updatedAssets } : item));
+    } catch (err) {
+      console.error("Erro ao salvar asset da IA:", err);
+    }
+  };
+
+  const generateAIExplanation = async (question: GlobalQuestion) => {
+    if (aiLoading) return;
+    setAiLoading(true);
+    setAiStreamText("");
+    setActiveAiTool('explanation');
+
+    const prompt = `Analise a seguinte questão de concurso e forneça uma explicação detalhada, comentando cada alternativa e explicando por que a correta é a correta.
+                                Banca: ${question.banca || 'N/A'}
+                                Órgão: ${question.orgao || 'N/A'}
+                                Ano: ${question.ano || 'N/A'}
+                                Enunciado: ${question.enunciado}
+                                Alternativas: ${JSON.stringify(question.alternativas)}`;
+
+    try {
+      await streamAIContent(
+        prompt,
+        {
+          onChunk: (chunk) => setAiStreamText(prev => prev + chunk),
+          onComplete: () => {
+            setAiLoading(false);
+          },
+          onError: (err) => {
+            console.error(err);
+            setAiLoading(false);
+          }
+        },
+        getGeminiKey(),
+        getGroqKey(),
+        selectedAI === 'auto' ? undefined : selectedAI
+      );
+    } catch (err) {
+      setAiLoading(false);
+    }
+  };
+
+  const handleGenerateMnemonic = async (question: GlobalQuestion) => {
+    if (mnemonicLoading) return;
+    setMnemonicLoading(true);
+    setActiveAiTool('mnemonic');
+
+    const prompt = `Crie um mnemônico ou uma rima curta e infalível para ajudar a memorizar o conceito principal desta questão:\n\n${question.enunciado}`;
+
+    try {
+      const content = await generateAIContent(
+        prompt,
+        getGeminiKey(),
+        getGroqKey(),
+        selectedAI === 'auto' ? undefined : selectedAI,
+        'flashcard'
+      );
+      setMnemonicText(content);
+      await saveAiAsset(question.id, 'mnemonic', content);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setMnemonicLoading(false);
+    }
+  };
+
+  const handleGenerateExtraFormat = async (question: GlobalQuestion, format: 'mapa' | 'fluxo' | 'tabela' | 'info') => {
+    if (extraLoading) return;
+    setExtraLoading(true);
+    setExtraFormat(format);
+    setActiveAiTool(format);
+
+    try {
+      const content = await generateAIContent(
+        question.enunciado || '',
+        getGeminiKey(),
+        getGroqKey(),
+        selectedAI === 'auto' ? undefined : selectedAI,
+        format
+      );
+      setExtraContent(content);
+      await saveAiAsset(question.id, format, content);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setExtraLoading(false);
+    }
+  };
+
+  const handleSendFollowUp = async (question: GlobalQuestion) => {
+    if (!followUpQuery.trim() || aiLoading) return;
+    const query = followUpQuery;
+    setFollowUpQuery("");
+    setAiLoading(true);
+    setAiStreamText(prev => prev + `\n\n--- \n**Pergunta:** ${query}\n\n`);
+
+    try {
+      await streamAIContent(
+        `Com base na questão anterior, responda à seguinte dúvida: ${query}`,
+        {
+          onChunk: (chunk) => setAiStreamText(prev => prev + chunk),
+          onComplete: () => setAiLoading(false),
+          onError: (err) => {
+            console.error(err);
+            setAiLoading(false);
+          }
+        },
+        getGeminiKey(),
+        getGroqKey(),
+        selectedAI === 'auto' ? undefined : selectedAI
+      );
+    } catch (err) {
+      setAiLoading(false);
+    }
+  };
+
+  const handlePlayNeural = async (question: GlobalQuestion, text: string) => {
+    if (isPlayingNeural && stopNeural) {
+      stopNeural();
+      setIsPlayingNeural(false);
+      return;
     }
 
-    // Ordenar por relevância (maior primeiro) e data (mais recente primeiro)
-    return [...filtered].sort((a: Question, b: Question) => {
-      // FIX: The 'relevancia' property might not be a number at runtime.
-      // This ensures values are properly converted before subtraction.
-      const relDiff = (Number(b.relevancia) || 0) - (Number(a.relevancia) || 0);
-      if (relDiff !== 0) {
-        return relDiff;
+    const stop = await handlePlayRevisionAudio(
+      text,
+      question.id,
+      getGeminiKey() || '',
+      () => setIsPlayingNeural(true),
+      () => setIsPlayingNeural(false),
+      () => setIsPlayingNeural(false)
+    );
+    setStopNeural(() => stop);
+  };
+
+  const handlePodcastDuo = async (question: GlobalQuestion) => {
+    if (isGeneratingPodcast) return;
+    setIsGeneratingPodcast(true);
+
+    const stop = await generatePodcastAudio(
+      aiStreamText || question.enunciado || '',
+      question.id,
+      getGeminiKey() || '',
+      setPodcastStatus,
+      () => {
+        setIsGeneratingPodcast(false);
+        setIsPlayingNeural(true);
+      },
+      () => setIsPlayingNeural(false),
+      () => {
+        setIsGeneratingPodcast(false);
+        setIsPlayingNeural(false);
       }
+    );
+    setStopNeural(() => stop);
+  };
 
-      const timeB = new Date(b.data).getTime();
-      const timeA = new Date(a.data).getTime();
+  const getActiveProviderName = () => {
+    if (selectedAI !== 'auto') return selectedAI.toUpperCase();
+    const gemini = getGeminiKey();
+    if (gemini && gemini.length > 10) return 'GEMINI 2.0';
+    return 'GROQ';
+  };
 
-      // Handle potential invalid dates which result in NaN
-      const valB = isNaN(timeB) ? 0 : timeB;
-      const valA = isNaN(timeA) ? 0 : timeA;
+  const savedMaterias = useMemo(() => Array.from(new Set(questions.map(q => q.materia))).sort(), [questions]);
+  const savedAssuntosGerais = useMemo(() => Array.from(new Set(questions.map(q => q.assunto))).sort(), [questions]);
+  const savedBancas = useMemo(() => Array.from(new Set(questions.map(q => q.banca || '').filter(Boolean))).sort(), [questions]);
+  const savedAnos = useMemo(() => Array.from(new Set(questions.map(q => q.ano || 0).filter(Boolean))).sort((a, b) => b - a), [questions]);
+  const savedOrgaos = useMemo(() => Array.from(new Set(questions.map(q => q.orgao || '').filter(Boolean))).sort(), [questions]);
+  const savedCargos = useMemo(() => Array.from(new Set(questions.map(q => q.cargo || '').filter(Boolean))).sort(), [questions]);
 
-      return valB - valA;
-    });
-  }, [questions, searchTerm, filterMateria]);
+  const topicosSugeridos = useMemo(() => {
+    const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === formData.materia);
+    if (edital) return [...edital.topicos].sort();
+    return Array.from(new Set(questions.filter(q => q.materia === formData.materia).map(q => q.assunto))).sort();
+  }, [editais, missaoAtiva, formData.materia, questions]);
 
-  // Calcular pontos fracos (matérias com mais questões pendentes)
-  const weakPoints = useMemo(() => {
-    const pendentes = questions.filter(q => q.status === 'Pendente');
-    const grouped = pendentes.reduce((acc, q) => {
-      const current = acc[q.materia] || 0;
-      acc[q.materia] = current + 1;
-      return acc;
-    }, {} as Record<string, number>);
+  const handleEdit = (q: GlobalQuestion) => {
+    const correctIndex = q.alternativas?.findIndex(a => a.is_correct);
+    const letter = (correctIndex !== undefined && correctIndex !== -1) ? String.fromCharCode(65 + correctIndex) : '';
 
-    return Object.entries(grouped)
-      .map(([materia, count]) => ({ materia, count }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 3); // Top 3 pontos fracos
-  }, [questions]);
-
-  const handleEdit = (q: Question) => {
     setIsEditing(q.id);
+    setActiveBankTab('cadastro');
     setFormData({
-      data: q.data,
-      materia: q.materia,
-      assunto: q.assunto,
-      simulado: q.simulado || '',
-      relevancia: q.relevancia,
-      meta: q.meta || 3,
-      anotacoes: q.anotacoes || '',
+      ...initialFormState,
+      ...q,
+      alternativas: q.alternativas || [],
       tags: Array.isArray(q.tags) ? q.tags.join(', ') : '',
-      status: q.status,
+      gabarito_oficial: letter,
     });
     setShowForm(true);
   };
@@ -279,303 +876,469 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
     setFormData(initialFormState);
   };
 
+  const logAttempt = async (question: GlobalQuestion, selectedAltId: string | null) => {
+    const { data: { user } } = await (supabase.auth as any).getUser();
+    if (!user) return;
+    const isCorrect = question.alternativas?.find(a => a.id === selectedAltId)?.is_correct || false;
+    await supabase.from('questao_tentativas').insert([{ user_id: user.id, question_id: question.id, selected_alt: selectedAltId || 'N/A', is_correct: isCorrect }]);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!isAdmin) return;
     const { data: { user } } = await (supabase.auth as any).getUser();
-    if (!user || !isEditing) return;
+    if (!user) return;
 
-    if (!formData.materia && !formData.simulado) {
-      alert("Validação: Preencha a Matéria OU identifique o Simulado.");
-      return;
-    }
+    const payload = { ...formData, tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean), created_by: user.id };
+    delete (payload as any).gabarito_oficial;
 
-    const tagsArray = formData.tags.split(',').map(t => t.trim()).filter(Boolean);
+    const { error } = isEditing
+      ? await supabase.from('banco_questoes').update(payload).eq('id', isEditing)
+      : await supabase.from('banco_questoes').insert([payload]);
 
-    const questionPayload = {
-      user_id: user.id,
-      concurso: missaoAtiva,
-      data: formData.data,
-      materia: formData.materia || 'Simulado',
-      assunto: formData.assunto,
-      simulado: formData.simulado,
-      relevancia: formData.relevancia,
-      meta: formData.meta,
-      anotacoes: formData.anotacoes,
-      status: formData.status,
-      tags: tagsArray
-    };
-
-    const { error } = await supabase
-      .from('questoes_revisao')
-      .update(questionPayload)
-      .eq('id', isEditing);
-
-    if (error) {
-      alert('Erro ao salvar: ' + error.message);
-    } else {
-      handleCancel();
-      fetchQuestions();
-    }
+    if (!error) { handleCancel(); fetchQuestions(); }
+    else alert('Erro: ' + error.message);
   };
 
   const handleDelete = async (id: string) => {
-    if (!confirm("Tem certeza que deseja excluir esta questão do banco?")) return;
-    await supabase.from('questoes_revisao').delete().eq('id', id);
+    if (!isAdmin || !confirm("Excluir questão?")) return;
+    await supabase.from('banco_questoes').delete().eq('id', id);
     fetchQuestions();
   };
 
-  const handleStatusChange = async (id: string, newStatus: 'Pendente' | 'Em andamento' | 'Concluída') => {
-    setQuestions(prev => prev.map(q => q.id === id ? { ...q, status: newStatus } : q));
-    await supabase.from('questoes_revisao').update({ status: newStatus }).eq('id', id);
-  };
-
-  const toggleCard = (id: string) => {
-    setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
-  };
+  const toggleCard = (id: string) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
     <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
-
       {/* Header */}
-      <div>
-        <h2 className="text-3xl font-bold bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent">
-          Banco de Questões Inteligente
-        </h2>
-        <p className="text-slate-400 text-sm mt-1">
-          Repositório de falhas e questões chave, priorizado para você.
-        </p>
-      </div>
-
-      {/* Radar de Fraquezas */}
-      <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] shadow-2xl relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[hsl(var(--accent)/0.05)] blur-3xl rounded-full"></div>
-        <h3 className="flex items-center gap-3 text-xs font-black uppercase tracking-[0.25em] text-red-400 mb-8">
-          <AlertOctagon size={18} className="animate-pulse" /> Zonas de Perigo (Fraquezas)
-        </h3>
-        {weakPoints.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {weakPoints.map((p, idx) => (
-              <div key={p.materia} className="glass-premium bg-red-500/5 p-6 rounded-[1.5rem] border border-red-500/20 shadow-xl transition-transform hover:scale-[1.05] duration-500">
-                <div className="text-[10px] font-black text-red-500 uppercase tracking-widest mb-2">Ponto Crítico #{idx + 1}</div>
-                <div className="font-black text-xl text-[hsl(var(--text-bright))] uppercase tracking-tighter truncate leading-tight">{p.materia}</div>
-                <div className="mt-4 flex items-center gap-2">
-                  <div className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></div>
-                  <div className="text-[10px] font-black text-red-300 uppercase tracking-widest">{p.count} Falhas Mapeadas</div>
-                </div>
-              </div>
-            ))}
-          </div>
-        ) : (
-          <div className="text-center py-10">
-            <div className="w-20 h-20 bg-green-500/10 rounded-3xl flex items-center justify-center mx-auto mb-6 border border-green-500/20 shadow-2xl shadow-green-500/10">
-              <CheckCircle2 size={40} className="text-green-500" />
-            </div>
-            <p className="text-xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter">Domínio Total em Campo</p>
-            <p className="text-[10px] text-[hsl(var(--text-muted))] font-black uppercase tracking-[0.2em] mt-3">Nenhum ponto crítico detectado nesta missão.</p>
-          </div>
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
+        <div>
+          <h2 className="text-3xl font-black bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase tracking-tighter">
+            Banco de Questões Inteligente
+          </h2>
+          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
+            Repositório de falhas e questões chave.
+          </p>
+        </div>
+        {isAdmin && (
+          <button
+            onClick={() => { setIsEditing(null); setFormData(initialFormState); setShowForm(true); setActiveBankTab('cadastro'); }}
+            className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-[hsl(var(--bg-main))] rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all shadow-xl shadow-indigo-600/20 hover:scale-105 active:scale-95"
+          >
+            <Plus size={18} /> Adicionar Questão
+          </button>
         )}
       </div>
 
-      {/* Formulário (Edit Only) */}
-      {showForm && (
-        <div className="glass-premium p-10 rounded-[2.5rem] border border-[hsl(var(--accent)/0.3)] shadow-[0_0_50px_rgba(var(--accent-rgb),0.1)] animate-in slide-in-from-top-6 duration-700 relative z-50">
-          <button onClick={handleCancel} className="absolute top-8 right-8 p-2 bg-[hsl(var(--bg-user-block))] rounded-xl text-[hsl(var(--text-muted))] hover:text-white transition-all active:scale-95"><X size={20} /></button>
+      {/* Tabs */}
+      <div className="flex gap-2 p-1.5 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl w-fit">
+        {['gerador', 'cadastro'].map(tab => (
+          <button
+            key={tab}
+            onClick={() => setActiveBankTab(tab as any)}
+            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBankTab === tab ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))]' : 'text-[hsl(var(--text-muted))] hover:bg-white/5'}`}
+          >
+            {tab === 'gerador' ? 'Gerador de Cadernos' : 'Cadastro de Questão'}
+          </button>
+        ))}
+      </div>
 
-          <div className="flex items-center gap-5 mb-10">
-            <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-cyan-600 to-blue-600 flex items-center justify-center shadow-xl text-white">
-              <Edit size={28} />
-            </div>
-            <div>
-              <h3 className="text-2xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Aperfeiçoar Questão</h3>
-              <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em]">Refinar metadados e anotações estratégicas</p>
-            </div>
-          </div>
-
-          <form onSubmit={handleSubmit} className="space-y-8">
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                  <Layers size={14} className="text-[hsl(var(--accent))]" /> Matéria Principal
-                </label>
-                <CustomSelector
-                  label="Matéria"
-                  value={formData.materia}
-                  options={editais.filter(e => e.concurso === missaoAtiva).map(e => e.materia).sort()}
-                  onChange={val => setFormData({ ...formData, materia: val })}
-                  placeholder="Selecione a disciplina..."
-                />
-              </div>
-              <div className="space-y-3" ref={dropdownRef}>
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                  <Target size={14} className="text-[hsl(var(--accent))]" /> Assunto Específico
-                </label>
-                <div className="relative">
+      {activeBankTab === 'gerador' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Filtros */}
+          <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
+              {[
+                { label: 'Matéria', val: filterMateria, set: setFilterMateria, list: savedMaterias },
+                { label: 'Assunto', val: filterAssunto, set: setFilterAssunto, list: savedAssuntosGerais },
+                { label: 'Banca', val: filterBanca, set: setFilterBanca, list: savedBancas },
+                { label: 'Orgão', val: filterOrgao, set: setFilterOrgao, list: savedOrgaos },
+                { label: 'Cargo', val: filterCargo, set: setFilterCargo, list: savedCargos },
+                { label: 'Ano', val: filterAno, set: setFilterAno, list: savedAnos }
+              ].map(f => (
+                <div key={f.label} className="space-y-2">
+                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">{f.label}</label>
                   <input
                     type="text"
-                    required
-                    className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all placeholder-[hsl(var(--text-muted)/0.5)]"
-                    value={formData.assunto}
-                    onChange={e => setFormData({ ...formData, assunto: e.target.value })}
-                    onClick={() => {
-                      if (topicosDisponiveis.length > 0) setShowTopicsDropdown(true);
-                    }}
-                    placeholder="Ex: Princípios de Direito Administrativo"
+                    list={`list-${f.label}`}
+                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-[hsl(var(--text-bright))]"
+                    value={f.val === 'Todas' || f.val === 'Todos' ? '' : f.val}
+                    onChange={e => f.set(e.target.value || (f.label === 'Ano' ? 'Todos' : (f.label === 'Assunto' || f.label === 'Orgão' || f.label === 'Cargo' ? 'Todos' : 'Todas')))}
                   />
-                  {topicosDisponiveis.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowTopicsDropdown(!showTopicsDropdown)}
-                      className="absolute right-6 top-1/2 -translate-y-1/2 p-1 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))]"
-                    >
-                      {showTopicsDropdown ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                    </button>
-                  )}
-                  {showTopicsDropdown && topicosDisponiveis.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
-                      <div
-                        onClick={() => { setFormData(prev => ({ ...prev, assunto: '' })); setShowTopicsDropdown(false); }}
-                        className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
-                      >
-                        Limpar Seleção
-                      </div>
-                      {topicosDisponiveis.map((t, i) => (
-                        <div
-                          key={i}
-                          onClick={() => {
-                            setFormData(prev => ({ ...prev, assunto: t }));
-                            setShowTopicsDropdown(false);
-                          }}
-                          className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${formData.assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
-                        >
-                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${formData.assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
-                          <span className="flex-1 leading-relaxed truncate">{t}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                  <datalist id={`list-${f.label}`}>
+                    {f.list.map((item, i) => <option key={i} value={item.toString()} />)}
+                  </datalist>
                 </div>
-              </div>
+              ))}
             </div>
-
-            <div className="space-y-3">
-              <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                <FileText size={14} className="text-[hsl(var(--accent))]" /> Anotações e Insights Estratégicos
-              </label>
-              <textarea
-                className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-3xl px-6 py-4 text-sm font-bold text-[hsl(var(--text-main))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all h-32 placeholder-[hsl(var(--text-muted)/0.5)] resize-none"
-                placeholder="Descreva por que errou ou o que é fundamental lembrar aqui..."
-                value={formData.anotacoes}
-                onChange={e => setFormData({ ...formData, anotacoes: e.target.value })}
-              />
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex justify-between">
-                  <span>Relevância</span>
-                  <span className="text-[hsl(var(--accent))]">{formData.relevancia}/10</span>
-                </label>
-                <input
-                  type="range"
-                  min="1"
-                  max="10"
-                  className="w-full h-2 bg-[hsl(var(--bg-user-block))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--accent))]"
-                  value={formData.relevancia}
-                  onChange={e => setFormData({ ...formData, relevancia: Number(e.target.value) })}
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Status da Revisão</label>
-                <CustomSelector
-                  label="Status"
-                  value={formData.status}
-                  options={['Pendente', 'Em andamento', 'Concluída']}
-                  onChange={val => setFormData({ ...formData, status: val as any })}
-                  placeholder="Selecione o status..."
-                />
-              </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Tags (Separar por Vírgula)</label>
-                <input
-                  type="text"
-                  placeholder="erro, lei seco, pegadinha"
-                  className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-xl px-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all placeholder-[hsl(var(--text-muted)/0.5)]"
-                  value={formData.tags}
-                  onChange={e => setFormData({ ...formData, tags: e.target.value })}
-                />
-              </div>
-            </div>
-
-            <div className="flex justify-end gap-6 pt-8 border-t border-[hsl(var(--border))]">
-              <button
-                type="button"
-                onClick={handleCancel}
-                className="px-8 py-4 rounded-xl border border-[hsl(var(--border))] text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--text-muted))] hover:bg-[hsl(var(--bg-user-block))] hover:text-white transition-all active:scale-95"
-              >
-                Descartar Alterações
-              </button>
-              <button
-                type="submit"
-                className="px-10 py-4 rounded-xl bg-gradient-to-r from-cyan-600 to-blue-600 text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-[0.2em] shadow-xl transition-all hover:scale-[1.05] active:scale-95"
-              >
-                Confirmar Edição
-              </button>
-            </div>
-          </form>
-        </div>
-      )}
-
-      {/* Fila de Revisão */}
-      <div className="space-y-8">
-        <div className="flex flex-col md:flex-row gap-6 justify-between items-center bg-[hsl(var(--bg-user-block))] p-6 rounded-[2rem] border border-[hsl(var(--border))] shadow-xl">
-          <h3 className="text-xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">
-            Fila de Revisão <span className="text-[hsl(var(--accent))] ml-2 opacity-100">[{reviewQueue.length}]</span>
-          </h3>
-          <div className="flex flex-col md:flex-row gap-4 items-center w-full md:w-auto">
-            <div className="relative w-full md:w-80 group">
-              <Search className="absolute left-5 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))] group-focus-within:text-[hsl(var(--accent))] transition-colors" size={20} />
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
               <input
                 type="text"
-                placeholder="Buscar erro estratégico..."
-                className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl pl-14 pr-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all placeholder-[hsl(var(--text-muted)/0.5)]"
+                placeholder="Pesquisar..."
+                className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm font-bold text-[hsl(var(--text-bright))]"
                 value={searchTerm}
                 onChange={e => setSearchTerm(e.target.value)}
               />
             </div>
-            <div className="relative w-full md:w-64">
-              <CustomSelector
-                label="Matéria"
-                value={filterMateria}
-                options={materiasDisponiveis}
-                onChange={val => setFilterMateria(val)}
-                className="!py-0"
-              />
+          </div>
+
+          {/* Listagem Control Headers */}
+          <div className="flex justify-between items-center mb-6 px-4">
+            <h3 className="text-[11px] font-black uppercase text-slate-500 tracking-widest flex items-center gap-2">
+              <Brain size={14} className="text-[hsl(var(--accent))]" />
+              {viewMode === 'study' ? `Estudo em Foco (${currentQuestionIndex + 1}/${reviewQueue.length})` : `Resultados (${reviewQueue.length})`}
+            </h3>
+            <div className="flex gap-2 p-1 bg-white/5 border border-white/10 rounded-xl">
+              <button
+                onClick={() => {
+                  setViewMode('study');
+                  setCurrentQuestionIndex(0);
+                }}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'study' ? 'bg-[hsl(var(--accent))] text-black' : 'text-slate-400 hover:text-white'}`}
+              >
+                <Brain size={12} /> Estudo
+              </button>
+              <button
+                onClick={() => setViewMode('list')}
+                className={`flex items-center gap-2 px-4 py-2 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${viewMode === 'list' ? 'bg-[hsl(var(--accent))] text-black' : 'text-slate-400 hover:text-white'}`}
+              >
+                <Layers size={12} /> Lista
+              </button>
             </div>
           </div>
-        </div>
 
-        <div className="space-y-4">
-          {loading ? (
-            <p className="text-center text-slate-500 py-10">Carregando...</p>
-          ) : reviewQueue.length === 0 ? (
-            <div className="text-center py-10 text-slate-500">
-              <p className="font-bold">Nenhuma questão encontrada para os filtros atuais.</p>
+          {/* Listagem or Study Mode */}
+          {viewMode === 'list' ? (
+            <div className="space-y-4">
+              {loading ? <p className="text-center py-10">Carregando...</p> : reviewQueue.map(q => (
+                <QuestionCard
+                  key={q.id} q={q} isExpanded={!!expandedCards[q.id]} isAdmin={isAdmin}
+                  onToggle={toggleCard} onDelete={handleDelete} onSolve={logAttempt}
+                  onEdit={handleEdit}
+                  selectedAI={selectedAI}
+                  setSelectedAI={setSelectedAI}
+                  aiStreamText={aiStreamText}
+                  aiLoading={aiLoading}
+                  mnemonicText={mnemonicText}
+                  mnemonicLoading={mnemonicLoading}
+                  extraContent={extraContent}
+                  extraLoading={extraLoading}
+                  activeAiTool={activeAiTool}
+                  setActiveAiTool={setActiveAiTool}
+                  onGenerateExplanation={generateAIExplanation}
+                  onGenerateMnemonic={handleGenerateMnemonic}
+                  onGenerateExtra={handleGenerateExtraFormat}
+                  onSendFollowUp={handleSendFollowUp}
+                  followUpQuery={followUpQuery}
+                  setFollowUpQuery={setFollowUpQuery}
+                  isPlayingNeural={isPlayingNeural}
+                  onPlayAudio={handlePlayNeural}
+                  onPlayPodcast={handlePodcastDuo}
+                  isGeneratingPodcast={isGeneratingPodcast}
+                  podcastStatus={podcastStatus}
+                />
+              ))}
+              {!loading && reviewQueue.length === 0 && (
+                <div className="text-center py-20 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem]">
+                  <AlertOctagon size={40} className="mx-auto text-slate-600 mb-4" />
+                  <p className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Nenhuma questão encontrada</p>
+                </div>
+              )}
             </div>
           ) : (
-            reviewQueue.map(q => (
-              <QuestionCard
-                key={q.id}
-                q={q}
-                isExpanded={!!expandedCards[q.id]}
-                onToggle={toggleCard}
-                onEdit={handleEdit}
-                onDelete={handleDelete}
-                onStatusChange={handleStatusChange}
-              />
-            ))
+            <div className="space-y-6">
+              {reviewQueue.length > 0 ? (
+                <div className="space-y-8 animate-in zoom-in-95 duration-500">
+                  {/* Progress Bar */}
+                  <div className="w-full h-1 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-gradient-to-r from-cyan-500 to-blue-500 transition-all duration-500"
+                      style={{ width: `${((currentQuestionIndex + 1) / reviewQueue.length) * 100}%` }}
+                    />
+                  </div>
+
+                  <QuestionCard
+                    key={reviewQueue[currentQuestionIndex].id}
+                    q={reviewQueue[currentQuestionIndex]}
+                    isExpanded={true}
+                    isAdmin={isAdmin}
+                    onToggle={() => { }}
+                    onDelete={handleDelete}
+                    onSolve={logAttempt}
+                    onEdit={handleEdit}
+                    selectedAI={selectedAI}
+                    setSelectedAI={setSelectedAI}
+                    aiStreamText={aiStreamText}
+                    aiLoading={aiLoading}
+                    mnemonicText={mnemonicText}
+                    mnemonicLoading={mnemonicLoading}
+                    extraContent={extraContent}
+                    extraLoading={extraLoading}
+                    activeAiTool={activeAiTool}
+                    setActiveAiTool={setActiveAiTool}
+                    onGenerateExplanation={generateAIExplanation}
+                    onGenerateMnemonic={handleGenerateMnemonic}
+                    onGenerateExtra={handleGenerateExtraFormat}
+                    onSendFollowUp={handleSendFollowUp}
+                    followUpQuery={followUpQuery}
+                    setFollowUpQuery={setFollowUpQuery}
+                    isPlayingNeural={isPlayingNeural}
+                    onPlayAudio={handlePlayNeural}
+                    onPlayPodcast={handlePodcastDuo}
+                    isGeneratingPodcast={isGeneratingPodcast}
+                    podcastStatus={podcastStatus}
+                  />
+
+                  {/* Navigation Controls */}
+                  <div className="glass-premium p-6 rounded-[2rem] border border-[hsl(var(--accent)/0.2)] flex justify-between items-center shadow-xl shadow-cyan-500/5">
+                    <button
+                      disabled={currentQuestionIndex === 0}
+                      onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
+                      className="flex items-center gap-3 px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-20 disabled:cursor-not-allowed"
+                    >
+                      <ChevronLeft size={20} /> Anterior
+                    </button>
+
+                    <div className="flex flex-col items-center">
+                      <span className="text-[14px] font-black text-[hsl(var(--accent))] tracking-tighter">
+                        {String(currentQuestionIndex + 1).padStart(2, '0')}
+                        <span className="text-slate-600 mx-1 text-xs">de</span>
+                        {String(reviewQueue.length).padStart(2, '0')}
+                      </span>
+                    </div>
+
+                    <button
+                      disabled={currentQuestionIndex === reviewQueue.length - 1}
+                      onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
+                      className="flex items-center gap-3 px-8 py-4 bg-[hsl(var(--accent))] text-black rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed"
+                    >
+                      Próxima <ChevronRight size={20} />
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="text-center py-20 bg-white/5 border border-dashed border-white/10 rounded-[2.5rem]">
+                  <AlertOctagon size={40} className="mx-auto text-slate-600 mb-4" />
+                  <p className="text-slate-500 font-black uppercase text-[10px] tracking-widest">Filtre as questões para iniciar o estudo</p>
+                </div>
+              )}
+            </div>
           )}
         </div>
-      </div>
+      )}
+
+      {activeBankTab === 'cadastro' && (
+        <div className="space-y-8 animate-in fade-in slide-in-from-top-4 duration-500">
+          {(showForm || isEditing) ? (
+            <div className="glass-premium p-10 rounded-[2.5rem] border border-[hsl(var(--accent)/0.3)] shadow-2xl relative">
+              <button onClick={handleCancel} className="absolute top-8 right-8 p-2 bg-white/5 rounded-xl"><X size={20} /></button>
+              <h3 className="text-2xl font-black uppercase tracking-tighter mb-8">{isEditing ? 'Editar Questão' : 'Novo Cadastro'}</h3>
+
+              <form onSubmit={handleSubmit} className="space-y-8">
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 bg-white/5 p-6 rounded-3xl">
+                  {[
+                    { field: 'tec_id', label: 'Link/ID TEC', list: null },
+                    { field: 'banca', label: 'Banca', list: savedBancas },
+                    { field: 'orgao', label: 'Orgão', list: savedOrgaos },
+                    { field: 'cargo', label: 'Cargo', list: savedCargos }
+                  ].map(item => (
+                    <div key={item.field} className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-slate-500 ml-2">
+                        {item.label}
+                      </label>
+                      <input
+                        type="text"
+                        list={item.list ? `list-form-${item.field}` : undefined}
+                        placeholder={item.field === 'tec_id' ? 'Cole o link da questão no TEC' : ''}
+                        className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-xl px-4 py-3 text-xs font-bold"
+                        value={(formData as any)[item.field]}
+                        onChange={e => setFormData({ ...formData, [item.field]: e.target.value })}
+                      />
+                      {item.list && (
+                        <datalist id={`list-form-${item.field}`}>
+                          {item.list.map((val, i) => <option key={i} value={val.toString()} />)}
+                        </datalist>
+                      )}
+                    </div>
+                  ))}
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                  {['materia', 'assunto'].map(field => (
+                    <div key={field} className="space-y-2">
+                      <label className="text-[9px] font-black uppercase text-slate-500 ml-2">{field}</label>
+                      <input
+                        type="text"
+                        list={`list-form-${field}`}
+                        className="w-full bg-white/5 border border-white/10 rounded-xl px-6 py-4 text-sm font-bold"
+                        value={(formData as any)[field]}
+                        onChange={e => setFormData({ ...formData, [field]: e.target.value })}
+                      />
+                      <datalist id={`list-form-${field}`}>
+                        {(field === 'materia' ? savedMaterias : topicosSugeridos).map((item, i) => <option key={i} value={item} />)}
+                      </datalist>
+                    </div>
+                  ))}
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-slate-500 ml-2 font-black flex items-center gap-2">
+                    Enunciado <span className="text-[8px] opacity-50">(Suporta Imagens e Formatação)</span>
+                  </label>
+                  <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.3)] transition-all">
+                    <EditorToolbar editor={enunciadoEditor} />
+                    <EditorContent editor={enunciadoEditor} />
+                  </div>
+                </div>
+
+                <div className="space-y-6">
+                  <div className="flex flex-col gap-2">
+                    <label className="text-[10px] font-black uppercase text-slate-500 ml-2">Tipo de Questão</label>
+                    <div className="flex gap-4">
+                      {['Multipla Escolha', 'Certo/Errado'].map(type => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setFormData({
+                            ...formData,
+                            tipo: type as any,
+                            alternativas: type === 'Certo/Errado' ? [
+                              { id: '1', label: 'Certo', texto: 'Certo', is_correct: true },
+                              { id: '2', label: 'Errado', texto: 'Errado', is_correct: false }
+                            ] : []
+                          })}
+                          className={`px-6 py-3 rounded-xl text-[10px] font-black transition-all ${formData.tipo === type ? 'bg-[hsl(var(--accent))] text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10'}`}
+                        >
+                          {type}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center px-2">
+                      <label className="text-[10px] font-black uppercase text-[hsl(var(--accent))] tracking-widest flex items-center gap-2">
+                        <CheckCircle2 size={12} /> Selecione a Alternativa Correta
+                      </label>
+                      <button
+                        type="button"
+                        onClick={() => setShowSmartPaste(!showSmartPaste)}
+                        className={`text-[9px] font-black uppercase tracking-widest px-4 py-2 rounded-xl border transition-all flex items-center gap-2 ${showSmartPaste ? 'bg-[hsl(var(--accent))] text-black border-[hsl(var(--accent))]' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'}`}
+                      >
+                        <Zap size={14} /> {showSmartPaste ? 'Fechar Cola Inteligente' : 'Cola Inteligente'}
+                      </button>
+                    </div>
+
+                    {showSmartPaste && (
+                      <div className="bg-white/5 border border-[hsl(var(--accent)/0.3)] rounded-3xl p-6 space-y-4 animate-in zoom-in-95 duration-300">
+                        <div className="flex justify-between items-center">
+                          <label className="text-[10px] font-black uppercase text-slate-400">Cole aqui o bloco de alternativas (A, B, C...)</label>
+                          <span className="text-[9px] text-slate-500 font-bold">Ex: A) lhe. B) na. ...</span>
+                        </div>
+                        <textarea
+                          placeholder="Cole as alternativas aqui..."
+                          className="w-full bg-black/20 border border-white/5 rounded-2xl p-4 text-xs font-bold text-[hsl(var(--text-bright))] min-h-[150px] focus:border-[hsl(var(--accent)/0.5)] transition-all outline-none"
+                          value={smartPasteText}
+                          onChange={(e) => handleSmartPaste(e.target.value)}
+                        />
+                        <p className="text-[9px] text-slate-500 font-bold italic">O sistema identificará as letras automaticamente e preencherá os campos abaixo.</p>
+                      </div>
+                    )}
+
+                    {(formData.alternativas || []).map((alt, i) => (
+                      <div key={alt.id} className="flex gap-4 items-center group/alt">
+                        <button
+                          type="button"
+                          onClick={() => setFormData({ ...formData, alternativas: (formData.alternativas || []).map(a => ({ ...a, is_correct: a.id === alt.id })), gabarito_oficial: String.fromCharCode(65 + i) })}
+                          className={`w-12 h-12 rounded-2xl font-black text-sm flex items-center justify-center transition-all shadow-lg shrink-0 ${alt.is_correct
+                            ? 'bg-green-500 text-black scale-110 shadow-green-500/20 ring-4 ring-green-500/10'
+                            : 'bg-white/5 text-slate-400 border border-white/5 hover:border-[hsl(var(--accent)/0.3)] hover:bg-white/10'
+                            }`}
+                          title="Clique para marcar como correta"
+                        >
+                          {alt.is_correct ? <CheckCircle2 size={20} /> : (formData.tipo === 'Multipla Escolha' ? String.fromCharCode(65 + i) : alt.label[0])}
+                        </button>
+                        <div className="flex-1 relative group/input">
+                          <input
+                            type="text"
+                            placeholder={`Texto da alternativa ${String.fromCharCode(65 + i)}...`}
+                            className={`w-full bg-white/5 border rounded-2xl px-6 py-4 text-sm font-bold transition-all pr-12 ${alt.is_correct
+                              ? 'border-green-500/50 text-green-400 bg-green-500/5'
+                              : 'border-white/5 focus:border-[hsl(var(--accent)/0.3)]'
+                              }`}
+                            value={alt.texto}
+                            onChange={e => {
+                              const newAlts = [...(formData.alternativas || [])];
+                              newAlts[i].texto = e.target.value;
+                              setFormData({ ...formData, alternativas: newAlts });
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newAlts = (formData.alternativas || []).filter(a => a.id !== alt.id);
+                              setFormData({ ...formData, alternativas: newAlts });
+                            }}
+                            className="absolute right-3 top-1/2 -translate-y-1/2 p-2 text-slate-500 hover:text-red-400 opacity-0 group-hover/input:opacity-100 transition-all"
+                            title="Remover alternativa"
+                          >
+                            <Trash2 size={14} />
+                          </button>
+                          {alt.is_correct && (
+                            <div className="absolute right-12 top-1/2 -translate-y-1/2 text-[9px] font-black uppercase text-green-500 tracking-widest flex items-center gap-1 bg-green-500/10 px-2 py-1 rounded-full">
+                              GABARITO <CheckCircle2 size={10} />
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+
+                    {formData.tipo === 'Multipla Escolha' && (formData.alternativas || []).length < 5 && (
+                      <button
+                        type="button"
+                        onClick={() => setFormData({ ...formData, alternativas: [...(formData.alternativas || []), { id: Date.now().toString(), texto: '', label: '', is_correct: false }] })}
+                        className="w-full py-4 border-2 border-dashed border-white/5 rounded-2xl text-[9px] font-black text-slate-500 hover:text-[hsl(var(--accent))] hover:border-[hsl(var(--accent)/0.3)] hover:bg-white/5 transition-all flex items-center justify-center gap-2"
+                      >
+                        <Plus size={14} /> Adicionar Alternativa
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                <div className="space-y-3">
+                  <label className="text-[10px] font-black uppercase text-slate-500 ml-2 font-black flex items-center gap-2">
+                    Gabarito Comentado <span className="text-[8px] opacity-50">(Suporta Imagens e Formatação)</span>
+                  </label>
+                  <div className="bg-white/5 border border-white/10 rounded-3xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.3)] transition-all">
+                    <EditorToolbar editor={respostaEditor} />
+                    <EditorContent editor={respostaEditor} />
+                  </div>
+                </div>
+
+                <div className="flex justify-end gap-6 pt-8 border-t border-white/10">
+                  <button type="button" onClick={handleCancel} className="px-8 py-4 text-[10px] font-black uppercase text-slate-500">Descartar</button>
+                  <button type="submit" className="px-10 py-4 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-xl text-black font-black uppercase text-[10px]">
+                    {isEditing ? 'Salvar Edição' : 'Concluir Cadastro'}
+                  </button>
+                </div>
+              </form>
+            </div>
+          ) : (
+            <div className="flex flex-col items-center justify-center py-20 bg-white/5 rounded-[3rem] border border-dashed border-white/10">
+              <div className="w-20 h-20 rounded-3xl bg-[hsl(var(--accent)/0.1)] flex items-center justify-center text-[hsl(var(--accent))] mb-6"><Plus size={40} /></div>
+              <h3 className="text-xl font-black uppercase mb-8">Novo Registro Estratégico</h3>
+              <button
+                onClick={() => setShowForm(true)}
+                className="px-12 py-5 bg-[hsl(var(--accent))] text-black rounded-2xl font-black uppercase tracking-widest text-xs"
+              >
+                Abrir Formulário
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
     </div>
   );
 };

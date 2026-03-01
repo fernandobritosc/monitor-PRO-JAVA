@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { streamAIContent, AIProvider, generatePodcastAudio, handlePlayRevisionAudio, deleteCachedAudio, generateAIContent } from '../services/aiService';
+import { streamAIContent, AIProviderName, generatePodcastAudio, handlePlayRevisionAudio, deleteCachedAudio, generateAIContent } from '../services/aiService';
 import { EditalMateria, Flashcard } from '../types';
 
 interface FlashcardsProps {
@@ -110,7 +110,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const [showSqlModal, setShowSqlModal] = useState(false);
   const [previewDeck, setPreviewDeck] = useState<any>(null);
   const [importingState, setImportingState] = useState<{ loading: boolean, text: string }>({ loading: false, text: '' });
-  const [selectedAI, setSelectedAI] = useState<AIProvider | 'auto'>('auto');
+  const [selectedAI, setSelectedAI] = useState<AIProviderName | 'auto'>('auto');
   const [studyQueue, setStudyQueue] = useState<Flashcard[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);

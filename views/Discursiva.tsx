@@ -2,10 +2,15 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent } from '../services/aiService';
 import { GoogleGenAI } from "@google/genai";
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Placeholder from '@tiptap/extension-placeholder';
+import { trackEvent, captureError } from '../services/telemetry';
 import { Discursiva as DiscursivaType } from '../types';
 import {
   FileEdit, UploadCloud, Loader2, Sparkles, Download, Database, Copy, X, Trash2, Image as ImageIcon, MessageSquare, List, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, CheckCircle2, Calendar
 } from 'lucide-react';
+import DOMPurify from 'dompurify';
 
 // Declaração para TypeScript reconhecer a biblioteca global
 declare global {
@@ -176,6 +181,24 @@ const Discursiva: React.FC = () => {
   const [showSql, setShowSql] = useState(false);
   const [selectedHistory, setSelectedHistory] = useState<DiscursivaType | null>(null);
 
+  const editor = useEditor({
+    extensions: [
+      StarterKit,
+      Placeholder.configure({
+        placeholder: 'Cole aqui o texto motivador ou a pergunta da banca para uma análise cirúrgica...',
+      }),
+    ],
+    content: prompt,
+    onUpdate: ({ editor }) => {
+      setPrompt(editor.getText());
+    },
+    editorProps: {
+      attributes: {
+        class: 'prose prose-sm max-w-none focus:outline-none min-h-[200px] p-6 text-[hsl(var(--text-bright))]',
+      },
+    },
+  });
+
   const geminiKeyAvailable = !!getGeminiKey();
 
   const fetchHistory = async () => {
@@ -231,6 +254,7 @@ const Discursiva: React.FC = () => {
     setIsLoading(true);
     setError(null);
     setAnalysisResult(null);
+    trackEvent('Discursiva_Analysis_Started', { title });
 
     try {
       const { data: { user } } = await (supabase.auth as any).getUser();
@@ -282,7 +306,9 @@ ${AI_PROMPT}
       fetchHistory();
       setActiveTab('history');
       setSelectedHistory(newRecord);
+      trackEvent('Discursiva_Analysis_Success', { title, score: extractFinalScore(analysisText) });
     } catch (err: any) {
+      captureError(err, { stage: 'discursiva_analysis' });
       console.error(err);
       if (err.message && (err.message.includes("column \"prompt\" of relation \"discursivas\" does not exist") || err.message.includes("column 'prompt' does not exist"))) {
         setError("ERRO DE BANCO DE DADOS: Sua tabela 'discursivas' está desatualizada. Por favor, execute o script SQL mais recente (botão 'Permissões (SQL)') para adicionar a coluna 'prompt'.");
@@ -522,7 +548,7 @@ ${AI_PROMPT}
           .replace(/<\/h3><br \/>/g, '</h3>')
           .replace(/<hr><br \/>/g, '<hr>')
           .replace(/<\/li><br \/>/g, '</li>');
-        return <div dangerouslySetInnerHTML={{ __html: processedHtml }} />;
+        return <div className="max-w-prose leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processedHtml) }} />;
       };
 
       const tableHeaderMarkdown = '### Tabela de Desvios Gramaticais';
@@ -688,7 +714,31 @@ ${AI_PROMPT}
 
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Contexto / Enunciado (Opcional)</label>
-                  <textarea placeholder="Cole aqui o texto motivador ou a pergunta da banca para uma análise cirúrgica..." value={prompt} onChange={e => setPrompt(e.target.value)} className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-6 py-5 text-sm text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] outline-none h-40 transition-all placeholder-[hsl(var(--text-muted)/0.3)] shadow-inner resize-none" />
+                  <div className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden shadow-inner focus-within:ring-2 focus-within:ring-[hsl(var(--accent)/0.5)] transition-all">
+                    <div className="flex items-center gap-1 p-2 bg-[hsl(var(--bg-user-block)/0.5)] border-b border-[hsl(var(--border))]">
+                      <button
+                        onClick={() => editor?.chain().focus().toggleBold().run()}
+                        disabled={!editor?.can().chain().focus().toggleBold().run()}
+                        className={`p-2 rounded hover:bg-white/10 text-xs font-bold ${editor?.isActive('bold') ? 'bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))]'}`}
+                      >
+                        B
+                      </button>
+                      <button
+                        onClick={() => editor?.chain().focus().toggleItalic().run()}
+                        disabled={!editor?.can().chain().focus().toggleItalic().run()}
+                        className={`p-2 rounded hover:bg-white/10 text-xs italic font-serif ${editor?.isActive('italic') ? 'bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))]'}`}
+                      >
+                        I
+                      </button>
+                      <button
+                        onClick={() => editor?.chain().focus().toggleBulletList().run()}
+                        className={`p-2 rounded hover:bg-white/10 text-xs ${editor?.isActive('bulletList') ? 'bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))]'}`}
+                      >
+                        List
+                      </button>
+                    </div>
+                    <EditorContent editor={editor} />
+                  </div>
                 </div>
               </div>
 

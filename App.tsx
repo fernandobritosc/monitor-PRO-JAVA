@@ -1,67 +1,60 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, lazy, Suspense } from 'react';
 import { supabase, isConfigured } from './services/supabase';
 import { ViewType, StudyRecord } from './types';
 import Layout from './components/Layout';
-import Login from './views/Login';
 import ConfigScreen from './components/ConfigScreen';
-import HomeView from './views/HomeView';
-import { StudyForm } from './views/StudyForm';
-import History from './views/History';
-import Revisoes from './views/Revisoes';
-import Simulados from './views/Simulados';
-import Configurar from './views/Configurar';
-import WeeklyGuide from './views/WeeklyGuide';
-import QuestionsBank from './views/QuestionsBank';
-import Reports from './views/Reports';
-import Onboarding from './views/Onboarding';
-import EditalProgress from './views/EditalProgress';
-import Flashcards from './views/Flashcards';
-import Discursiva from './views/Discursiva';
-import GabaritoIA from './views/GabaritoIA';
-import { ErrorAnalysisView } from './views/ErrorAnalysisView';
+
+// Lazy Loaded Views
+const Login = lazy(() => import('./views/Login'));
+const HomeView = lazy(() => import('./views/HomeView'));
+const StudyForm = lazy(() => import('./views/StudyForm').then(m => ({ default: m.StudyForm })));
+const History = lazy(() => import('./views/History'));
+const Revisoes = lazy(() => import('./views/Revisoes'));
+const Simulados = lazy(() => import('./views/Simulados'));
+const Configurar = lazy(() => import('./views/Configurar'));
+const QuestionsBank = lazy(() => import('./views/QuestionsBank'));
+const Reports = lazy(() => import('./views/Reports'));
+const Onboarding = lazy(() => import('./views/Onboarding'));
+const EditalProgress = lazy(() => import('./views/EditalProgress'));
+const Flashcards = lazy(() => import('./views/Flashcards'));
+const Discursiva = lazy(() => import('./views/Discursiva'));
+const HubView = lazy(() => import('./views/HubView'));
+const RankingView = lazy(() => import('./views/RankingView'));
+const GabaritoIA = lazy(() => import('./views/GabaritoIA'));
+const ErrorAnalysisView = lazy(() => import('./views/ErrorAnalysisView').then(m => ({ default: m.ErrorAnalysisView })));
 import { useAppData } from './hooks/useAppData';
+import { useStore } from './hooks/useStore';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
+import { DashboardSkeleton, FlashcardSkeleton } from './components/shared/Skeleton';
 
 const APP_VERSION = '1.0.31'; // Build: 17/02/2026 23:30 (Brasília)
 
 import { preserveMissaoOnClear } from './utils/localStorage';
 import { logger } from './utils/logger';
+import { identifyUser } from './services/telemetry';
 
 const App: React.FC = () => {
-  const [session, setSession] = useState<any | null>(null);
-  const [userEmail, setUserEmail] = useState<string>('');
-  const [loading, setLoading] = useState(true);
+  const {
+    session, setSession,
+    userEmail, setUserEmail,
+    activeView, setActiveView,
+    theme, setTheme, toggleTheme,
+    isOfflineMode: storeOfflineMode, setIsOfflineMode: setStoreOfflineMode,
+    isError: storeIsError, setIsError: setStoreIsError,
+    isLoading, setIsLoading
+  } = useStore();
+
+  const loading = isLoading;
+
   const [needsConfig, setNeedsConfig] = useState(!isConfigured);
 
-  const [activeView, setActiveView] = useState<ViewType>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('monitorpro_last_view');
-      return (saved as ViewType) || 'HOME';
-    }
-    return 'HOME';
-  });
-
-  const [theme, setTheme] = useState<'dark' | 'light'>(() => {
-    if (typeof window !== 'undefined') {
-      return (localStorage.getItem('monitorpro_theme') as 'dark' | 'light') || 'dark';
-    }
-    return 'dark';
-  });
-
   useEffect(() => {
-    if (activeView) localStorage.setItem('monitorpro_last_view', activeView);
-  }, [activeView]);
-
-  useEffect(() => {
-    localStorage.setItem('monitorpro_theme', theme);
     if (theme === 'light') {
       document.body.classList.add('light');
     } else {
       document.body.classList.remove('light');
     }
   }, [theme]);
-
-  const toggleTheme = () => setTheme(prev => prev === 'dark' ? 'light' : 'dark');
 
   const {
     editais,
@@ -81,8 +74,13 @@ const App: React.FC = () => {
     handleMultipleRecordDelete
   } = useAppData(session);
 
+  useEffect(() => {
+    setStoreOfflineMode(isOfflineMode);
+    setStoreIsError(isError);
+  }, [isOfflineMode, isError, setStoreOfflineMode, setStoreIsError]);
+
   const handleLogout = async () => {
-    setLoading(true);
+    setIsLoading(true);
 
     const userId = session?.user?.id;
     logger.logoutExecuted(userId);
@@ -99,7 +97,7 @@ const App: React.FC = () => {
   useEffect(() => {
     if (!isConfigured) {
       setNeedsConfig(true);
-      setLoading(false);
+      setIsLoading(false);
       return;
     }
 
@@ -109,11 +107,12 @@ const App: React.FC = () => {
       setSession(session);
       if (session) {
         setUserEmail(session.user.email ?? '');
+        identifyUser(session.user.id, session.user.email ?? '');
       } else {
         const cachedEmail = localStorage.getItem('monitorpro_saved_email');
         setUserEmail(cachedEmail || '');
       }
-      setLoading(false); // Essencial: para o loading apenas após a verificação inicial.
+      setIsLoading(false); // Essencial: para o loading apenas após a verificação inicial.
     });
 
     // Em seguida, inscreve-se para futuras mudanças de estado de autenticação (login, logout).
@@ -122,6 +121,7 @@ const App: React.FC = () => {
       if (session) {
         setUserEmail(session.user.email ?? '');
         localStorage.setItem('monitorpro_saved_email', session.user.email ?? '');
+        identifyUser(session.user.id, session.user.email ?? '');
       } else {
         const cachedEmail = localStorage.getItem('monitorpro_saved_email');
         setUserEmail(cachedEmail || '');
@@ -132,6 +132,17 @@ const App: React.FC = () => {
       subscription.unsubscribe();
     };
   }, []);
+
+  // One-time migration to HUB for existing users
+  useEffect(() => {
+    if (session && (activeView === 'HOME' || !activeView)) {
+      const migrated = localStorage.getItem('hub_migrated_v1');
+      if (!migrated) {
+        setActiveView('HUB');
+        localStorage.setItem('hub_migrated_v1', 'true');
+      }
+    }
+  }, [session, activeView, setActiveView]);
 
   const handleTemplateSelection = async (templateData: any[]) => {
     if (!session?.user?.id) return;
@@ -161,29 +172,54 @@ const App: React.FC = () => {
 
   if (needsConfig) return <ConfigScreen initialError={!isConfigured ? "Ambiente não configurado." : "Sessão expirada."} />;
 
-  if (!session && !isOfflineMode) return <Login />;
+  if (!session && !isOfflineMode) return <Suspense fallback={<LoadingFallback />}><Login /></Suspense>;
 
-  if (showOnboarding && !dataLoading && !isOfflineMode) return <Onboarding onSelectTemplate={handleTemplateSelection} userEmail={userEmail} />;
+  if (showOnboarding && !dataLoading && !isOfflineMode) return <Suspense fallback={<LoadingFallback />}><Onboarding onSelectTemplate={handleTemplateSelection} userEmail={userEmail} /></Suspense>;
 
   const renderView = () => {
-    switch (activeView) {
-      case 'HOME': case 'DASHBOARD': return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
-      case 'EDITAL': return <EditalProgress records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />;
-      case 'FLASHCARDS': return <Flashcards missaoAtiva={missaoAtiva} editais={editais} />;
-      case 'DISCURSIVA': return <Discursiva />;
-      case 'GABARITO_IA': return <GabaritoIA />;
-      case 'GUIA_SEMANAL': return <WeeklyGuide records={studyRecords} missaoAtiva={missaoAtiva} />;
-      case 'QUESTOES': return <QuestionsBank missaoAtiva={missaoAtiva} editais={editais} />;
-      case 'REGISTRAR': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => session?.user?.id && fetchData(session.user.id)} />;
-      case 'REVISOES': return <Revisoes records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onUpdated={() => session?.user?.id && fetchData(session.user.id)} />;
-      case 'HISTORICO': return <History records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onRecordDelete={handleRecordDelete} />;
-      case 'SIMULADOS': return <Simulados records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onGroupDelete={handleMultipleRecordDelete} setActiveView={setActiveView} />;
-      case 'REGISTRAR_SIMULADO': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => { session?.user?.id && fetchData(session.user.id); setActiveView('SIMULADOS'); }} isSimulado={true} onCancel={() => setActiveView('SIMULADOS')} />;
-      case 'ANALISE_ERROS': return <ErrorAnalysisView records={studyRecords} missaoAtiva={missaoAtiva} />;
-      case 'RELATORIOS': return <Reports records={studyRecords} missaoAtiva={missaoAtiva} />;
-      case 'CONFIGURAR': return <Configurar editais={editais} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />;
-      default: return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
+    // Se estiver carregando dados e NÃO tivermos registros ainda (primeiro carregamento sem cache),
+    // mostramos o Skeleton correspondente à view ativa.
+    if (dataLoading && studyRecords.length === 0 && !isOfflineMode && activeView !== 'CONFIGURAR') {
+      return (
+        <div className="animate-in fade-in duration-500">
+          <div className="flex items-center gap-3 mb-8">
+            <div className="w-10 h-10 rounded-xl bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center">
+              <RefreshCw size={20} className="text-indigo-400 animate-spin" />
+            </div>
+            <div className="space-y-1">
+              <h2 className="text-2xl font-black text-white uppercase tracking-tighter">Sincronizando</h2>
+              <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aguardando resposta do motor de dados...</p>
+            </div>
+          </div>
+          {activeView === 'FLASHCARDS' ? <FlashcardSkeleton /> : <DashboardSkeleton />}
+        </div>
+      );
     }
+
+    return (
+      <Suspense fallback={<LoadingFallback />}>
+        {(() => {
+          switch (activeView) {
+            case 'HUB': return <HubView setActiveView={setActiveView} userEmail={userEmail} />;
+            case 'HOME': case 'DASHBOARD': return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
+            case 'EDITAL': return <EditalProgress records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />;
+            case 'FLASHCARDS': return <Flashcards missaoAtiva={missaoAtiva} editais={editais} />;
+            case 'DISCURSIVA': return <Discursiva />;
+            case 'GABARITO_IA': return <GabaritoIA />;
+            case 'QUESTOES': return <QuestionsBank missaoAtiva={missaoAtiva} editais={editais} />;
+            case 'REGISTRAR': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => session?.user?.id && fetchData(session.user.id)} />;
+            case 'REVISOES': return <Revisoes records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onUpdated={() => session?.user?.id && fetchData(session.user.id)} />;
+            case 'HISTORICO': return <History records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onRecordDelete={handleRecordDelete} />;
+            case 'SIMULADOS': return <Simulados records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onGroupDelete={handleMultipleRecordDelete} setActiveView={setActiveView} />;
+            case 'REGISTRAR_SIMULADO': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => { session?.user?.id && fetchData(session.user.id); setActiveView('SIMULADOS'); }} isSimulado={true} onCancel={() => setActiveView('SIMULADOS')} />;
+            case 'ANALISE_ERROS': return <ErrorAnalysisView records={studyRecords} missaoAtiva={missaoAtiva} />;
+            case 'RELATORIOS': return <Reports records={studyRecords} missaoAtiva={missaoAtiva} />;
+            case 'CONFIGURAR': return <Configurar editais={editais} records={studyRecords} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />;
+            default: return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
+          }
+        })()}
+      </Suspense>
+    );
   };
 
   return (
@@ -209,5 +245,12 @@ const App: React.FC = () => {
     </Layout>
   );
 };
+
+const LoadingFallback: React.FC = () => (
+  <div className="flex flex-col items-center justify-center py-20 gap-4 animate-in fade-in duration-500">
+    <Loader2 className="w-10 h-10 text-[var(--accent)] animate-spin opacity-40" />
+    <p className="text-[hsl(var(--text-muted))] text-[10px] font-black uppercase tracking-[0.2em]">Carregando Módulo...</p>
+  </div>
+);
 
 export default App;

@@ -1,7 +1,7 @@
 
 import React, { useState, useMemo } from 'react';
 import { StudyRecord } from '../types';
-import { FileText, Download, Calendar, Filter, PieChart, CheckSquare, Printer } from 'lucide-react';
+import { FileText, Download, Calendar, Filter, PieChart, CheckSquare, Printer, Target } from 'lucide-react';
 
 // Declaração para TypeScript reconhecer a biblioteca global
 declare global {
@@ -35,6 +35,7 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
         return `${year}-${month}-${day}`;
     });
     const [endDate, setEndDate] = useState(getLocalToday());
+    const [filterMeta, setFilterMeta] = useState('');
     const [generating, setGenerating] = useState(false);
 
     // Filtragem dos dados
@@ -42,8 +43,17 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
         return records
             .filter(r => r.concurso === missaoAtiva)
             .filter(r => r.data_estudo >= startDate && r.data_estudo <= endDate)
+            .filter(r => !filterMeta || String(r.meta) === filterMeta)
             .sort((a, b) => new Date(b.data_estudo).getTime() - new Date(a.data_estudo).getTime()); // Mais recentes primeiro
-    }, [records, missaoAtiva, startDate, endDate]);
+    }, [records, missaoAtiva, startDate, endDate, filterMeta]);
+
+    const metaOptions = useMemo(() => {
+        const metas = records
+            .filter(r => r.concurso === missaoAtiva)
+            .map(r => String(r.meta || ''))
+            .filter(Boolean);
+        return Array.from(new Set(metas)).sort();
+    }, [records, missaoAtiva]);
 
     // Estatísticas do Período
     const stats = useMemo(() => {
@@ -112,6 +122,9 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
             doc.setTextColor(200, 200, 200);
             doc.text(`Missão: ${missaoAtiva}`, pageWidth - 14, 20, { align: 'right' });
             doc.text(`Período: ${new Date(startDate).toLocaleDateString()} a ${new Date(endDate).toLocaleDateString()}`, pageWidth - 14, 28, { align: 'right' });
+            if (filterMeta) {
+                doc.text(`Meta selecionada: ${filterMeta}`, pageWidth - 14, 34, { align: 'right' });
+            }
 
             let currentY = 50;
 
@@ -286,6 +299,21 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
                                     value={endDate}
                                     onChange={e => setEndDate(e.target.value)}
                                 />
+                            </div>
+                        </div>
+
+                        <div>
+                            <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-3 block">Filtro por Meta</label>
+                            <div className="relative group">
+                                <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-indigo-500 group-hover:scale-110 transition-transform" size={16} />
+                                <select
+                                    className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl pl-12 pr-4 py-4 text-white text-xs font-bold focus:ring-2 focus:ring-indigo-500/30 outline-none transition-all shadow-inner appearance-none cursor-pointer"
+                                    value={filterMeta}
+                                    onChange={e => setFilterMeta(e.target.value)}
+                                >
+                                    <option value="">Todas as Metas</option>
+                                    {metaOptions.map(m => <option key={m} value={m}>{m}</option>)}
+                                </select>
                             </div>
                         </div>
                     </div>

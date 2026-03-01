@@ -1,7 +1,9 @@
 import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
-import { StudyRecord, EditalMateria } from '../types';
-import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp } from 'lucide-react';
+import { StudyRecord, EditalMateria, ErrorAnalysis } from '../types';
+import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp, Zap, FileText } from 'lucide-react';
+import { getGeminiKey, getGroqKey } from '../services/supabase';
+import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { CustomSelector } from '../components/CustomSelector';
 
 interface HistoryProps {
@@ -57,6 +59,8 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
       relevancia: number;
       comentarios: string;
       dificuldade: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' | 'Simulado';
+      meta: string;
+      analise_erros: ErrorAnalysis[];
    }>({
       materia: '',
       assunto: '',
@@ -66,8 +70,13 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
       total: '',
       relevancia: 5,
       comentarios: '',
-      dificuldade: '🟡 Médio'
+      dificuldade: '🟡 Médio',
+      meta: '',
+      analise_erros: []
    });
+
+   const [errorText, setErrorText] = useState('');
+   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
    const [saveToBank, setSaveToBank] = useState(false); // Novo estado para salvar no banco
    const [loading, setLoading] = useState(false);
@@ -173,9 +182,59 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
       onRecordDelete(id); // Chama a função otimista do App.tsx
    };
 
+   const handleAnalyzeErrors = async (text: string) => {
+      if (!text.trim()) return;
+      setIsAnalyzing(true);
+      try {
+         const geminiKey = getGeminiKey();
+         const groqKey = getGroqKey();
+
+         const result = await generateAIContent(
+            {
+               content: text,
+               stats: {
+                  materia: editForm.materia,
+                  assunto: editForm.assunto,
+                  tempo: editForm.tempoHHMM,
+                  acertos: editForm.acertos,
+                  total: editForm.total,
+                  percentage: percentage
+               }
+            },
+            geminiKey,
+            groqKey,
+            'gemini',
+            'analise_erros'
+         );
+
+
+         const parsed: ErrorAnalysis[] = parseAIJSON(result);
+         setEditForm(prev => ({ ...prev, analise_erros: parsed }));
+      } catch (error) {
+         console.error('Erro na análise de IA:', error);
+         setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
+      } finally {
+         setIsAnalyzing(false);
+      }
+   };
+
+   const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+         const content = event.target?.result as string;
+         setErrorText(content);
+         handleAnalyzeErrors(content);
+      };
+      reader.readAsText(file);
+   };
+
    const openEditModal = (r: StudyRecord) => {
       setEditingRecord(r);
       setSaveToBank(false); // Resetar checkbox ao abrir
+      setErrorText('');
       setEditForm({
          materia: r.materia,
          assunto: r.assunto,
@@ -185,7 +244,9 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
          total: r.total,
          relevancia: r.relevancia,
          comentarios: r.comentarios || '',
-         dificuldade: r.dificuldade
+         dificuldade: r.dificuldade,
+         meta: String(r.meta || ''),
+         analise_erros: r.analise_erros || []
       });
    };
 
@@ -217,7 +278,9 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
          tempo,
          relevancia: editForm.relevancia,
          comentarios: editForm.comentarios,
-         dificuldade: editForm.dificuldade
+         dificuldade: editForm.dificuldade,
+         meta: (editForm.meta as string).trim() || null,
+         analise_erros: editForm.analise_erros.length > 0 ? editForm.analise_erros : undefined
       };
 
       // ATUALIZAÇÃO OTIMISTA: A UI atualiza instantaneamente
@@ -344,6 +407,11 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                                           {r.dificuldade === 'Simulado' && (
                                              <span className="text-[9px] font-black bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 uppercase tracking-widest">Simulado</span>
                                           )}
+                                          {r.meta && (
+                                             <span className="text-[9px] font-black bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/20 uppercase tracking-widest">
+                                                {r.meta}
+                                             </span>
+                                          )}
                                        </div>
                                        <p className="font-black text-[hsl(var(--text-bright))] text-base tracking-tight truncate uppercase">{r.assunto}</p>
                                        {r.comentarios && <p className="text-xs font-bold text-[hsl(var(--text-muted))] truncate mt-2 max-w-xl italic">"{r.comentarios}"</p>}
@@ -359,10 +427,57 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                                           <div className="text-base font-black text-[hsl(var(--text-bright))] tracking-tighter">{r.acertos}/{r.total}</div>
                                        </div>
                                        <div className="flex gap-3">
+                                          {r.analise_erros && r.analise_erros.length > 0 && (
+                                             <button
+                                                onClick={() => {
+                                                   const key = `diag-${r.id}`;
+                                                   setOpenGroups(prev => ({ ...prev, [key]: !prev[key] }));
+                                                }}
+                                                className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border transition-all text-[10px] font-black uppercase tracking-widest active:scale-95 ${openGroups[`diag-${r.id}`] ? 'bg-purple-600 text-white border-transparent' : 'bg-purple-600/10 text-purple-400 border-purple-600/20 hover:bg-purple-600/20'}`}
+                                             >
+                                                <Zap size={14} /> {openGroups[`diag-${r.id}`] ? 'Ocultar' : 'Ver'} Diagnóstico IA
+                                             </button>
+                                          )}
                                           <button onClick={() => openEditModal(r)} className="p-3 bg-[hsl(var(--bg-user-block))] rounded-xl text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--border))] transition-all active:scale-95"><Edit size={18} /></button>
                                           <button onClick={() => handleDelete(r.id)} className="p-3 bg-[hsl(var(--bg-user-block))] rounded-xl text-[hsl(var(--text-muted))] hover:text-red-400 hover:bg-red-500/10 border border-[hsl(var(--border))] transition-all active:scale-95"><Trash2 size={18} /></button>
                                        </div>
                                     </div>
+
+                                    {/* NOVO: DIAGNÓSTICO IA EXPANSÍVEL */}
+                                    {openGroups[`diag-${r.id}`] && r.analise_erros && (
+                                       <div className="w-full mt-6 pt-6 border-t border-[hsl(var(--border))] grid grid-cols-1 md:grid-cols-2 gap-4 animate-in slide-in-from-top-4 duration-500">
+                                          {r.analise_erros.map((err, idx) => (
+                                             <div key={idx} className="bg-black/20 border border-white/5 rounded-2xl p-5 space-y-3 relative overflow-hidden">
+                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
+                                                   err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
+                                                   }`} />
+                                                <div className="flex justify-between items-start gap-3">
+                                                   <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                      err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
+                                                      }`}>
+                                                      {err.tipo_erro}
+                                                   </span>
+                                                   <span className="text-[9px] text-slate-500 font-bold italic line-clamp-1 flex-1">
+                                                      "{err.questao_preview}..."
+                                                   </span>
+                                                </div>
+                                                <div className="space-y-1.5">
+                                                   <p className="text-[10px] text-slate-200 font-bold tracking-tight">
+                                                      <span className="text-cyan-400 mr-2">🎯 GATILHO:</span> {err.gatilho}
+                                                   </p>
+                                                   <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
+                                                      <span className="text-green-400 mr-2">💡 AÇÃO:</span> {err.sugestao}
+                                                   </p>
+                                                   {err.sugestao_mentor && (
+                                                      <p className="text-[9px] text-purple-400/80 font-black italic mt-2 border-t border-white/5 pt-2">
+                                                         <span className="mr-1">👔 MENTOR:</span> {err.sugestao_mentor}
+                                                      </p>
+                                                   )}
+                                                </div>
+                                             </div>
+                                          ))}
+                                       </div>
+                                    )}
                                  </div>
                               ))}
                            </div>
@@ -376,7 +491,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
          {/* Modal Edição - AGORA IGUAL AO STUDY FORM */}
          {editingRecord && (
             <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-               <div className="glass w-full max-w-xl rounded-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 relative">
+               <div className="glass w-full max-w-4xl rounded-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 relative">
 
                   <button onClick={() => setEditingRecord(null)} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
 
@@ -471,7 +586,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 block flex items-center gap-2">
                            <Target size={12} /> Desempenho
                         </label>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-6 items-center">
+                        <div className="grid grid-cols-1 md:grid-cols-4 gap-6 items-center">
                            <div className="space-y-1">
                               <span className="text-[10px] text-slate-500 font-bold uppercase">Acertos</span>
                               <input type="number" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-green-500/50 transition-all text-white font-bold text-lg text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editForm.acertos} onChange={e => setEditForm({ ...editForm, acertos: Number(e.target.value) })} />
@@ -480,6 +595,11 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                            <div className="space-y-1">
                               <span className="text-[10px] text-slate-500 font-bold uppercase">Total</span>
                               <input type="number" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-bold text-lg text-center [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={editForm.total} onChange={e => setEditForm({ ...editForm, total: Number(e.target.value) })} />
+                           </div>
+
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase">Meta</span>
+                              <input type="text" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all text-white font-bold text-lg text-center" value={editForm.meta} onChange={e => setEditForm({ ...editForm, meta: e.target.value })} placeholder="Ex: Meta 05" />
                            </div>
 
                            <div className="flex flex-col items-center justify-center bg-slate-800/50 rounded-xl p-2 border border-white/5 h-full">
@@ -538,6 +658,91 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                         />
                      </div>
 
+                     {/* NOVO: ALGORITMO DE ERROS IA (RETROATIVO) */}
+                     {!isSimuladoEdit && (
+                        <div className="pt-6 border-t border-white/5 space-y-6">
+                           <div className="flex items-center justify-between">
+                              <h5 className="text-[10px] font-black text-cyan-400 uppercase tracking-[0.2em] flex items-center gap-2">
+                                 <Zap size={14} /> Algoritmo de Erros (IA)
+                              </h5>
+                              <div className="flex gap-2">
+                                 <label className="cursor-pointer bg-cyan-500/10 hover:bg-cyan-500/20 text-cyan-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-cyan-500/20">
+                                    {isAnalyzing ? '...' : 'Upload .txt'}
+                                    <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} disabled={isAnalyzing} />
+                                 </label>
+                                 <button
+                                    type="button"
+                                    onClick={() => setEditForm(prev => ({ ...prev, analise_erros: [] }))}
+                                    className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 active:scale-95"
+                                 >
+                                    Limpar
+                                 </button>
+                                 <button
+                                    type="button"
+                                    onClick={() => {
+                                       if (errorText.trim()) handleAnalyzeErrors(errorText);
+                                       else setMsg({ type: 'error', text: 'Cole o texto do erro primeiro.' });
+                                    }}
+                                    disabled={isAnalyzing}
+                                    className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-purple-600/20 active:scale-95"
+                                 >
+                                    Analisar Texto
+                                 </button>
+                              </div>
+                           </div>
+
+                           <textarea
+                              className="w-full bg-slate-950/50 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all h-32 text-xs text-slate-400 font-bold placeholder-slate-700 resize-none"
+                              placeholder="Cole aqui o texto da questão e seu erro para gerar um novo diagnóstico..."
+                              value={errorText}
+                              onChange={(e) => setErrorText(e.target.value)}
+                           />
+
+                           {editForm.analise_erros.length > 0 && (
+                              <div className="space-y-4">
+                                 {editForm.analise_erros.map((err, idx) => (
+                                    <div key={idx} className="bg-slate-900/50 border border-white/5 rounded-xl p-4 space-y-3 relative overflow-hidden group">
+                                       <div className={`absolute left-0 top-0 bottom-0 w-1 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
+                                          err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
+                                          }`} />
+                                       <div className="flex justify-between items-start">
+                                          <span className={`px-2.5 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
+                                             err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
+                                             }`}>
+                                             {err.tipo_erro}
+                                          </span>
+                                          <button
+                                             onClick={() => setEditForm(prev => ({ ...prev, analise_erros: prev.analise_erros.filter((_, i) => i !== idx) }))}
+                                             className="opacity-0 group-hover:opacity-100 text-slate-600 hover:text-red-400 transition-all"
+                                          >
+                                             <X size={14} />
+                                          </button>
+                                       </div>
+                                       <div className="space-y-1">
+                                          <p className="text-[10px] text-slate-200 font-bold tracking-tight line-clamp-1 opacity-60 italic">"{err.questao_preview}..."</p>
+
+                                          {err.enunciado_completo && (
+                                             <div className="bg-black/20 p-3 rounded-lg border border-white/5 my-2">
+                                                <p className="text-[9px] text-slate-400 font-medium leading-relaxed whitespace-pre-wrap">
+                                                   {err.enunciado_completo}
+                                                </p>
+                                             </div>
+                                          )}
+
+                                          <p className="text-[10px] text-white font-bold tracking-tight">
+                                             <span className="text-cyan-400 mr-2">🎯 GATILHO:</span> {err.gatilho}
+                                          </p>
+                                          <p className="text-[10px] text-slate-400 font-bold leading-relaxed">
+                                             <span className="text-green-400 mr-2">💡 AÇÃO:</span> {err.sugestao}
+                                          </p>
+                                       </div>
+                                    </div>
+                                 ))}
+                              </div>
+                           )}
+                        </div>
+                     )}
+
                      {/* GRUPO 6: OPÇÕES FINAIS (NOVO) */}
                      {!isSimuladoEdit && (
                         <div className="pt-4 border-t border-white/5">
@@ -562,8 +767,9 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                   </div>
                </div>
             </div>
-         )}
-      </div>
+         )
+         }
+      </div >
    );
 };
 
