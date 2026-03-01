@@ -10,7 +10,7 @@ import { Discursiva as DiscursivaType } from '../types';
 import {
   FileEdit, UploadCloud, Loader2, Sparkles, Download, Database, Copy, X, Trash2, Image as ImageIcon, MessageSquare, List, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, CheckCircle2, Calendar
 } from 'lucide-react';
-import * as DOMPurify from 'dompurify';
+import DOMPurify from 'dompurify';
 
 // Declaração para TypeScript reconhecer a biblioteca global
 declare global {
@@ -548,7 +548,7 @@ ${AI_PROMPT}
           .replace(/<\/h3><br \/>/g, '</h3>')
           .replace(/<hr><br \/>/g, '<hr>')
           .replace(/<\/li><br \/>/g, '</li>');
-        return <div className="max-w-prose leading-relaxed" dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(processedHtml) }} />;
+        return <div className="max-w-prose leading-relaxed" dangerouslySetInnerHTML={{ __html: (DOMPurify as any).sanitize(processedHtml) }} />;
       };
 
       const tableHeaderMarkdown = '### Tabela de Desvios Gramaticais';

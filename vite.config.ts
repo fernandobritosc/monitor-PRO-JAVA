@@ -13,6 +13,11 @@ export default defineConfig(({ mode }) => {
   const timestamp = new Date().getTime();
 
   return {
+    resolve: {
+      alias: {
+        'dompurify': 'dompurify/dist/purify.js'
+      }
+    },
     plugins: [
       react(),
       VitePWA({
