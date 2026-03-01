@@ -27,7 +27,7 @@ import { useStore } from './hooks/useStore';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn } from 'lucide-react';
 import { DashboardSkeleton, FlashcardSkeleton } from './components/shared/Skeleton';
 
-const APP_VERSION = '1.0.31'; // Build: 17/02/2026 23:30 (Brasília)
+const APP_VERSION = '1.0.33'; // Build: 01/03/2026 10:45 (Brasília)
 
 import { preserveMissaoOnClear } from './utils/localStorage';
 import { logger } from './utils/logger';
