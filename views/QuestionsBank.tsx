@@ -4,14 +4,13 @@ import { Question, EditalMateria, GlobalQuestion, QuestionAttempt } from '../typ
 import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock, Plus, Brain, Volume2, Sparkles, Trophy, RotateCcw, ChevronLeft, ChevronRight, Save, Headphones, Music, Table, Map as MapIcon, Send, MessageSquarePlus } from 'lucide-react';
 import { streamAIContent, AIProviderName, generateAIContent, handlePlayRevisionAudio, generatePodcastAudio, deleteCachedAudio } from '../services/aiService';
 import { CustomSelector } from '../components/CustomSelector';
-import { useEditor, EditorContent } from '@tiptap/react';
+import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import { AIContentBox } from '../components/shared/AIContentBox';
 import { useStore } from '../hooks/useStore';
-import { Editor } from '@tiptap/react';
 
 interface EditorToolbarProps {
   editor: Editor | null;
@@ -187,15 +186,13 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
   }[(q as any).status as 'Pendente' || 'Pendente'];
 
   return (
-    <div className={`glass-premium rounded-[2.5rem] overflow-hidden border transition-all duration-500 group ${isExpanded ? `border-[hsl(var(--accent)/0.4)] shadow-2xl` : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.2)]'}`}>
-      <div className="p-8 cursor-pointer" onClick={() => onToggle(q.id)}>
-        <div className="flex flex-col gap-6">
-          <div className="flex flex-wrap items-center gap-2">
-            <span className="text-[10px] font-black text-cyan-400 bg-cyan-500/10 px-3 py-1 rounded-full border border-cyan-500/20 uppercase tracking-widest">{q.materia}</span>
-            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.banca}</span>
-            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.orgao}</span>
-            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.cargo}</span>
-            <span className="text-[10px] font-black text-slate-400 bg-white/5 px-3 py-1 rounded-full border border-white/10 uppercase tracking-widest">{q.ano}</span>
+    <div className={`glass-premium rounded-2xl overflow-hidden border transition-all duration-500 group ${isExpanded ? `border-[hsl(var(--accent)/0.4)] shadow-2xl` : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.2)]'}`}>
+      <div className="p-6 cursor-pointer" onClick={() => onToggle(q.id)}>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-wrap items-center gap-1.5 opacity-60 group-hover:opacity-100 transition-opacity">
+            <span className="text-[8px] font-black text-cyan-400 bg-cyan-500/10 px-2 py-0.5 rounded-full border border-cyan-400/20 uppercase tracking-widest">{q.materia}</span>
+            <span className="text-[8px] font-black text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 uppercase tracking-widest">{q.banca}</span>
+            <span className="text-[8px] font-black text-slate-400 bg-white/5 px-2 py-0.5 rounded-full border border-white/10 uppercase tracking-widest">{q.ano}</span>
             {q.tec_id && (() => {
               const tecInfo = extractTecId(q.tec_id);
               if (!tecInfo) return null;
@@ -205,24 +202,23 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
                   target="_blank"
                   rel="noopener noreferrer"
                   onClick={(e) => e.stopPropagation()}
-                  className="group/link flex items-center gap-1.5 px-3 py-1 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-black transition-all cursor-pointer"
+                  className="group/link flex items-center gap-1 px-2 py-0.5 rounded-full bg-blue-500/10 border border-blue-500/20 text-blue-400 hover:bg-blue-500 hover:text-black transition-all cursor-pointer"
                 >
-                  <span className="text-[9px] font-black uppercase tracking-widest">TEC: {tecInfo.id}</span>
-                  <ExternalLink size={8} className="transition-transform group-hover/link:translate-x-0.5" />
+                  <span className="text-[8px] font-black uppercase tracking-widest">TEC: {tecInfo.id}</span>
                 </a>
               );
             })()}
           </div>
-          <h4 className={`text-2xl font-black uppercase tracking-tighter transition-colors duration-300 ${isExpanded ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-bright))] group-hover:text-[hsl(var(--accent))]'}`}>
+          <h4 className={`text-xl font-black uppercase tracking-tighter transition-colors duration-300 ${isExpanded ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-bright))] group-hover:text-[hsl(var(--accent))]'}`}>
             {q.assunto}
           </h4>
         </div>
       </div>
 
       {isExpanded && (
-        <div className="bg-black/5 border-t border-[hsl(var(--border))] p-10 space-y-10 animate-in slide-in-from-top-4 duration-500">
+        <div className="bg-black/5 border-t border-[hsl(var(--border))] p-6 space-y-6 animate-in slide-in-from-top-4 duration-500">
           <div className="prose prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: isFlipped && q.resposta ? q.resposta : (q.enunciado || 'Enunciado não disponível') }} className="text-lg font-black tracking-tight text-[hsl(var(--text-bright))] leading-relaxed" />
+            <div dangerouslySetInnerHTML={{ __html: isFlipped && q.resposta ? q.resposta : (q.enunciado || 'Enunciado não disponível') }} className="text-base font-bold tracking-tight text-[hsl(var(--text-bright))] leading-relaxed" />
           </div>
 
           <div className="space-y-4">
@@ -261,12 +257,12 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
             <button
               onClick={handleConfirm}
               disabled={!selectedAlt}
-              className="w-full py-6 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-3xl text-black font-black uppercase tracking-[0.4em] text-xs shadow-2xl shadow-indigo-600/20 active:scale-[0.98] disabled:opacity-20 transition-all"
+              className="w-full py-4 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-xl text-black font-black uppercase tracking-widest text-[10px] shadow-xl active:scale-[0.98] disabled:opacity-20 transition-all"
             >
               Confirmar Resposta
             </button>
           ) : (
-            <div className="flex gap-4 p-4 bg-white/5 rounded-3xl border border-white/10 items-center justify-center">
+            <div className="flex gap-4 p-3 bg-white/5 rounded-2xl border border-white/10 items-center justify-center">
               <span className="text-[10px] font-black uppercase text-slate-500 tracking-widest">Resultado Processado</span>
               <div className="w-1 h-1 rounded-full bg-slate-700" />
               <button onClick={(e) => { e.stopPropagation(); setIsFlipped(false); setSelectedAlt(null); }} className="text-[10px] font-black uppercase text-[hsl(var(--accent))] hover:underline flex items-center gap-2">
@@ -286,155 +282,155 @@ const QuestionCard: React.FC<QuestionCardProps> = ({
             </div>
           )}
 
-          {/* LABORATÓRIO NEURAL (IA) */}
-          <div className="pt-10 border-t border-white/5 space-y-8">
-            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="p-3 bg-purple-500/10 rounded-2xl border border-purple-500/20 text-purple-400">
-                  <Brain size={24} />
+          {/* LABORATÓRIO NEURAL (IA) - On Demand */}
+          <div className="pt-6 border-t border-white/10 space-y-6">
+            <div className="flex flex-wrap items-center justify-between gap-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-purple-500/10 rounded-xl border border-purple-500/20 text-purple-400">
+                  <Brain size={18} />
                 </div>
-                <div>
-                  <h4 className="text-lg font-black uppercase tracking-tighter text-white">Laboratório Neural</h4>
-                  <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">Powered by {selectedAI === 'auto' ? 'Sincronização Híbrida' : selectedAI.toUpperCase()}</p>
-                </div>
+                <span className="text-[10px] font-black uppercase tracking-widest text-white">Lab Neural</span>
               </div>
 
-              <div className="flex flex-wrap gap-2 p-1.5 bg-black/40 rounded-2xl border border-white/5 backdrop-blur-sm self-start md:self-center">
-                <button
-                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('explanation'); if (!aiStreamText) onGenerateExplanation(q); }}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'explanation' ? 'bg-purple-600 text-white shadow-lg shadow-purple-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  <Sparkles size={12} /> Análise
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('mnemonic'); if (!mnemonicText && !q.ai_generated_assets?.mnemonic) onGenerateMnemonic(q); }}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'mnemonic' ? 'bg-orange-600 text-white shadow-lg shadow-orange-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  <Music size={12} /> Mnemônico
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('mapa'); if (!q.ai_generated_assets?.mapa) onGenerateExtra(q, 'mapa'); }}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'mapa' ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  <MapIcon size={12} /> Mapa
-                </button>
-                <button
-                  onClick={(e) => { e.stopPropagation(); setActiveAiTool('tabela'); if (!q.ai_generated_assets?.tabela) onGenerateExtra(q, 'tabela'); }}
-                  className={`px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === 'tabela' ? 'bg-cyan-600 text-white shadow-lg shadow-cyan-600/20 scale-105' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                >
-                  <Table size={12} /> Tabela
-                </button>
+              <div className="flex flex-wrap gap-1 p-1 bg-black/40 rounded-xl border border-white/5 backdrop-blur-sm shadow-inner">
+                {[
+                  { id: 'explanation', icon: <Sparkles size={12} />, label: 'Análise', color: 'purple' },
+                  { id: 'mnemonic', icon: <Music size={12} />, label: 'Mnemônico', color: 'orange' },
+                  { id: 'mapa', icon: <MapIcon size={12} />, label: 'Mapa', color: 'emerald' },
+                  { id: 'tabela', icon: <Table size={12} />, label: 'Tabela', color: 'cyan' }
+                ].map((tool) => (
+                  <button
+                    key={tool.id}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      if (activeAiTool === tool.id && (aiStreamText || mnemonicText || extraContent)) {
+                        // Toggle OFF if already active and has content
+                        setActiveAiTool(null as any);
+                      } else {
+                        setActiveAiTool(tool.id as any);
+                        if (tool.id === 'explanation' && !aiStreamText) onGenerateExplanation(q);
+                        if (tool.id === 'mnemonic' && !mnemonicText && !q.ai_generated_assets?.mnemonic) onGenerateMnemonic(q);
+                        if (['mapa', 'tabela'].includes(tool.id) && !q.ai_generated_assets?.[tool.id as any]) onGenerateExtra(q, tool.id as any);
+                      }
+                    }}
+                    className={`px-3 py-1.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all flex items-center gap-2 ${activeAiTool === tool.id ? `bg-${tool.color}-600 text-white shadow-lg` : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+                  >
+                    {tool.icon} {tool.label}
+                  </button>
+                ))}
               </div>
             </div>
 
-            {/* Content Display */}
-            <div className="relative">
-              {activeAiTool === 'explanation' && (
-                <AIContentBox
-                  title="Análise Profunda"
-                  icon={<Sparkles size={16} />}
-                  content={aiStreamText}
-                  isLoading={aiLoading}
-                  isMarkdown={true}
-                  accentColor="purple"
-                  activeTool="explanation"
-                  onRegenerate={() => onGenerateExplanation(q)}
+            {/* Content Display (Visible only when requested) */}
+            {activeAiTool && (aiStreamText || mnemonicLoading || extraLoading || mnemonicText || extraContent || aiLoading) && (
+              <div className="animate-in slide-in-from-bottom-2 duration-300 relative group/lab">
+                <button
+                  onClick={() => setActiveAiTool(null as any)}
+                  className="absolute -top-3 -right-3 p-2 bg-slate-800 rounded-full border border-white/10 text-slate-400 hover:text-white z-10 opacity-0 group-hover/lab:opacity-100 transition-opacity shadow-lg"
+                  title="Fechar Lab"
                 >
-                  {aiStreamText && !aiLoading && (
-                    <div className="mt-8 pt-8 border-t border-white/5 space-y-6">
-                      <div className="flex flex-wrap gap-4 items-center">
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onPlayAudio(q, aiStreamText); }}
-                          disabled={isPlayingNeural}
-                          className={`flex items-center gap-3 px-6 py-3 rounded-2xl font-black text-xs uppercase tracking-widest transition-all ${isPlayingNeural ? 'bg-slate-800 text-slate-500 border border-white/5 cursor-not-allowed' : 'bg-white/10 hover:bg-white/20 text-white border border-white/10 hover:border-white/20 shadow-xl'}`}
-                        >
-                          <Headphones size={16} /> {isPlayingNeural ? "Reproduzindo..." : "Ouvir Explicação"}
-                        </button>
+                  <X size={12} />
+                </button>
 
-                        <button
-                          onClick={(e) => { e.stopPropagation(); onPlayPodcast(q); }}
-                          disabled={isGeneratingPodcast || isPlayingNeural}
-                          className="flex items-center gap-3 px-6 py-3 bg-purple-600/10 hover:bg-purple-600/20 rounded-2xl text-purple-400 font-black text-xs uppercase tracking-widest transition-all border border-purple-500/20 hover:border-purple-500/40 shadow-xl"
-                        >
-                          <Headphones size={16} /> {isGeneratingPodcast ? podcastStatus : "Podcast Duo (Alex & Bia)"}
-                        </button>
-                      </div>
+                {activeAiTool === 'explanation' && (
+                  <AIContentBox
+                    title="Análise Pro"
+                    icon={<Sparkles size={14} />}
+                    content={aiStreamText}
+                    isLoading={aiLoading}
+                    isMarkdown={true}
+                    accentColor="purple"
+                    activeTool="explanation"
+                    onRegenerate={() => onGenerateExplanation(q)}
+                  >
+                    {aiStreamText && !aiLoading && (
+                      <div className="mt-6 pt-6 border-t border-white/5 space-y-4">
+                        <div className="flex flex-wrap gap-2 items-center">
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onPlayAudio(q, aiStreamText); }}
+                            disabled={isPlayingNeural}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-xl font-bold text-[9px] uppercase tracking-widest transition-all ${isPlayingNeural ? 'bg-slate-800 text-slate-500 border border-white/5' : 'bg-white/5 hover:bg-white/10 text-white border border-white/10'}`}
+                          >
+                            <Headphones size={14} /> {isPlayingNeural ? "Ouvindo..." : "Solo Audio"}
+                          </button>
 
-                      <div className="bg-black/20 rounded-[1.5rem] p-6 border border-white/5 group-within:border-purple-500/30 transition-all shadow-inner">
-                        <div className="flex items-center gap-4 mb-4" onClick={(e) => e.stopPropagation()}>
-                          <div className="p-2 bg-purple-500/10 rounded-lg">
-                            <MessageSquarePlus size={14} className="text-purple-400" />
-                          </div>
-                          <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">Tutor Neural: Ficou com alguma dúvida?</span>
+                          <button
+                            onClick={(e) => { e.stopPropagation(); onPlayPodcast(q); }}
+                            disabled={isGeneratingPodcast || isPlayingNeural}
+                            className="flex items-center gap-2 px-4 py-2 bg-purple-600/10 hover:bg-purple-600/20 rounded-xl text-purple-400 font-bold text-[9px] uppercase tracking-widest transition-all border border-purple-500/20 shadow-xl"
+                          >
+                            <Headphones size={14} /> {isGeneratingPodcast ? podcastStatus : "Podcast Duo"}
+                          </button>
                         </div>
-                        <div className="relative" onClick={(e) => e.stopPropagation()}>
+
+                        <div className="bg-white/5 rounded-xl p-4 border border-white/5 relative">
                           <input
                             type="text"
                             value={followUpQuery}
                             onChange={(e) => setFollowUpQuery(e.target.value)}
                             onKeyDown={(e) => e.key === 'Enter' && onSendFollowUp(q)}
-                            placeholder="Pergunte sobre a questão ou a explicação..."
-                            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-sm text-slate-200 focus:outline-none focus:border-purple-500/50 transition-all pr-12 font-medium"
+                            placeholder="Dúvida rápida..."
+                            className="w-full bg-black/20 border border-white/10 rounded-lg px-3 py-2 text-[10px] text-slate-200 outline-none focus:border-purple-500/30 transition-all pr-10"
                           />
                           <button
                             onClick={() => onSendFollowUp(q)}
                             disabled={!followUpQuery.trim() || aiLoading}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-2 text-purple-400 hover:text-purple-300 disabled:opacity-20 transition-all hover:scale-110 active:scale-95"
+                            className="absolute right-6 top-1/2 -translate-y-1/2 p-1 text-purple-400 hover:text-purple-300 disabled:opacity-20 transition-all"
                           >
-                            <Send size={18} />
+                            <Send size={14} />
                           </button>
                         </div>
                       </div>
-                    </div>
-                  )}
-                </AIContentBox>
-              )}
+                    )}
+                  </AIContentBox>
+                )}
 
-              {activeAiTool === 'mnemonic' && (
-                <AIContentBox
-                  title="Mnemônico Fixador"
-                  icon={<Music size={16} />}
-                  content={mnemonicText || q.ai_generated_assets?.mnemonic || ''}
-                  isLoading={mnemonicLoading}
-                  isMarkdown={true}
-                  accentColor="orange"
-                  activeTool="mnemonic"
-                  onRegenerate={() => onGenerateMnemonic(q)}
-                />
-              )}
+                {activeAiTool === 'mnemonic' && (
+                  <AIContentBox
+                    title="Mnemônico"
+                    icon={<Music size={14} />}
+                    content={mnemonicText || q.ai_generated_assets?.mnemonic || ''}
+                    isLoading={mnemonicLoading}
+                    isMarkdown={true}
+                    accentColor="orange"
+                    activeTool="mnemonic"
+                    onRegenerate={() => onGenerateMnemonic(q)}
+                  />
+                )}
 
-              {(['mapa', 'fluxo', 'tabela', 'info'] as const).includes(activeAiTool as any) && activeAiTool !== 'explanation' && activeAiTool !== 'mnemonic' && (
-                <AIContentBox
-                  title={activeAiTool.toUpperCase()}
-                  icon={activeAiTool === 'mapa' ? <MapIcon size={16} /> : activeAiTool === 'tabela' ? <Table size={16} /> : <Zap size={16} />}
-                  content={extraContent || q.ai_generated_assets?.[activeAiTool as keyof typeof q.ai_generated_assets] || ''}
-                  isLoading={extraLoading}
-                  isMarkdown={true}
-                  accentColor={activeAiTool === 'mapa' ? 'emerald' : 'cyan'}
-                  activeTool={activeAiTool}
-                  onRegenerate={() => onGenerateExtra(q, activeAiTool as any)}
-                />
-              )}
-            </div>
+                {(['mapa', 'tabela'] as const).includes(activeAiTool as any) && (
+                  <AIContentBox
+                    title={activeAiTool.toUpperCase()}
+                    icon={activeAiTool === 'mapa' ? <MapIcon size={14} /> : <Table size={14} />}
+                    content={extraContent || q.ai_generated_assets?.[activeAiTool as keyof typeof q.ai_generated_assets] || ''}
+                    isLoading={extraLoading}
+                    isMarkdown={true}
+                    accentColor={activeAiTool === 'mapa' ? 'emerald' : 'cyan'}
+                    activeTool={activeAiTool}
+                    onRegenerate={() => onGenerateExtra(q, activeAiTool as any)}
+                  />
+                )}
+              </div>
+            )}
           </div>
 
-          <div className="flex justify-between items-center pt-8 border-t border-white/10">
-            <div className="flex gap-4">
+          <div className="flex justify-between items-center pt-6 border-t border-white/10">
+            <div className="flex gap-2">
               {isAdmin && (
                 <>
                   <button
                     onClick={(e) => { e.stopPropagation(); onEdit(q); }}
-                    className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-[hsl(var(--accent))] hover:bg-white/10 transition-all border border-white/10"
+                    className="p-3 bg-white/5 rounded-xl text-slate-500 hover:text-cyan-400 hover:bg-white/10 transition-all border border-white/5"
                     title="Editar"
                   >
-                    <Edit size={18} />
+                    <Edit size={16} />
                   </button>
                   <button
                     onClick={(e) => { e.stopPropagation(); onDelete(q.id); }}
-                    className="p-4 bg-white/5 rounded-2xl text-slate-400 hover:text-red-400 hover:bg-white/10 transition-all border border-white/10"
+                    className="p-3 bg-white/5 rounded-xl text-slate-500 hover:text-red-400 hover:bg-white/10 transition-all border border-white/5"
                     title="Excluir"
                   >
-                    <Trash2 size={18} />
+                    <Trash2 size={16} />
                   </button>
                 </>
               )}
@@ -470,6 +466,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
   const [filterAno, setFilterAno] = useState<string>('Todos');
   const [filterOrgao, setFilterOrgao] = useState<string>('Todos');
   const [filterCargo, setFilterCargo] = useState<string>('Todos');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Form States
   const initialFormState = {
@@ -909,78 +906,97 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
   const toggleCard = (id: string) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
 
   return (
-    <div className="space-y-8 animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
-      {/* Header */}
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
-        <div>
-          <h2 className="text-3xl font-black bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase tracking-tighter">
-            Banco de Questões Inteligente
-          </h2>
-          <p className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em] mt-1">
-            Repositório de falhas e questões chave.
-          </p>
+    <div className="space-y-6 animate-in fade-in slide-in-from-right-4 duration-500 pb-20">
+      {/* Condensado Header & Tabs Bar */}
+      <div className="flex flex-col lg:flex-row justify-between items-center gap-4 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] p-3 rounded-2xl backdrop-blur-md">
+        <div className="flex items-center gap-4 px-2">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-purple-500 to-cyan-500 flex items-center justify-center text-[hsl(var(--bg-main))]">
+            <Brain size={20} />
+          </div>
+          <div>
+            <h2 className="text-lg font-black bg-gradient-to-r from-purple-400 to-cyan-400 bg-clip-text text-transparent uppercase tracking-tighter leading-none">
+              Lab Neural
+            </h2>
+            <p className="text-slate-400 text-[9px] font-bold uppercase tracking-widest mt-1 opacity-60">
+              Banco Inteligente
+            </p>
+          </div>
         </div>
+
+        <div className="flex items-center gap-2 bg-black/20 p-1 rounded-xl border border-white/5">
+          {['gerador', 'cadastro'].map(tab => (
+            <button
+              key={tab}
+              onClick={() => setActiveBankTab(tab as any)}
+              className={`px-6 py-2.5 rounded-lg text-[9px] font-black uppercase tracking-widest transition-all ${activeBankTab === tab ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg shadow-cyan-500/20' : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
+            >
+              {tab === 'gerador' ? 'Gerador' : 'Cadastro'}
+            </button>
+          ))}
+        </div>
+
         {isAdmin && (
           <button
             onClick={() => { setIsEditing(null); setFormData(initialFormState); setShowForm(true); setActiveBankTab('cadastro'); }}
-            className="w-full md:w-auto px-8 py-4 bg-gradient-to-r from-indigo-600 to-purple-600 text-[hsl(var(--bg-main))] rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all shadow-xl shadow-indigo-600/20 hover:scale-105 active:scale-95"
+            className="px-6 py-2.5 bg-white/5 hover:bg-white/10 text-white rounded-xl border border-white/10 font-bold uppercase tracking-widest text-[9px] flex items-center gap-2 transition-all"
           >
-            <Plus size={18} /> Adicionar Questão
+            <Plus size={16} /> Novo Registro
           </button>
         )}
       </div>
 
-      {/* Tabs */}
-      <div className="flex gap-2 p-1.5 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl w-fit">
-        {['gerador', 'cadastro'].map(tab => (
-          <button
-            key={tab}
-            onClick={() => setActiveBankTab(tab as any)}
-            className={`px-6 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${activeBankTab === tab ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))]' : 'text-[hsl(var(--text-muted))] hover:bg-white/5'}`}
-          >
-            {tab === 'gerador' ? 'Gerador de Cadernos' : 'Cadastro de Questão'}
-          </button>
-        ))}
-      </div>
-
       {activeBankTab === 'gerador' && (
-        <div className="space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-500">
-          {/* Filtros */}
-          <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6">
-            <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-4">
-              {[
-                { label: 'Matéria', val: filterMateria, set: setFilterMateria, list: savedMaterias },
-                { label: 'Assunto', val: filterAssunto, set: setFilterAssunto, list: savedAssuntosGerais },
-                { label: 'Banca', val: filterBanca, set: setFilterBanca, list: savedBancas },
-                { label: 'Orgão', val: filterOrgao, set: setFilterOrgao, list: savedOrgaos },
-                { label: 'Cargo', val: filterCargo, set: setFilterCargo, list: savedCargos },
-                { label: 'Ano', val: filterAno, set: setFilterAno, list: savedAnos }
-              ].map(f => (
-                <div key={f.label} className="space-y-2">
-                  <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest ml-2">{f.label}</label>
-                  <input
-                    type="text"
-                    list={`list-${f.label}`}
-                    className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 text-xs font-bold text-[hsl(var(--text-bright))]"
-                    value={f.val === 'Todas' || f.val === 'Todos' ? '' : f.val}
-                    onChange={e => f.set(e.target.value || (f.label === 'Ano' ? 'Todos' : (f.label === 'Assunto' || f.label === 'Orgão' || f.label === 'Cargo' ? 'Todos' : 'Todas')))}
-                  />
-                  <datalist id={`list-${f.label}`}>
-                    {f.list.map((item, i) => <option key={i} value={item.toString()} />)}
-                  </datalist>
-                </div>
-              ))}
+        <div className="space-y-4 animate-in fade-in slide-in-from-bottom-4 duration-500">
+          {/* Barra de Busca & Filtros Compacta */}
+          <div className="glass-premium p-4 rounded-2xl border border-[hsl(var(--border))] flex flex-col gap-4">
+            <div className="flex gap-4">
+              <div className="relative flex-1">
+                <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
+                <input
+                  type="text"
+                  placeholder="Pesquisar questões..."
+                  className="w-full bg-white/5 border border-white/5 rounded-xl pl-12 pr-4 py-2.5 text-xs font-bold text-[hsl(var(--text-bright))] focus:border-cyan-500/50 outline-none transition-all"
+                  value={searchTerm}
+                  onChange={e => setSearchTerm(e.target.value)}
+                />
+              </div>
+              <button
+                onClick={() => setShowFilters(!showFilters)}
+                className={`px-6 rounded-xl border flex items-center gap-2 transition-all ${showFilters ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
+              >
+                <Layers size={14} />
+                <span className="text-[10px] font-black uppercase tracking-widest">Filtros</span>
+                {showFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+              </button>
             </div>
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500" size={16} />
-              <input
-                type="text"
-                placeholder="Pesquisar..."
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 text-sm font-bold text-[hsl(var(--text-bright))]"
-                value={searchTerm}
-                onChange={e => setSearchTerm(e.target.value)}
-              />
-            </div>
+
+            {showFilters && (
+              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-3 pb-2 animate-in slide-in-from-top-2 duration-300">
+                {[
+                  { label: 'Matéria', val: filterMateria, set: setFilterMateria, list: savedMaterias },
+                  { label: 'Assunto', val: filterAssunto, set: setFilterAssunto, list: savedAssuntosGerais },
+                  { label: 'Banca', val: filterBanca, set: setFilterBanca, list: savedBancas },
+                  { label: 'Orgão', val: filterOrgao, set: setFilterOrgao, list: savedOrgaos },
+                  { label: 'Cargo', val: filterCargo, set: setFilterCargo, list: savedCargos },
+                  { label: 'Ano', val: filterAno, set: setFilterAno, list: savedAnos }
+                ].map(f => (
+                  <div key={f.label} className="space-y-1.5">
+                    <label className="text-[8px] font-black text-slate-500 uppercase tracking-widest ml-1">{f.label}</label>
+                    <input
+                      type="text"
+                      list={`list-${f.label}`}
+                      className="w-full bg-black/20 border border-white/5 rounded-lg px-3 py-2 text-[10px] font-bold text-slate-300"
+                      value={f.val === 'Todas' || f.val === 'Todos' ? '' : f.val}
+                      placeholder="Qualquer"
+                      onChange={e => f.set(e.target.value || (f.label === 'Ano' ? 'Todos' : (f.label === 'Assunto' || f.label === 'Orgão' || f.label === 'Cargo' ? 'Todos' : 'Todas')))}
+                    />
+                    <datalist id={`list-${f.label}`}>
+                      {f.list.map((item, i) => <option key={i} value={item.toString()} />)}
+                    </datalist>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           {/* Listagem Control Headers */}
@@ -1090,30 +1106,28 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais }) =
                     podcastStatus={podcastStatus}
                   />
 
-                  {/* Navigation Controls */}
-                  <div className="glass-premium p-6 rounded-[2rem] border border-[hsl(var(--accent)/0.2)] flex justify-between items-center shadow-xl shadow-cyan-500/5">
+                  {/* Navigation Controls Compacto */}
+                  <div className="glass p-3 rounded-2xl border border-[hsl(var(--accent)/0.1)] flex justify-between items-center shadow-xl">
                     <button
                       disabled={currentQuestionIndex === 0}
                       onClick={() => setCurrentQuestionIndex(prev => prev - 1)}
-                      className="flex items-center gap-3 px-8 py-4 rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all text-slate-400 hover:text-white hover:bg-white/5 disabled:opacity-20 disabled:cursor-not-allowed"
+                      className="p-3 rounded-xl transition-all text-slate-500 hover:text-white hover:bg-white/5 disabled:opacity-10"
                     >
-                      <ChevronLeft size={20} /> Anterior
+                      <ChevronLeft size={20} />
                     </button>
 
-                    <div className="flex flex-col items-center">
-                      <span className="text-[14px] font-black text-[hsl(var(--accent))] tracking-tighter">
-                        {String(currentQuestionIndex + 1).padStart(2, '0')}
-                        <span className="text-slate-600 mx-1 text-xs">de</span>
-                        {String(reviewQueue.length).padStart(2, '0')}
+                    <div className="flex items-center gap-4">
+                      <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">
+                        Página {currentQuestionIndex + 1} / {reviewQueue.length}
                       </span>
                     </div>
 
                     <button
                       disabled={currentQuestionIndex === reviewQueue.length - 1}
                       onClick={() => setCurrentQuestionIndex(prev => prev + 1)}
-                      className="flex items-center gap-3 px-8 py-4 bg-[hsl(var(--accent))] text-black rounded-2xl font-black uppercase text-[10px] tracking-widest transition-all hover:scale-105 active:scale-95 disabled:opacity-20 disabled:cursor-not-allowed"
+                      className="flex items-center gap-2 px-5 py-2.5 bg-[hsl(var(--accent))] text-black rounded-xl font-black uppercase text-[9px] tracking-widest transition-all hover:scale-105"
                     >
-                      Próxima <ChevronRight size={20} />
+                      Próxima <ChevronRight size={16} />
                     </button>
                   </div>
                 </div>

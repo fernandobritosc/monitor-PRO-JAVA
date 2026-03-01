@@ -34,7 +34,7 @@ export const AIContentBox: React.FC<{
     };
 
     return (
-        <div id="neural-content-box" className={`mt-4 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-[2rem] p-8 animate-in zoom-in-95 duration-500 shadow-inner`}>
+        <div id="neural-content-box" className={`mt-4 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-2xl p-6 animate-in zoom-in-95 duration-500 shadow-inner`}>
             <div className="flex justify-between items-center mb-6">
                 <div className={`flex items-center gap-3 font-black text-xs uppercase tracking-[0.2em] ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
                     <div className={`p-2 rounded-xl bg-white/5 border ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
