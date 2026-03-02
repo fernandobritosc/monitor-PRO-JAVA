@@ -104,7 +104,10 @@ export interface QuestionAttempt {
   user_id: string;
   selected_alt: string;
   is_correct: boolean;
-  attempted_at: string;
+  attempted_at?: string;
+  materia?: string;
+  assunto?: string;
+  banca?: string;
 }
 
 export interface EditalProgress {
@@ -180,4 +183,4 @@ export interface Discursiva {
   created_at: string;
 }
 
-export type ViewType = 'HOME' | 'DASHBOARD' | 'EDITAL' | 'QUESTOES' | 'REGISTRAR' | 'REVISOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'RELATORIOS' | 'ONBOARDING' | 'EDITAL_PROGRESS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS' | 'REGISTRAR_SIMULADO' | 'HUB' | 'RANKING';
+export type ViewType = 'HOME' | 'DASHBOARD' | 'EDITAL' | 'QUESTOES' | 'REGISTRAR' | 'REVISOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'RELATORIOS' | 'ONBOARDING' | 'EDITAL_PROGRESS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS' | 'REGISTRAR_SIMULADO' | 'HUB' | 'RANKING' | 'PERFORMANCE' | 'CADASTRO_QUESTOES';

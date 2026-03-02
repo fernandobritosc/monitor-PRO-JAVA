@@ -34,8 +34,8 @@ export const AIContentBox: React.FC<{
     };
 
     return (
-        <div id="neural-content-box" className={`mt-4 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-2xl p-6 animate-in zoom-in-95 duration-500 shadow-inner`}>
-            <div className="flex justify-between items-center mb-6">
+        <div id="neural-content-box" className={`mt-3 bg-slate-900/40 border border-white/5 backdrop-blur-md rounded-xl p-4 animate-in zoom-in-95 duration-500 shadow-inner`}>
+            <div className="flex justify-between items-center mb-4 pdf-exclude">
                 <div className={`flex items-center gap-3 font-black text-xs uppercase tracking-[0.2em] ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
                     <div className={`p-2 rounded-xl bg-white/5 border ${colorMap[accentColor as keyof typeof colorMap] || colorMap.purple}`}>
                         {icon}
@@ -61,12 +61,12 @@ export const AIContentBox: React.FC<{
                 </div>
             </div>
             {isLoading ? (
-                <div className="flex flex-col justify-center items-center py-16 gap-4">
+                <div className="flex flex-col justify-center items-center py-10 gap-3">
                     <div className="relative">
-                        <div className="w-12 h-12 rounded-full border-t-2 border-purple-500 animate-spin"></div>
-                        <Sparkles size={20} className="absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto text-purple-400 animate-pulse" />
+                        <div className="w-8 h-8 rounded-full border-t-2 border-purple-500 animate-spin"></div>
+                        <Sparkles size={14} className="absolute inset-x-0 top-1/2 -translate-y-1/2 mx-auto text-purple-400 animate-pulse" />
                     </div>
-                    <p className="text-[10px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Sincronizando Sinapses...</p>
+                    <p className="text-[8px] font-black uppercase tracking-widest text-slate-500 animate-pulse">Sincronizando Sinapses...</p>
                 </div>
             ) : (
                 <div className="leading-relaxed max-h-[500px] overflow-y-auto custom-scrollbar pr-4 pb-4 scroll-smooth neural-content-viewport">

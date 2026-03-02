@@ -76,12 +76,12 @@ const streamWithGemini = async (
   callbacks: AIStreamCallback,
   context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' = 'general'
 ): Promise<void> => {
-  const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+  const models = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro-002'];
   let lastError: any = null;
 
   // Prompts sincronizados com o snippet do usuário
-  const flashcardPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico para o flashcard a seguir:\n\n${prompt}`;
-  const generalPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado.`;
+  const flashcardPrompt = `Atue como um Especialista em Memorização. Forneça uma explicação técnica concisa, um exemplo prático curto e um mnemônico/música extremamente eficaz para o seguinte conteúdo:\n\n${prompt}.\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar negrito (**).\n2. PROIBIDAS saudações (Ex: "Ok", "Vamos lá", "Espero que ajude").\n3. Responda diretamente com o conteúdo técnico.`;
+  const generalPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua resposta deve ser estritamente técnica, direta e estruturada em Markdown com os seguintes tópicos:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo técnico aqui]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário real aqui]\n\nREGRAS VISUAIS E DE TOM:\n1. PROIBIDO o uso de negrito (**).\n2. PROIBIDAS saudações, introduções ou conclusões (Ex: "Aqui está", "Olá", "Espero que isso ajude").\n3. Use apenas cabeçalhos (#) e listas simples (-).\n4. Tom clínico, seco e puramente técnico.`;
   const finalPrompt = context === 'flashcard' ? flashcardPrompt : `${generalPrompt}\n\nConteúdo: ${prompt}`;
 
   for (const modelId of models) {
@@ -130,7 +130,7 @@ const streamWithGroq = async (
   try {
     console.log('🚀 Iniciando streaming com Groq...');
 
-    const systemPrompt = `Você é um professor universitário especialista em concursos públicos, conhecido por sua didática e profundidade. Sua resposta DEVE ser estruturada em Markdown com os seguintes tópicos:\n- **# Explicação Detalhada:** Elabore o conceito com profundidade, conectando com outros temas relevantes.\n- **# Exemplo Prático Aprofundado:** Forneça um exemplo prático bem detalhado, com contexto e explicando passo a passo a aplicação do conceito. Se possível, use um cenário de concurso público.`;
+    const systemPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua comunicação deve ser técnica, profissional e direta.\nESTRUTURA OBRIGATÓRIA:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário]\n\nREGRAS CRÍTICAS:\n1. PROIBIDO o uso de asteriscos para negrito (**).\n2. PROIBIDAS saudações, "ok", introduções ou conclusões (Ex: "Espero que ajude", "Vamos lá").\n3. Use apenas títulos (#) para separar seções.\n4. Texto puramente técnico e clínico.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -363,89 +363,63 @@ export const generateAIContent = async (
   if (context === 'flashcard') {
     finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${contentToAnalyze}`;
   } else if (context === 'mapa') {
-    finalPrompt = `Você é um especialista em mapas mentais pedagógicos. Crie um MAPA MENTAL ESTRUTURADO sobre: ${contentToAnalyze}.
-    Use a seguinte sintaxe Markdown rigorosa:
+    finalPrompt = `Atue como um Arquiteto de Informação Pedagógica. Crie um MAPA MENTAL ESTRUTURADO sobre: ${contentToAnalyze}.
+    Sintaxe Markdown estrita:
     # [TÍTULO CENTRAL]
     ## [RAMO PRINCIPAL]
     ### [SUB-TÓPICO]
-    - [DETALHE]
+    - [DETALHE TÉCNICO]
     
     Regras:
-    1. Use no máximo 4 níveis de profundidade.
-    2. Mantenha os termos curtos e impactantes.
-    3. Seja extremamente minucioso na lógica jurídica/técnica.`;
+    1. Máximo 4 níveis.
+    2. Termos técnicos, curtos e precisos.
+    3. PROIBIDO usar negrito (**).
+    4. Sem introduções ou explicações fora da estrutura.`;
   } else if (context === 'fluxo') {
-    finalPrompt = `Você é um analista de processos e lógica jurídica. Gere um FLUXOGRAMA LÓGICO VERTICAL para explicar: ${contentToAnalyze}.
-    Use obrigatoriamente as seguintes tags para cada etapa:
-    [INÍCIO] -> Breve introdução.
-    [AÇÃO] -> Procedimento ou fato.
-    [DECISÃO] -> Pergunta ou bifurcação.
-    [RESULTADO] -> Conseqüência de uma ação/decisão.
+    finalPrompt = `Atue como um Engenheiro de Processos Jurídicos. Gere um FLUXOGRAMA LÓGICO VERTICAL para: ${contentToAnalyze}.
+    Formato obrigatório por etapa:
+    [INÍCIO] -> Introdução técnica.
+    [AÇÃO] -> Procedimento.
+    [DECISÃO] -> Ponto de controle.
+    [RESULTADO] -> Consequência.
     [FIM] -> Conclusão.
     
-    Exemplo de Saída:
-    1. [INÍCIO] Texto
-    2. [DECISÃO] Texto?
-    3. [RESULTADO] Texto
-    
-    Regras:
-    - Seja analítico.
-    - Use lógica de causa e efeito clara.`;
+    Regras de ouro: Lógica de causa e efeito pura, sem verbosidade.`;
   } else if (context === 'tabela') {
-    finalPrompt = `Você é um mestre em didática e síntese. Crie uma TABELA COMPARATIVA técnica sobre: ${contentToAnalyze}.
-    
-    REGRAS DE OURO:
-    1. NÃO adicione nenhum texto introdutório ou conclusivo. Responda APENAS com a tabela em Markdown.
-    2. Use exatamente 3 colunas: | Critério | Conceito Principal | Comparativo/Oposto |
-    3. Seja rigoroso nos termos e use de 4 a 6 linhas de comparação.
-    
-    Exemplo de Saída:
-    | Critério | Conceito Principal | Comparativo/Oposto |
-    |---|---|---|
-    | Definição | Texto... | Texto... |
-    | Fundamento | Texto... | Texto... |`;
+    finalPrompt = `Atue como um Mestre em Síntese Estratégica. Crie uma TABELA COMPARATIVA técnica sobre: ${contentToAnalyze}.
+    REGRAS ESTREITAS:
+    1. APENAS a tabela Markdown. PROIBIDO qualquer texto extra.
+    2. 3 colunas padrão: | Critério | Conceito Principal | Comparativo/Oposto |
+    3. 4 a 6 linhas de alta densidade técnica.
+    4. PROIBIDO o uso de negrito (**). Use apenas texto simples dentro da tabela.`;
   } else if (context === 'info') {
-    finalPrompt = `Crie um INFOGRÁFICO RESUMIDO em texto (Cheat Sheet) sobre: ${contentToAnalyze}. 
-    Use MUITOS EMOJIS relevantes, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
-    Organize em seções como: 📌 DEFINIÇÃO, ⚡ PONTOS CHAVE, ⚠️ PEGADINHAS DE PROVA. 
-    Use Markdown para dar um visual premium.`;
+    finalPrompt = `Atue como um Especialista em Resumo Estratégico. Crie uma "Cheat Sheet" técnica sobre: ${contentToAnalyze}. 
+    Use emojis de forma cirúrgica, TÍTULOS EM MAIÚSCULAS e Bullet Points. 
+    Estrutura: # DEFINIÇÃO, # PONTOS CHAVE, # PEGADINHAS DE PROVA. 
+    REGRAS: 1. PROIBIDO negrito (**). 2. Use Títulos (#) para seções.`;
   } else if (context === 'analise_erros') {
-    finalPrompt = `Você é um analista sênior de desempenho em concursos (Especialista FGV).
-    Sua tarefa é analisar o material de estudo e os erros do aluno para classificar a CAUSA REAL de cada falha.
+    finalPrompt = `Atue como um Analista de Performance (Metodologia FGV).
+    Analise o material e os erros para classificar a CAUSA REAL de cada falha.
 
-    REGRAS CRÍTICAS DE INTEGRIDADE:
-    1. ENUNCIADO NA ÍNTEGRA: O campo "enunciado_completo" DEVE conter o texto original do enunciado e de TODAS as alternativas exatamente como aparecem no texto de entrada. NÃO resuma, NÃO pule partes e NÃO use reticências.
-    2. FOCO NO NOVO: Ignore qualquer metadado de "Análise Anterior" ou JSON que possa estar misturado no texto colado pelo aluno. Foque apenas no conteúdo bruto da questão e do erro.
-    3. JSON PURO: Responda EXCLUSIVAMENTE com o array JSON. Proibido introduções, conclusões ou markdown fences.
-    4. NÃO TRUNQUE VALORES: Se um enunciado for muito longo, mantenha-o completo no JSON. O sistema está preparado para receber objetos grandes.
+    REGRAS DE OURO:
+    1. ENUNCIADO INTEGRAL: O campo "enunciado_completo" deve ser a cópia EXATA do texto original (Enunciado + Alternativas).
+    2. FOCO NO NOVO: Ignore metadados anteriores.
+    3. JSON PURO: Responda EXCLUSIVAMENTE com o array JSON.
+    4. NÃO RESUMA: Proibido "..." ou simplificações.
 
-    ENTRADA BRUTA: 
-    ${contentToAnalyze}
-
-    CONTEXTO DE PERFORMANCE: ${JSON.stringify(statsToAnalyze)}
+    CONTEÚDO: ${contentToAnalyze}
     
-    ESQUEMA DO JSON:
+    JSON SCHEMA:
     [
       {
-        "questao_preview": "Snippet curto (máx 50 char)",
-        "enunciado_completo": "Texto ORIGINAL E COMPLETO (Enunciado + Alternativas) - Copie Verbatim!",
+        "questao_preview": "Snippet curto",
+        "enunciado_completo": "Cópia Verbatim INTEGRAL",
         "tipo_erro": "Atenção" | "Lacuna de Base" | "Interpretação",
-        "gatilho": "O termo ou conceito exato que causou a falha",
-        "sugestao": "Ação imediata para o ALUNO",
-        "sugestao_mentor": "Dica técnica para o MENTOR"
+        "gatilho": "Termo exato da falha",
+        "sugestao": "Ação imediata aluno",
+        "sugestao_mentor": "Dica técnica mentor"
       }
-    ]
-
-    CRITÉRIOS DE CLASSIFICAÇÃO:
-    - Atenção: O aluno marcou a oposta, ignorou "Exceto/Não", ou caiu em pegadinha óbvia.
-    - Lacuna de Base: O aluno não conhecia o conceito jurídico ou técnico básico.
-    - Interpretação: O aluno errou o entendimento luso-textual da pergunta.
-
-    ORDEM FINAL: 
-    - Fale APENAS através do JSON.
-    - PROIBIDO usar "..." ou resumir enunciados. Se o texto for longo, COPIE CADA PALAVRA.
-    - O campo "enunciado_completo" deve ser uma réplica exata do texto de entrada.
-    - Se você resumir, a vida do aluno será prejudicada. NÃO RESUMA. COPIE TUDO.`;
+    ]`;
   } else if (context === 'macro_diagnostico') {
     const reports = JSON.stringify(contentToAnalyze);
     finalPrompt = `Você é um Mentor de Elite para Concursos Públicos. 
@@ -465,7 +439,7 @@ Seja direto, assertivo e use tom de alta performance. Use Markdown limpo e elega
   }
 
   const runGemini = async (key: string) => {
-    const models = ['gemini-2.0-flash', 'gemini-1.5-flash', 'gemini-1.5-pro'];
+    const models = ['gemini-2.0-flash', 'gemini-1.5-flash-002', 'gemini-1.5-pro-002'];
     let lastError: any = null;
 
     for (const modelId of models) {
@@ -655,12 +629,18 @@ export const handlePlayRevisionAudio = async (
     console.log("🎙️ Áudio elite (v2.5 TTS)...");
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
-      model: "gemini-2.0-flash", // Nome atualizado
+      model: "gemini-2.5-flash-preview-tts", // Modelo TTS Preview Estritamente para MakerSuite
       contents: [{ parts: [{ text: text.substring(0, 4000) }] }],
       config: {
-        responseModalities: [Modality.AUDIO],
-        speechConfig: { voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Kore' } } },
-      },
+        responseModalities: ['AUDIO'],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: {
+              voiceName: 'Kore'
+            }
+          }
+        }
+      }
     });
 
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
@@ -733,18 +713,19 @@ export const generatePodcastAudio = async (
     onStatusChange("Escrevendo roteiro...");
     const scriptPrompt = `Converta o seguinte texto em um diálogo de podcast curto entre Alex e Bia.Formato estrito: Alex: [fala] Bia: [fala].Texto: "${originalText.substring(0, 3000)}"`;
     const scriptResponse = await ai.models.generateContent({
-      model: 'gemini-1.5-flash',
+      model: 'gemini-2.0-flash',
       contents: [{ role: 'user', parts: [{ text: scriptPrompt }] }]
     });
     const scriptText = scriptResponse.text || '';
 
     onStatusChange("Gravando Dual Podcast (Gemini 2.5 TTS)...");
     const audioResponse = await ai.models.generateContent({
-      model: "gemini-2.0-flash", // Nome atualizado
-      contents: [{ parts: [{ text: scriptText }] }],
+      model: "gemini-2.5-flash-preview-tts", // Modelo TTS Preview Estritamente para MakerSuite
+      contents: [{ parts: [{ text: `Atue como locutor de podcast e diga o seguinte: ${scriptText.substring(0, 8000)}` }] }], // Formato {comando}: {texto}
       config: {
-        responseModalities: [Modality.AUDIO],
+        responseModalities: ['AUDIO'],
         speechConfig: {
+          languageCode: 'pt-BR',
           multiSpeakerVoiceConfig: {
             speakerVoiceConfigs: [
               { speaker: 'Alex', voiceConfig: { prebuiltVoiceConfig: { voiceName: 'Fenrir' } } },

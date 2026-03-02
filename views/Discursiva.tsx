@@ -304,6 +304,19 @@ ${AI_PROMPT}
       if (dbError) throw dbError;
 
       setAnalysisResult(newRecord);
+
+      // Log attempt for performance tracking
+      const finalScoreStr = extractFinalScore(analysisText);
+      const scoreNum = parseFloat(finalScoreStr.replace(',', '.')) || 0;
+      await supabase.from('questao_tentativas').insert([{
+        user_id: user.id,
+        question_id: newRecord.id,
+        selected_alt: 'DISCURSIVA',
+        is_correct: scoreNum >= 5, // Assuming 50% is "correct" for analytics purposes
+        materia: 'Discursiva',
+        assunto: title
+      }]);
+
       fetchHistory();
       setActiveTab('history');
       setSelectedHistory(newRecord);

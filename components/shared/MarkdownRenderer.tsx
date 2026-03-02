@@ -103,7 +103,8 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
             } else {
                 const part = item.content;
                 return part.split('\n').map((line: string, lineIndex: number) => {
-                    const trimmedLine = line.trim();
+                    const cleanLine = line.replace(/\*\*/g, '');
+                    const trimmedLine = cleanLine.trim();
                     if (!trimmedLine) return <div key={`${index}-${lineIndex}`} className="h-4" />;
 
                     const flowMatch = trimmedLine.match(/^(\d+)\.\s*\[(.*?)\]\s*(.*)$/);
@@ -151,12 +152,12 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
                         return (
                             <div key={`${index}-${lineIndex}`} className="flex items-start gap-3 my-2 group pl-8">
                                 <div className="mt-2 w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-purple-500 transition-colors" />
-                                <span className="text-sm text-slate-300 font-medium leading-relaxed">{line.replace(/[-*]\s/, '')}</span>
+                                <span className="text-sm text-slate-300 font-medium leading-relaxed">{cleanLine.replace(/[-*]\s/, '')}</span>
                             </div>
                         );
                     }
 
-                    return <p key={`${index}-${lineIndex}`} className="my-3 text-sm text-slate-300 font-medium leading-loose pl-1">{line}</p>;
+                    return <p key={`${index}-${lineIndex}`} className="my-3 text-sm text-slate-300 font-medium leading-loose pl-1">{cleanLine}</p>;
                 });
             }
         });

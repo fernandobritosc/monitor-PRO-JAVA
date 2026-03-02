@@ -3,6 +3,12 @@
 @tailwind utilities;
 
 @layer base {
+
+  /* Aumenta base do rem — afeta todo texto rem-based */
+  html {
+    font-size: 17px;
+  }
+
   :root {
     /* Deep Ocean Premium (Dark) */
     --bg-main: 222 47% 4%;
@@ -21,19 +27,19 @@
   }
 
   .light {
-    /* Soft Premium Pearl (Gentle Light) */
-    --bg-main: 222 47% 95%;
-    --bg-sidebar: 222 47% 97%;
-    --bg-card: 222 47% 100% / 0.5;
-    --bg-user-block: 222 47% 91%;
-    --text-main: 222 30% 25%;
-    --text-muted: 222 20% 45%;
-    --text-bright: 222 40% 15%;
-    --accent: 188 91% 35%;
-    --accent-secondary: 262 70% 45%;
-    --accent-glow: 188 91% 35% / 0.1;
-    --border: 222 47% 10% / 0.04;
-    --shadow: 0 10px 30px -10px rgba(15, 23, 42, 0.08);
+    /* Warm Stone Premium */
+    --bg-main: 220 20% 91%;
+    --bg-sidebar: 220 20% 96%;
+    --bg-card: 220 20% 98% / 0.8;
+    --bg-user-block: 220 20% 87%;
+    --text-main: 222 35% 18%;
+    --text-muted: 220 20% 38%;
+    --text-bright: 222 40% 8%;
+    --accent: 188 80% 26%;
+    --accent-secondary: 262 60% 38%;
+    --accent-glow: 188 80% 26% / 0.12;
+    --border: 220 20% 60% / 0.4;
+    --shadow: 0 4px 20px -6px rgba(15, 23, 42, 0.12);
     --glass-blur: 24px;
   }
 
@@ -59,6 +65,106 @@
     border: 1px solid hsl(var(--border));
   }
 
+  /* ─── LIGHT MODE: Cards ──────────────────────────────────────── */
+  .light .glass {
+    background: hsl(220 20% 98% / 0.92);
+    border: 1px solid hsl(220 20% 60% / 0.3);
+    box-shadow: 0 2px 12px -4px rgba(15, 23, 42, 0.10);
+  }
+
+  .light .glass-premium {
+    background: linear-gradient(135deg, hsl(220 20% 99% / 0.96) 0%, hsl(220 20% 95% / 0.85) 100%);
+    border: 1px solid hsl(220 20% 60% / 0.28);
+    box-shadow: 0 2px 12px -4px rgba(15, 23, 42, 0.08);
+  }
+
+  /* ─── LIGHT MODE: Text contrast ─────────────────────────────── */
+  .light .text-slate-700 {
+    color: hsl(220 25% 18%) !important;
+  }
+
+  .light .text-slate-600 {
+    color: hsl(220 22% 24%) !important;
+  }
+
+  .light .text-slate-500 {
+    color: hsl(220 18% 32%) !important;
+  }
+
+  .light .text-slate-400 {
+    color: hsl(220 15% 38%) !important;
+  }
+
+  .light .text-slate-300 {
+    color: hsl(220 15% 28%) !important;
+  }
+
+  .light .text-slate-200 {
+    color: hsl(220 25% 16%) !important;
+  }
+
+  /* ─── LIGHT MODE: Accent/colored text ───────────────────────── */
+  .light .text-cyan-400 {
+    color: hsl(188 80% 24%) !important;
+  }
+
+  .light .text-cyan-500 {
+    color: hsl(188 80% 22%) !important;
+  }
+
+  .light .text-blue-400 {
+    color: hsl(214 70% 38%) !important;
+  }
+
+  .light .text-purple-400 {
+    color: hsl(262 55% 40%) !important;
+  }
+
+  .light .text-emerald-400 {
+    color: hsl(158 60% 30%) !important;
+  }
+
+  .light .text-orange-400 {
+    color: hsl(28 75% 38%) !important;
+  }
+
+  .light .text-red-400 {
+    color: hsl(0 70% 38%) !important;
+  }
+
+  .light .text-green-400 {
+    color: hsl(141 60% 28%) !important;
+  }
+
+  .light .text-white {
+    color: hsl(222 35% 12%) !important;
+  }
+
+  /* ─── LIGHT MODE: Backgrounds / Borders ─────────────────────── */
+  .light .bg-white\/5 {
+    background-color: rgba(15, 23, 42, 0.04) !important;
+  }
+
+  .light .bg-white\/10 {
+    background-color: rgba(15, 23, 42, 0.06) !important;
+  }
+
+  .light .bg-black\/20 {
+    background-color: rgba(15, 23, 42, 0.04) !important;
+  }
+
+  .light .bg-black\/40 {
+    background-color: rgba(15, 23, 42, 0.07) !important;
+  }
+
+  .light .border-white\/5 {
+    border-color: rgba(15, 23, 42, 0.10) !important;
+  }
+
+  .light .border-white\/10 {
+    border-color: rgba(15, 23, 42, 0.15) !important;
+  }
+
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))];
   }
@@ -68,9 +174,11 @@
   .custom-scrollbar::-webkit-scrollbar {
     @apply w-1.5 h-1.5;
   }
+
   .custom-scrollbar::-webkit-scrollbar-track {
     background: transparent;
   }
+
   .custom-scrollbar::-webkit-scrollbar-thumb {
     @apply rounded-full bg-gradient-to-b from-[hsl(var(--accent))] to-[#0891B2];
   }

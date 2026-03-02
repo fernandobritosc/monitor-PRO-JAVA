@@ -109,6 +109,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
 
     const questionItems = [
       { id: 'QUESTOES', label: 'Banco de Questões', icon: CheckSquare },
+      { id: 'CADASTRO_QUESTOES', label: 'Gerenciar Banco', icon: PlusCircle },
     ];
 
     // Determine current context
@@ -118,7 +119,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
       'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
     ].includes(activeView);
 
-    const isQuestionModule = ['QUESTOES'].includes(activeView);
+    const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
 
     if (activeView === 'HUB') {
       return [...hubItems, ...questionItems]; // Show Hub + Quick Links to Questões/Ranking
@@ -136,6 +137,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
       return [
         { id: 'HUB', label: 'Voltar ao Lobby', icon: Home },
         ...questionItems,
+        { id: 'PERFORMANCE', label: 'Performance Alpha', icon: Trophy },
         { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
       ];
     }
@@ -161,8 +163,8 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
         <motion.aside
           initial={false}
           animate={{
-            width: isCollapsed ? 80 : 288,
-            x: sidebarOpen || typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -288
+            width: isCollapsed ? 64 : 240,
+            x: sidebarOpen || typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -240
           }}
           transition={{ type: 'spring', stiffness: 300, damping: 24 } as any}
           className={`
@@ -180,31 +182,31 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
             {isCollapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
           </button>
 
-          <div className="p-6 shrink-0 flex items-center justify-between">
-            <div className={`flex items-center gap-3 transition-opacity duration-300 ${isCollapsed ? 'lg:opacity-0' : 'opacity-100'}`}>
-              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] flex items-center justify-center text-xl">
+          <div className="p-3 shrink-0 flex items-center justify-between">
+            <div className={`flex items-center gap-2 transition-opacity duration-300 ${isCollapsed ? 'lg:opacity-0' : 'opacity-100'}`}>
+              <div className="w-7 h-7 rounded-lg bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] flex items-center justify-center text-sm">
                 🎯
               </div>
               <div>
-                <h1 className="text-lg font-black tracking-tighter text-[hsl(var(--text-bright))] leading-none">
+                <h1 className="text-sm font-black tracking-tighter text-[hsl(var(--text-bright))] leading-none">
                   MONITOR<span className="text-[hsl(var(--accent))]">PRO</span>
                 </h1>
-                <p className="text-[8px] font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-muted))] mt-1">SISTEMA INTELIGENTE</p>
+                <p className="text-[7px] font-bold uppercase tracking-[0.2em] text-[hsl(var(--text-muted))] mt-0.5">SISTEMA INTELIGENTE</p>
               </div>
             </div>
           </div>
 
           <motion.div
             layout
-            className={`bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl mx-3 mb-8 shrink-0 transition-all duration-300 ${isCollapsed ? 'p-2' : 'p-4'}`}>
-            <div className={`flex items-center gap-3 ${isCollapsed ? 'justify-center' : ''}`}>
-              <div className="w-10 h-10 rounded-xl bg-[hsl(var(--bg-main))] flex items-center justify-center text-[hsl(var(--accent))] border border-[hsl(var(--border))] shrink-0 shadow-sm">
-                <User size={18} />
+            className={`bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-xl mx-2 mb-4 shrink-0 transition-all duration-300 ${isCollapsed ? 'p-1' : 'p-2'}`}>
+            <div className={`flex items-center gap-2 ${isCollapsed ? 'justify-center' : ''}`}>
+              <div className="w-7 h-7 rounded-lg bg-[hsl(var(--bg-main))] flex items-center justify-center text-[hsl(var(--accent))] border border-[hsl(var(--border))] shrink-0 shadow-sm">
+                <User size={14} />
               </div>
               {!isCollapsed && (
                 <div className="flex-1 min-w-0">
-                  <div className="font-bold text-[hsl(var(--text-bright))] text-[11px] truncate uppercase tracking-tight">{userEmail.split('@')[0]}</div>
-                  <div className="text-[9px] text-[hsl(var(--accent))] uppercase tracking-widest font-bold opacity-70">Perfil Pro</div>
+                  <div className="font-bold text-[hsl(var(--text-bright))] text-[9px] truncate uppercase tracking-tight">{userEmail.split('@')[0]}</div>
+                  <div className="text-[7px] text-[hsl(var(--accent))] uppercase tracking-widest font-bold opacity-70">Perfil Pro</div>
                 </div>
               )}
             </div>
@@ -218,9 +220,9 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
                 <button
                   key={item.id}
                   onClick={() => { setActiveView(item.id as ViewType); setSidebarOpen(false); }}
-                  className={`w-full flex items-center gap-3.5 rounded-xl transition-all duration-300 text-sm group relative overflow-hidden ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'} ${isActive ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))] shadow-[inset_0_0_20px_hsl(var(--accent)/0.05)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))'}`}
+                  className={`w-full flex items-center gap-2 rounded-lg transition-all duration-300 text-[11px] group relative overflow-hidden ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'} ${isActive ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))] shadow-[inset_0_0_20px_hsl(var(--accent)/0.05)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))]'}`}
                 >
-                  <Icon size={18} className={`${isActive ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--accent))]'} transition-colors shrink-0`} />
+                  <Icon size={14} className={`${isActive ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--accent))]'} transition-colors shrink-0`} />
                   {!isCollapsed && (
                     <div className="flex-1 flex justify-between items-center">
                       <span className={`truncate text-left font-bold tracking-tight ${isActive ? 'text-[hsl(var(--text-bright))]' : 'opacity-70 group-hover:opacity-100'}`}>{item.label}</span>
@@ -231,13 +233,13 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
             })}
           </nav>
 
-          <div className="mt-4 shrink-0 space-y-2 pb-6 px-3">
-            <button onClick={toggleTheme} className={`flex items-center gap-3.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:bg-[hsl(var(--bg-user-block))] rounded-xl transition-all text-sm w-full ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'}`}>
-              {theme === 'dark' ? <Sun size={18} /> : <Moon size={18} />}
+          <div className="mt-2 shrink-0 space-y-1 pb-4 px-3">
+            <button onClick={toggleTheme} className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:bg-[hsl(var(--bg-user-block))] rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}>
+              {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
               {!isCollapsed && <span className="font-bold">Modo {theme === 'dark' ? 'Claro' : 'Escuro'}</span>}
             </button>
-            <button onClick={onLogout} className={`flex items-center gap-3.5 text-[hsl(var(--text-muted))] hover:text-red-400 hover:bg-red-500/5 rounded-xl transition-all text-sm w-full ${isCollapsed ? 'justify-center p-3' : 'px-4 py-3'}`}>
-              <LogOut size={18} />
+            <button onClick={onLogout} className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}>
+              <LogOut size={14} />
               {!isCollapsed && <span className="font-bold">Sair do App</span>}
             </button>
           </div>
@@ -263,26 +265,36 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
         </header>
 
         {/* Content Area */}
-        <div className="flex-1 max-w-screen-2xl mx-auto w-full p-4 lg:p-10 pb-28 relative">
+        <div className={`flex-1 max-w-screen-2xl mx-auto w-full pb-28 relative transition-all duration-300 ${(['QUESTOES', 'PERFORMANCE', 'CADASTRO_QUESTOES'].includes(activeView)) ? 'p-2 lg:p-4' : 'p-4 lg:p-10'}`}>
 
-          {/* View Title Section */}
-          <header className="mb-12 animate-in fade-in slide-in-from-top-4 duration-700">
-            <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-              <div>
-                {activeView === 'HUB' ? null : (
-                  <h2 className="text-3xl lg:text-5xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-[0.9] mb-4">
-                    {missaoAtiva || 'Selecione uma Missão'}
-                  </h2>
-                )}
-                <div className="flex items-center gap-3">
-                  <div className="h-1 w-16 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full" />
-                  <p className="text-[hsl(var(--text-muted))] font-bold uppercase tracking-[0.2em] text-[10px] lg:text-xs">
-                    {activeView.replace('_', ' ')} <span className="mx-2 opacity-20">|</span> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
-                  </p>
+          {(() => {
+            const isStudyModule = [
+              'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
+              'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
+              'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
+            ].includes(activeView);
+            const isQuestionModule = ['QUESTOES'].includes(activeView);
+
+            return (
+              <header className={`mb-4 animate-in fade-in slide-in-from-top-4 duration-700 ${isQuestionModule || activeView === 'PERFORMANCE' ? 'mb-2' : 'mb-6'}`}>
+                <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
+                  <div className="flex items-center gap-3">
+                    {activeView === 'HUB' ? null : (
+                      <h2 className={`font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none ${isQuestionModule || activeView === 'PERFORMANCE' ? 'text-sm lg:text-base' : 'text-xl lg:text-2xl'}`}>
+                        {missaoAtiva || 'Selecione uma Missão'}
+                      </h2>
+                    )}
+                    <div className="flex items-center gap-2">
+                      <div className="h-0.5 w-6 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full opacity-50" />
+                      <p className="text-[hsl(var(--text-muted))] font-bold uppercase tracking-[0.2em] text-[7px] lg:text-[8px]">
+                        {activeView.replace('_', ' ')} <span className="mx-1.5 opacity-20">|</span> {new Date().toLocaleDateString('pt-BR', { day: '2-digit', month: 'long', year: 'numeric' })}
+                      </p>
+                    </div>
+                  </div>
                 </div>
-              </div>
-            </div>
-          </header>
+              </header>
+            );
+          })()}
 
           {/* Children Content with Framer Motion Transition */}
           <AnimatePresence mode="wait">
