@@ -89,22 +89,22 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
   const getMenuItems = (): MenuItem[] => {
     // Basic items always present
     const hubItems = [
-      { id: 'HUB', label: 'Lobby de Módulos', icon: Home },
+      { id: 'HUB', label: 'Início', icon: Home },
       { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
     ];
 
     const studyItems = [
       { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
       { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
+      { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
       { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
       { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
-      { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       { id: 'SIMULADOS', label: 'Simulados', icon: Target },
-      { id: 'FLASHCARDS', label: 'Mega Flashcards', icon: Zap },
       { id: 'DISCURSIVA', label: 'IA Discursiva', icon: FileText, isNew: true },
       { id: 'GABARITO_IA', label: 'Gabarito IA', icon: Sparkles },
-      { id: 'ANALISE_ERROS', label: 'Lab. Performance', icon: Activity },
+      { id: 'ANALISE_ERROS', label: 'Analise de Performace', icon: Activity },
       { id: 'RELATORIOS', label: 'Relatórios Pro', icon: TrendingUp },
+      { id: 'HISTORICO', label: 'Histórico', icon: Activity },
     ];
 
     const questionItems = [
@@ -122,12 +122,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
     const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
 
     if (activeView === 'HUB') {
-      return [...hubItems, ...questionItems]; // Show Hub + Quick Links to Questões/Ranking
+      return [...hubItems, ...questionItems]; // Show Hub + Quick Links to Questões
     }
 
     if (isStudyModule) {
       return [
-        { id: 'HUB', label: 'Voltar ao Lobby', icon: Home },
+        { id: 'HUB', label: 'Voltar ao Início', icon: Home },
         ...studyItems,
         { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
       ];
@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
 
     if (isQuestionModule) {
       return [
-        { id: 'HUB', label: 'Voltar ao Lobby', icon: Home },
+        { id: 'HUB', label: 'Voltar ao Início', icon: Home },
         ...questionItems,
         { id: 'PERFORMANCE', label: 'Performance Alpha', icon: Trophy },
         { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },

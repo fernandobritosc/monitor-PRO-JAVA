@@ -398,9 +398,14 @@ export const generateAIContent = async (
     Estrutura: # DEFINIÇÃO, # PONTOS CHAVE, # PEGADINHAS DE PROVA. 
     REGRAS: 1. PROIBIDO negrito (**). 2. Use Títulos (#) para seções.`;
   } else if (context === 'analise_erros') {
+    const stats = statsToAnalyze as any;
+    const additionalContext = (stats.gabarito && stats.minha_resposta)
+      ? `\nCONTEXTO DO ERRO:\n- Gabarito Oficial: ${stats.gabarito}\n- Resposta do Aluno: ${stats.minha_resposta}\n`
+      : "";
+
     finalPrompt = `Atue como um Analista de Performance (Metodologia FGV).
     Analise o material e os erros para classificar a CAUSA REAL de cada falha.
-
+    ${additionalContext}
     REGRAS DE OURO:
     1. ENUNCIADO INTEGRAL: O campo "enunciado_completo" deve ser a cópia EXATA do texto original (Enunciado + Alternativas).
     2. FOCO NO NOVO: Ignore metadados anteriores.

@@ -8,8 +8,25 @@ export default {
         "./App.tsx",
         "./index.tsx",
     ],
+    darkMode: 'class',
     theme: {
         extend: {
+            colors: {
+                background: 'hsl(var(--background))',
+                foreground: 'hsl(var(--foreground))',
+                card: 'hsl(var(--card))',
+                'user-block': 'hsl(var(--user-block))',
+                muted: {
+                    DEFAULT: 'hsl(var(--muted))',
+                    foreground: 'hsl(var(--muted-foreground))',
+                },
+                accent: {
+                    DEFAULT: 'hsl(var(--accent))',
+                    secondary: 'hsl(var(--accent-secondary))',
+                    glow: 'hsla(var(--accent-glow))',
+                },
+                border: 'hsla(var(--border))',
+            },
             animation: {
                 'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
             },

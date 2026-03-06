@@ -1,7 +1,8 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import { StudyRecord, ErrorAnalysis } from '../types';
-import { Zap, Target, BookOpen, List, Filter, Download, Search, AlertTriangle, CheckCircle2, FileText, ChevronDown, ChevronRight, Brain, Sparkles, Loader2, Activity } from 'lucide-react';
-import { getGeminiKey, getGroqKey } from '../services/supabase';
+import { Zap, Target, BookOpen, List, Filter, Download, Search, AlertTriangle, CheckCircle2, FileText, ChevronDown, ChevronRight, Brain, Sparkles, Loader2, Activity, Info, X, Check } from 'lucide-react';
+import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent } from '../services/aiService';
 import { CustomSelector } from '../components/CustomSelector';
 
@@ -9,6 +10,296 @@ interface ErrorAnalysisViewProps {
     records: StudyRecord[];
     missaoAtiva: string;
 }
+
+const PerformanceHeatmap: React.FC<{ records: StudyRecord[], missaoAtiva: string, onSelectAssunto?: (materia: string, assunto: string) => void }> = ({ records, missaoAtiva, onSelectAssunto }) => {
+    const data = useMemo(() => {
+        const heatmap: Record<string, Record<string, { total: number, errors: number, hits: number }>> = {};
+
+        records
+            .filter(r => r.concurso === missaoAtiva && r.total > 0)
+            .forEach(r => {
+                if (!heatmap[r.materia]) heatmap[r.materia] = {};
+                if (!heatmap[r.materia][r.assunto]) {
+                    heatmap[r.materia][r.assunto] = { total: 0, errors: 0, hits: 0 };
+                }
+                const current = heatmap[r.materia][r.assunto];
+                current.total += r.total;
+                current.hits += r.acertos;
+                // Filtrar apenas erros que não foram resolvidos ainda
+                const unresolvedErrors = r.analise_erros?.filter(e => !e.resolved).length || (r.total - r.acertos);
+                current.errors += unresolvedErrors;
+            });
+
+        return heatmap;
+    }, [records, missaoAtiva]);
+    // ... (rest of the component remains similar, just adding onSelectAssunto)
+
+    const getIntensityColor = (errors: number, total: number) => {
+        const rate = errors / total;
+        if (errors === 0) return 'bg-white/5 border-white/5 opacity-40';
+        if (rate > 0.6 || errors > 20) return 'bg-red-500/30 border-red-500/50 shadow-[0_0_15px_-5px_red]';
+        if (rate > 0.4 || errors > 10) return 'bg-orange-500/30 border-orange-500/50 shadow-[0_0_15px_-5px_orange]';
+        if (rate > 0.2 || errors > 5) return 'bg-yellow-500/20 border-yellow-500/40';
+        return 'bg-blue-500/10 border-blue-500/20';
+    };
+
+    const getTextColor = (errors: number, total: number) => {
+        const rate = errors / total;
+        if (errors === 0) return 'text-slate-500';
+        if (rate > 0.6 || errors > 20) return 'text-red-400';
+        if (rate > 0.4 || errors > 10) return 'text-orange-400';
+        if (rate > 0.2 || errors > 5) return 'text-yellow-400';
+        return 'text-blue-400';
+    };
+
+    if (Object.keys(data).length === 0) return null;
+
+    return (
+        <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-8 overflow-hidden relative group">
+            <div className="absolute top-0 right-0 p-8 opacity-5 pointer-events-none group-hover:opacity-10 transition-opacity">
+                <Activity size={120} className="text-[hsl(var(--accent))]" />
+            </div>
+
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4 relative z-10">
+                <div>
+                    <h3 className="text-sm font-black text-white uppercase tracking-[0.2em] flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
+                        Mapa de Calor de Fragilidades
+                    </h3>
+                    <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1 ml-5">
+                        Identificação instantânea de gargalos por tópicos
+                    </p>
+                </div>
+                <div className="flex items-center gap-4 px-4 py-2 bg-white/5 rounded-full border border-white/5">
+                    <div className="flex items-center gap-2 text-[8px] font-bold text-slate-400 uppercase"><div className="w-2 h-2 rounded bg-blue-500/20 border border-blue-500/30" /> Estável</div>
+                    <div className="flex items-center gap-2 text-[8px] font-bold text-slate-400 uppercase"><div className="w-2 h-2 rounded bg-yellow-500/20 border border-yellow-500/30" /> Alerta</div>
+                    <div className="flex items-center gap-2 text-[8px] font-bold text-slate-400 uppercase"><div className="w-2 h-2 rounded bg-red-500/30 border border-red-500/30" /> Crítico</div>
+                </div>
+            </div>
+
+            <div className="space-y-10 relative z-10">
+                {Object.entries(data).map(([materia, assuntos]) => (
+                    <div key={materia} className="space-y-4">
+                        <h4 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.3em] px-1 border-l-2 border-[hsl(var(--accent))] ml-1">
+                            {materia}
+                        </h4>
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                            {Object.entries(assuntos).map(([assunto, stats]) => (
+                                <motion.div
+                                    key={assunto}
+                                    initial={{ opacity: 0, scale: 0.9 }}
+                                    animate={{ opacity: 1, scale: 1 }}
+                                    whileHover={{ scale: 1.05, y: -2 }}
+                                    onClick={() => onSelectAssunto?.(materia, assunto)}
+                                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative group/item ${getIntensityColor(stats.errors, stats.total)}`}
+                                >
+                                    <div className="space-y-2">
+                                        <div className="flex justify-between items-start gap-2">
+                                            <span className="text-[9px] font-black text-white leading-tight uppercase line-clamp-2">
+                                                {assunto}
+                                            </span>
+                                            <Info size={10} className="text-white/20 shrink-0" />
+                                        </div>
+                                        <div className="flex items-end justify-between gap-1">
+                                            <div className={`text-lg font-black tracking-tighter ${getTextColor(stats.errors, stats.total)}`}>
+                                                {Math.round((stats.hits / stats.total) * 100)}%
+                                            </div>
+                                            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mb-1">
+                                                {stats.errors} erros
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {/* Tooltip on Hover */}
+                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-2xl opacity-0 group-hover/item:opacity-100 transition-opacity z-20 p-2 text-center pointer-events-none">
+                                        <p className="text-[9px] font-black text-white uppercase tracking-tighter">
+                                            {stats.hits} Acertos / {stats.total} Total
+                                        </p>
+                                        <p className="text-[7px] font-bold text-[hsl(var(--accent))] uppercase mt-1">Clique para Recuperar</p>
+                                    </div>
+                                </motion.div>
+                            ))}
+                        </div>
+                    </div>
+                ))}
+            </div>
+        </div>
+    );
+};
+
+
+const RecoveryMode: React.FC<{
+    errors: (ErrorAnalysis & { recordId: string; materia: string; assunto: string; id: string })[];
+    onClose: () => void;
+    onUpdateError: (recordId: string, errorId: string, resolved: boolean) => Promise<void>;
+}> = ({ errors, onClose, onUpdateError }) => {
+    const [currentIndex, setCurrentIndex] = useState(0);
+    const [userAnswer, setUserAnswer] = useState('');
+    const [showResult, setShowResult] = useState<'correct' | 'wrong' | null>(null);
+    const [isUpdating, setIsUpdating] = useState(false);
+
+    const currentError = errors[currentIndex];
+
+    const parsedContent = useMemo(() => {
+        const text = currentError?.enunciado_completo || currentError?.questao_preview || '';
+
+        // Dividir pelo espaço seguido por uma letra de A-E e um separador (. ou ) ou espaço)
+        // Usamos lookahead assertivo para não consumir a letra no split
+        const parts = text.split(/\s(?=[A-E][\.\s\)])/);
+
+        if (parts.length <= 1) return { statement: text, alternatives: [] };
+
+        return {
+            statement: parts[0].trim(),
+            alternatives: parts.slice(1).map(a => a.trim()).filter(Boolean)
+        };
+    }, [currentError]);
+
+    if (!currentError) return null;
+
+    const handleAnswer = async () => {
+        if (!userAnswer.trim() || isUpdating) return;
+
+        const isCorrect = userAnswer.trim().toLowerCase() === (currentError.gabarito as string).trim().toLowerCase();
+        setIsUpdating(true);
+
+        if (isCorrect) {
+            setShowResult('correct');
+            await onUpdateError(currentError.recordId, currentError.id, true);
+        } else {
+            setShowResult('wrong');
+            await onUpdateError(currentError.recordId, currentError.id, false);
+        }
+
+        setIsUpdating(false);
+    };
+
+    const nextQuestion = () => {
+        setShowResult(null);
+        setUserAnswer('');
+        if (currentIndex < errors.length - 1) {
+            setCurrentIndex(prev => prev + 1);
+        } else {
+            onClose();
+        }
+    };
+
+    return (
+        <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            className="fixed inset-0 z-[100] bg-background/90 backdrop-blur-xl flex items-center justify-center p-4 md:p-8"
+        >
+            <div className="w-full max-w-3xl relative">
+                <button
+                    onClick={onClose}
+                    className="absolute -top-12 right-0 p-2 text-slate-400 hover:text-white transition-colors"
+                >
+                    <X size={24} />
+                </button>
+
+                <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6 shadow-2xl bg-black/40 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center justify-between sticky top-0 bg-transparent backdrop-blur-sm z-10 pb-4 border-b border-white/5">
+                        <div className="space-y-1">
+                            <h3 className="text-xs font-black text-[hsl(var(--accent))] uppercase tracking-widest">
+                                {currentError.materia}
+                            </h3>
+                            <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest leading-none">
+                                {currentError.assunto}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-3">
+                            {currentError.failed_attempts && currentError.failed_attempts > 0 && (
+                                <div className="text-[10px] font-black text-red-400 uppercase tracking-tighter bg-red-500/10 px-3 py-1 rounded-full border border-red-500/20 animate-pulse">
+                                    {currentError.failed_attempts}x ❌
+                                </div>
+                            )}
+                            <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter bg-white/5 px-3 py-1 rounded-full">
+                                Questão {currentIndex + 1} de {errors.length}
+                            </div>
+                        </div>
+                    </div>
+
+                    <div className="space-y-6">
+                        <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
+                            <p className="text-sm font-medium text-slate-200 leading-relaxed italic">
+                                {parsedContent.statement}
+                            </p>
+                        </div>
+
+                        {parsedContent.alternatives.length > 0 && (
+                            <div className="grid grid-cols-1 gap-3">
+                                {parsedContent.alternatives.map((alt, idx) => (
+                                    <div key={idx} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs font-medium text-slate-400 leading-snug">
+                                        {alt}
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+
+                    {!showResult ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-4">Sua Resposta (Gabarito)</label>
+                                <input
+                                    autoFocus
+                                    type="text"
+                                    placeholder="Digite a alternativa ou resposta..."
+                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] outline-none transition-all placeholder:opacity-20"
+                                    value={userAnswer}
+                                    onChange={e => setUserAnswer(e.target.value)}
+                                    onKeyDown={e => e.key === 'Enter' && handleAnswer()}
+                                />
+                            </div>
+                            <button
+                                onClick={handleAnswer}
+                                disabled={!userAnswer.trim() || isUpdating}
+                                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent))] brightness-90 hover:brightness-110 text-black font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 group"
+                            >
+                                {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                                Confirmar Resposta
+                            </button>
+                        </div>
+                    ) : (
+                        <motion.div
+                            initial={{ opacity: 0, y: 10 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            className={`p-6 rounded-3xl border ${showResult === 'correct' ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20'} space-y-4`}
+                        >
+                            <div className="flex items-center gap-3">
+                                {showResult === 'correct' ? (
+                                    <div className="w-10 h-10 rounded-full bg-emerald-500 flex items-center justify-center text-black">
+                                        <Check size={20} className="stroke-[3]" />
+                                    </div>
+                                ) : (
+                                    <div className="w-10 h-10 rounded-full bg-red-500 flex items-center justify-center text-black">
+                                        <X size={20} className="stroke-[3]" />
+                                    </div>
+                                )}
+                                <div>
+                                    <h4 className={`text-sm font-black uppercase tracking-tight ${showResult === 'correct' ? 'text-emerald-400' : 'text-red-400'}`}>
+                                        {showResult === 'correct' ? 'Eliminado!' : 'Tente Novamente'}
+                                    </h4>
+                                    <p className="text-[10px] font-bold text-slate-500 uppercase">
+                                        Gabarito: <span className="text-white">{currentError.gabarito}</span>
+                                    </p>
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={nextQuestion}
+                                className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest transition-all"
+                            >
+                                {currentIndex < errors.length - 1 ? 'Próxima Questão' : 'Concluir Recuperação'}
+                            </button>
+                        </motion.div>
+                    )}
+                </div>
+            </div>
+        </motion.div>
+    );
+};
 
 export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, missaoAtiva }) => {
     // States para Filtros
@@ -18,27 +309,91 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
     const [searchTerm, setSearchTerm] = useState('');
     const [macroDiagnosis, setMacroDiagnosis] = useState<string | null>(null);
     const [isSynthesizing, setIsSynthesizing] = useState(false);
+    const [selectedRecovery, setSelectedRecovery] = useState<{ materia: string; assunto: string } | null>(null);
 
     // Extrair todos os erros qualitativos dos registros da missão ativa
     const allErrors = useMemo(() => {
-        const errors: (ErrorAnalysis & { materia: string; assunto: string; meta?: string | number | null; data: string })[] = [];
+        const errors: (ErrorAnalysis & { recordId: string; materia: string; assunto: string; meta?: string | number | null; data: string; id: string })[] = [];
         records
             .filter(r => r.concurso === missaoAtiva && r.analise_erros && r.analise_erros.length > 0)
             .forEach(r => {
                 r.analise_erros?.forEach(err => {
+                    const fallbackId = `${r.id}-${err.questao_preview.substring(0, 15).replace(/\s+/g, '')}`;
                     errors.push({
                         ...err,
+                        id: err.id || fallbackId,
+                        recordId: r.id,
                         materia: r.materia,
                         assunto: r.assunto,
                         meta: r.meta,
                         data: r.data_estudo,
                         sugestao_mentor: (err as any).sugestao_mentor,
-                        enunciado_completo: err.enunciado_completo // Garante o mapeamento do campo novo
+                        failed_attempts: err.failed_attempts ? Number(err.failed_attempts) : 0,
+                        resolved: !!err.resolved
                     });
                 });
             });
         return errors.sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
     }, [records, missaoAtiva]);
+
+    const [overrides, setOverrides] = useState<Record<string, { resolved?: boolean; failed_attempts?: number }>>({});
+
+    // Erros consolidados com os overrides da sessão
+    const localErrors = useMemo(() => {
+        return allErrors.map(err => {
+            const override = overrides[err.id];
+            if (!override) return err;
+            return {
+                ...err,
+                resolved: override.resolved !== undefined ? override.resolved : err.resolved,
+                failed_attempts: override.failed_attempts !== undefined ? override.failed_attempts : err.failed_attempts
+            };
+        });
+    }, [allErrors, overrides]);
+
+    const handleUpdateError = async (recordId: string, errorId: string, resolved: boolean) => {
+        console.log(`[Recovery] Atualizando Erro - ID: ${errorId}, Resolvido: ${resolved}`);
+        try {
+            // Atualização Otimista via Overrides
+            const currentErr = localErrors.find(e => e.id === errorId);
+            const currentAttempts = Number(currentErr?.failed_attempts || 0);
+            const newAttempts = !resolved ? currentAttempts + 1 : currentAttempts;
+
+            setOverrides(prev => ({
+                ...prev,
+                [errorId]: { resolved, failed_attempts: newAttempts }
+            }));
+
+            console.log(`[Recovery] Override aplicado: ID ${errorId} -> Tentativas: ${newAttempts}`);
+
+            const record = records.find(r => r.id === recordId);
+            if (!record || !record.analise_erros) return;
+
+            const updatedAnalise = record.analise_erros.map(err => {
+                const currentId = err.id || `${recordId}-${err.questao_preview.substring(0, 15).replace(/\s+/g, '')}`;
+                if (currentId === errorId) {
+                    const newAttempts = !resolved ? (Number(err.failed_attempts) || 0) + 1 : Number(err.failed_attempts);
+                    return {
+                        ...err,
+                        id: currentId, // PERSISTE O ID NO BANCO
+                        resolved: resolved,
+                        failed_attempts: newAttempts
+                    };
+                }
+                return err;
+            });
+
+            const { error } = await supabase
+                .from('study_records')
+                .update({ analise_erros: updatedAnalise })
+                .eq('id', recordId);
+
+            if (error) throw error;
+            console.log(`[Recovery] Banco de dados atualizado com sucesso para o ID ${errorId}`);
+        } catch (err) {
+            console.error("[Recovery] Erro ao atualizar status do erro:", err);
+        }
+    };
 
     // Opções de Filtro Únicas
     const materiaOptions = useMemo(() => Array.from(new Set(allErrors.map(e => e.materia))).sort(), [allErrors]);
@@ -184,13 +539,13 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             if (y + needed > pageHeight - 20) {
                 drawFooter();
                 doc.addPage();
-                y = drawHeader(isMentor ? "PARECER DO MENTOR" : "RELATÓRIO DE EVOLUÇÃO NEURAL", `Missão: ${missaoAtiva}`);
+                y = drawHeader(isMentor ? "PARECER DO MENTOR" : "RELATÓRIO DE MAPEAMENTO DE ERROS", `Missão: ${missaoAtiva}`);
                 return true;
             }
             return false;
         };
 
-        y = drawHeader(isMentor ? "PARECER DO MENTOR" : "RELATÓRIO DE EVOLUÇÃO NEURAL", `Missão: ${missaoAtiva}`);
+        y = drawHeader(isMentor ? "PARECER DO MENTOR" : "RELATÓRIO DE MAPEAMENTO DE ERROS", `Missão: ${missaoAtiva}`);
 
         // Macro Diagnosis Section
         if (macroDiagnosis) {
@@ -297,8 +652,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                     doc.text(`Meta: ${err.meta || 'N/A'} | Registro: ${new Date(err.data).toLocaleDateString()}`, margin, y);
                     y += 8;
 
-                    // Enunciado na íntegra
-                    doc.setTextColor(30, 41, 59);
+                    doc.setTextColor(0, 0, 0);
                     doc.setFont("helvetica", "normal");
                     doc.setFontSize(9);
                     const enunciado = err.enunciado_completo || `"${err.questao_preview}..."`;
@@ -306,6 +660,9 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
 
                     enunciadoLines.forEach((line: string) => {
                         checkPageBreak(6);
+                        doc.setTextColor(0, 0, 0); // Garante preto nítido após quebra de página
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(9);
                         doc.text(line, margin, y);
                         y += 4.5;
                     });
@@ -318,14 +675,20 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                         doc.setFontSize(8);
                         doc.text(label, margin, y);
 
-                        doc.setTextColor(15, 23, 42);
-                        doc.setFont("helvetica", "normal");
-                        doc.setFontSize(9);
-                        const valLines = doc.splitTextToSize(cleanText(value), contentWidth - 25);
+                        const valLines = doc.splitTextToSize(cleanText(String(value)), contentWidth - 35);
 
                         valLines.forEach((line: string, i: number) => {
-                            checkPageBreak(6);
-                            doc.text(line, margin + 22, y);
+                            if (checkPageBreak(6)) {
+                                // Re-seta estilo após quebra para evitar texto invisível/faded
+                                doc.setTextColor(30, 41, 59);
+                                doc.setFont("helvetica", "normal");
+                                doc.setFontSize(9);
+                            } else {
+                                doc.setTextColor(30, 41, 59);
+                                doc.setFont("helvetica", "normal");
+                                doc.setFontSize(9);
+                            }
+                            doc.text(line, margin + 35, y); // Offset aumentado para evitar sobreposição
                             if (i < valLines.length - 1) y += 4.5;
                         });
                         y += 7;
@@ -333,6 +696,14 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
 
                     drawDetailField("GATILHO:", err.gatilho, [180, 83, 9]); // Dark yellow
                     drawDetailField("AÇÃO:", err.sugestao, [22, 101, 52]); // Dark green
+
+                    if (err.gabarito) {
+                        drawDetailField("GABARITO OFICIAL:", err.gabarito, [22, 101, 52]); // Green
+                    }
+
+                    if (err.minha_resposta) {
+                        drawDetailField("MINHA RESPOSTA:", err.minha_resposta, [107, 33, 168]); // Purple
+                    }
 
                     if (err.sugestao_mentor) {
                         drawDetailField("MENTOR:", err.sugestao_mentor, [107, 33, 168]); // Purple
@@ -355,11 +726,8 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                         <div className="p-3 bg-cyan-500/10 rounded-2xl border border-cyan-500/20">
                             <Activity className="text-cyan-400" size={28} />
                         </div>
-                        Laboratório de Performance Neural
-                    </h2>
-                    <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.3em] mt-3 ml-1">
                         Diagnóstico Estratégico de Alta Performance
-                    </p>
+                    </h2>
                 </div>
 
                 <div className="flex flex-col md:flex-row gap-3">
@@ -387,6 +755,22 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                     </button>
                 </div>
             </div>
+
+            <PerformanceHeatmap
+                records={records}
+                missaoAtiva={missaoAtiva}
+                onSelectAssunto={(materia, assunto) => setSelectedRecovery({ materia, assunto })}
+            />
+
+            <AnimatePresence>
+                {selectedRecovery && (
+                    <RecoveryMode
+                        errors={localErrors.filter(e => e.materia === selectedRecovery.materia && e.assunto === selectedRecovery.assunto)}
+                        onClose={() => setSelectedRecovery(null)}
+                        onUpdateError={handleUpdateError}
+                    />
+                )}
+            </AnimatePresence>
 
             {transversalAnalysis && (
                 <div className="space-y-6">
@@ -497,72 +881,89 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             </div>
 
             <div className="space-y-4">
-                {filteredErrors.length === 0 ? (
+                {localErrors.length === 0 ? (
                     <div className="text-center py-20 opacity-30 text-xs font-black uppercase tracking-widest">
                         Nenhum registro de erro encontrado.
                     </div>
                 ) : (
-                    filteredErrors.map((err, idx) => (
-                        <div key={idx} className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] group hover:border-[hsl(var(--accent)/0.3)] transition-all relative overflow-hidden">
-                            <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
-                                err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
-                                }`} />
+                    localErrors
+                        .filter(err => {
+                            if (err.resolved) return false; // HIDE RESOLVED ERRORS AS COMBINED
+                            const matchMateria = !filterMateria || err.materia === filterMateria;
+                            const matchAssunto = !filterAssunto || err.assunto === filterAssunto;
+                            const matchMeta = !filterMeta || String(err.meta) === filterMeta;
+                            const matchSearch = !searchTerm ||
+                                err.questao_preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                err.gatilho.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                err.assunto.toLowerCase().includes(searchTerm.toLowerCase());
+                            return matchMateria && matchAssunto && matchMeta && matchSearch;
+                        })
+                        .map((err) => (
+                            <div key={err.id} className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] group hover:border-[hsl(var(--accent)/0.3)] transition-all relative overflow-hidden">
+                                <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
+                                    err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
+                                    }`} />
 
-                            <div className="flex flex-col md:flex-row justify-between gap-6">
-                                <div className="space-y-4 flex-1">
-                                    <div className="flex items-center gap-3">
-                                        <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
-                                            err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
-                                            }`}>
-                                            {err.tipo_erro}
-                                        </span>
-                                        <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest">
-                                            {err.materia} • {err.assunto}
-                                        </span>
-                                        {err.meta && (
-                                            <span className="bg-white/5 text-white/40 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter">
-                                                {err.meta}
+                                <div className="flex flex-col md:flex-row justify-between gap-6">
+                                    <div className="space-y-4 flex-1">
+                                        <div className="flex flex-wrap items-center gap-3">
+                                            <span className={`px-4 py-1.5 rounded-full text-[9px] font-black uppercase tracking-widest shrink-0 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
+                                                err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
+                                                }`}>
+                                                {err.tipo_erro}
                                             </span>
-                                        )}
-                                    </div>
-
-                                    <h5 className="text-sm font-bold text-white leading-relaxed italic opacity-80 whitespace-pre-wrap">
-                                        {err.enunciado_completo ? err.enunciado_completo : `"${err.questao_preview}..."`}
-                                    </h5>
-
-                                    <div className="space-y-2">
-                                        <p className="text-[9px] font-black text-yellow-500/50 uppercase tracking-widest">Gatilho do Erro</p>
-                                        <p className="text-xs text-white font-medium leading-relaxed">{err.gatilho}</p>
-                                    </div>
-                                    <div className="space-y-4">
-                                        <div className="space-y-1">
-                                            <p className="text-[9px] font-black text-green-500/50 uppercase tracking-widest">Ação Corretiva Aluno</p>
-                                            <p className="text-xs text-green-400 font-bold leading-relaxed">{err.sugestao}</p>
+                                            {err.failed_attempts !== undefined && Number(err.failed_attempts) > 0 && (
+                                                <span className="bg-red-500/30 text-red-100 px-3 py-1 rounded-full text-[11px] font-black border border-red-500/40 shadow-[0_0_15px_-3px_rgba(239,68,68,0.6)] animate-pulse flex items-center gap-1 shrink-0">
+                                                    <X size={10} className="stroke-[4]" /> {err.failed_attempts}x Errado
+                                                </span>
+                                            )}
+                                            <span className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest truncate max-w-[300px] md:max-w-none">
+                                                {err.materia} • {err.assunto}
+                                            </span>
+                                            {err.meta && (
+                                                <span className="bg-white/5 text-white/40 px-3 py-1 rounded-lg text-[9px] font-black uppercase tracking-tighter shrink-0">
+                                                    {err.meta}
+                                                </span>
+                                            )}
                                         </div>
-                                        {err.sugestao_mentor && (
-                                            <div className="pt-3 border-t border-white/5 space-y-1">
-                                                <p className="text-[9px] font-black text-purple-500/50 uppercase tracking-widest flex items-center gap-2">
-                                                    <Target size={10} /> Visão do Mentor
-                                                </p>
-                                                <p className="text-[11px] text-purple-300 font-black italic leading-tight">
-                                                    {err.sugestao_mentor}
-                                                </p>
-                                            </div>
-                                        )}
-                                    </div>
-                                </div>
 
-                                <div className="flex md:flex-col justify-between items-end md:items-end text-right">
-                                    <div className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">
-                                        {new Date(err.data).toLocaleDateString()}
+                                        <h5 className="text-sm font-bold text-white leading-relaxed italic opacity-80 whitespace-pre-wrap">
+                                            {err.enunciado_completo ? err.enunciado_completo : `"${err.questao_preview}..."`}
+                                        </h5>
+
+                                        <div className="space-y-2">
+                                            <p className="text-[9px] font-black text-yellow-500/50 uppercase tracking-widest">Gatilho do Erro</p>
+                                            <p className="text-xs text-white font-medium leading-relaxed">{err.gatilho}</p>
+                                        </div>
+                                        <div className="space-y-4">
+                                            <div className="space-y-1">
+                                                <p className="text-[9px] font-black text-green-500/50 uppercase tracking-widest">Ação Corretiva Aluno</p>
+                                                <p className="text-xs text-green-400 font-bold leading-relaxed">{err.sugestao}</p>
+                                            </div>
+                                            {err.sugestao_mentor && (
+                                                <div className="pt-3 border-t border-white/5 space-y-1">
+                                                    <p className="text-[9px] font-black text-purple-500/50 uppercase tracking-widest flex items-center gap-2">
+                                                        <Target size={10} /> Visão do Mentor
+                                                    </p>
+                                                    <p className="text-[11px] text-purple-300 font-black italic leading-tight">
+                                                        {err.sugestao_mentor}
+                                                    </p>
+                                                </div>
+                                            )}
+                                        </div>
                                     </div>
-                                    <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[hsl(var(--accent)/0.1)] transition-all">
-                                        <ChevronRight size={16} className="text-white/20 group-hover:text-[hsl(var(--accent))]" />
+
+                                    <div className="flex md:flex-col justify-between items-end md:items-end text-right">
+                                        <div className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">
+                                            {new Date(err.data).toLocaleDateString()}
+                                        </div>
+                                        <div className="w-10 h-10 rounded-full bg-white/5 flex items-center justify-center group-hover:bg-[hsl(var(--accent)/0.1)] transition-all">
+                                            <ChevronRight size={16} className="text-white/20 group-hover:text-[hsl(var(--accent))]" />
+                                        </div>
                                     </div>
                                 </div>
                             </div>
-                        </div>
-                    ))
+                        ))
                 )}
             </div>
         </div>

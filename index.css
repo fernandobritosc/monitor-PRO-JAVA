@@ -10,24 +10,7 @@
   }
 
   :root {
-    /* Deep Ocean Premium (Dark) */
-    --bg-main: 222 47% 4%;
-    --bg-sidebar: 222 47% 2%;
-    --bg-card: 222 47% 8% / 0.6;
-    --bg-user-block: 217 33% 17% / 0.4;
-    --text-main: 215 20% 65%;
-    --text-muted: 215 16% 47%;
-    --text-bright: 210 40% 98%;
-    --accent: 188 86% 53%;
-    --accent-secondary: 262 83% 58%;
-    --accent-glow: 188 86% 53% / 0.15;
-    --border: 188 86% 53% / 0.1;
-    --shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
-    --glass-blur: 16px;
-  }
-
-  .light {
-    /* Warm Stone Premium */
+    /* Warm Stone Premium (Light Mode Default) */
     --bg-main: 220 20% 91%;
     --bg-sidebar: 220 20% 96%;
     --bg-card: 220 20% 98% / 0.8;
@@ -41,6 +24,31 @@
     --border: 220 20% 60% / 0.4;
     --shadow: 0 4px 20px -6px rgba(15, 23, 42, 0.12);
     --glass-blur: 24px;
+    --background: 220 20% 91%;
+    --foreground: 222 35% 18%;
+    --muted: 220 20% 96%;
+    --muted-foreground: 220 20% 38%;
+  }
+
+  .dark {
+    /* Deep Ocean Premium (Dark Mode) */
+    --bg-main: 222 47% 4%;
+    --bg-sidebar: 222 47% 2%;
+    --bg-card: 222 47% 8% / 0.6;
+    --bg-user-block: 217 33% 17% / 0.4;
+    --text-main: 215 20% 65%;
+    --text-muted: 215 16% 47%;
+    --text-bright: 210 40% 98%;
+    --accent: 188 86% 53%;
+    --accent-secondary: 262 83% 58%;
+    --accent-glow: 188 86% 53% / 0.15;
+    --border: 188 86% 53% / 0.1;
+    --shadow: 0 10px 40px -10px rgba(0, 0, 0, 0.5);
+    --glass-blur: 16px;
+    --background: 222 47% 4%;
+    --foreground: 215 20% 65%;
+    --muted: 222 47% 2%;
+    --muted-foreground: 215 16% 47%;
   }
 
   body {
@@ -52,118 +60,85 @@
 }
 
 @layer components {
+  /* LIGHT MODE (DEFAULT) */
   .glass {
     @apply backdrop-blur-[var(--glass-blur)];
-    background: hsl(var(--bg-card));
-    border: 1px solid hsl(var(--border));
-    box-shadow: var(--shadow);
-  }
-
-  .glass-premium {
-    @apply backdrop-blur-[var(--glass-blur)];
-    background: linear-gradient(135deg, hsl(var(--bg-card)) 0%, rgba(255, 255, 255, 0.02) 100%);
-    border: 1px solid hsl(var(--border));
-  }
-
-  /* ─── LIGHT MODE: Cards ──────────────────────────────────────── */
-  .light .glass {
     background: hsl(220 20% 98% / 0.92);
     border: 1px solid hsl(220 20% 60% / 0.3);
     box-shadow: 0 2px 12px -4px rgba(15, 23, 42, 0.10);
   }
 
-  .light .glass-premium {
+  .glass-premium {
+    @apply backdrop-blur-[var(--glass-blur)];
     background: linear-gradient(135deg, hsl(220 20% 99% / 0.96) 0%, hsl(220 20% 95% / 0.85) 100%);
     border: 1px solid hsl(220 20% 60% / 0.28);
     box-shadow: 0 2px 12px -4px rgba(15, 23, 42, 0.08);
   }
 
-  /* ─── LIGHT MODE: Text contrast ─────────────────────────────── */
-  .light .text-slate-700 {
-    color: hsl(220 25% 18%) !important;
+  /* DARK MODE OVERRIDES */
+  .dark .glass {
+    background: hsl(var(--bg-card));
+    border: 1px solid hsl(var(--border));
+    box-shadow: var(--shadow);
   }
 
-  .light .text-slate-600 {
-    color: hsl(220 22% 24%) !important;
+  .dark .glass-premium {
+    background: linear-gradient(135deg, hsl(var(--bg-card)) 0%, rgba(255, 255, 255, 0.02) 100%);
+    border: 1px solid hsl(var(--border));
+    box-shadow: none;
   }
 
-  .light .text-slate-500 {
-    color: hsl(220 18% 32%) !important;
-  }
+  /* ─── LIGHT MODE: Text contrast (Base default) ─────────────────────────────── */
+  .text-slate-700 { color: hsl(220 25% 18%) !important; }
+  .text-slate-600 { color: hsl(220 22% 24%) !important; }
+  .text-slate-500 { color: hsl(220 18% 32%) !important; }
+  .text-slate-400 { color: hsl(220 15% 38%) !important; }
+  .text-slate-300 { color: hsl(220 15% 28%) !important; }
+  .text-slate-200 { color: hsl(220 25% 16%) !important; }
 
-  .light .text-slate-400 {
-    color: hsl(220 15% 38%) !important;
-  }
+  /* Accent/colored text */
+  .text-cyan-400 { color: hsl(188 80% 24%) !important; }
+  .text-cyan-500 { color: hsl(188 80% 22%) !important; }
+  .text-blue-400 { color: hsl(214 70% 38%) !important; }
+  .text-purple-400 { color: hsl(262 55% 40%) !important; }
+  .text-emerald-400 { color: hsl(158 60% 30%) !important; }
+  .text-orange-400 { color: hsl(28 75% 38%) !important; }
+  .text-red-400 { color: hsl(0 70% 38%) !important; }
+  .text-green-400 { color: hsl(141 60% 28%) !important; }
+  .text-white { color: hsl(222 35% 12%) !important; }
 
-  .light .text-slate-300 {
-    color: hsl(220 15% 28%) !important;
-  }
+  /* Backgrounds / Borders */
+  .bg-white\/5 { background-color: rgba(15, 23, 42, 0.04) !important; }
+  .bg-white\/10 { background-color: rgba(15, 23, 42, 0.06) !important; }
+  .bg-black\/20 { background-color: rgba(15, 23, 42, 0.04) !important; }
+  .bg-black\/40 { background-color: rgba(15, 23, 42, 0.07) !important; }
+  .border-white\/5 { border-color: rgba(15, 23, 42, 0.10) !important; }
+  .border-white\/10 { border-color: rgba(15, 23, 42, 0.15) !important; }
 
-  .light .text-slate-200 {
-    color: hsl(220 25% 16%) !important;
-  }
+  /* ─── DARK MODE: Text contrast overrides ─────────────────────────────── */
+  .dark .text-slate-700 { color: #334155 !important; }
+  .dark .text-slate-600 { color: #475569 !important; }
+  .dark .text-slate-500 { color: #64748b !important; }
+  .dark .text-slate-400 { color: #94a3b8 !important; }
+  .dark .text-slate-300 { color: #cbd5e1 !important; }
+  .dark .text-slate-200 { color: #e2e8f0 !important; }
 
-  /* ─── LIGHT MODE: Accent/colored text ───────────────────────── */
-  .light .text-cyan-400 {
-    color: hsl(188 80% 24%) !important;
-  }
+  .dark .text-cyan-400 { color: #22d3ee !important; }
+  .dark .text-cyan-500 { color: #06b6d4 !important; }
+  .dark .text-blue-400 { color: #60a5fa !important; }
+  .dark .text-purple-400 { color: #c084fc !important; }
+  .dark .text-emerald-400 { color: #34d399 !important; }
+  .dark .text-orange-400 { color: #fb923c !important; }
+  .dark .text-red-400 { color: #f87171 !important; }
+  .dark .text-green-400 { color: #4ade80 !important; }
+  .dark .text-white { color: #ffffff !important; }
 
-  .light .text-cyan-500 {
-    color: hsl(188 80% 22%) !important;
-  }
-
-  .light .text-blue-400 {
-    color: hsl(214 70% 38%) !important;
-  }
-
-  .light .text-purple-400 {
-    color: hsl(262 55% 40%) !important;
-  }
-
-  .light .text-emerald-400 {
-    color: hsl(158 60% 30%) !important;
-  }
-
-  .light .text-orange-400 {
-    color: hsl(28 75% 38%) !important;
-  }
-
-  .light .text-red-400 {
-    color: hsl(0 70% 38%) !important;
-  }
-
-  .light .text-green-400 {
-    color: hsl(141 60% 28%) !important;
-  }
-
-  .light .text-white {
-    color: hsl(222 35% 12%) !important;
-  }
-
-  /* ─── LIGHT MODE: Backgrounds / Borders ─────────────────────── */
-  .light .bg-white\/5 {
-    background-color: rgba(15, 23, 42, 0.04) !important;
-  }
-
-  .light .bg-white\/10 {
-    background-color: rgba(15, 23, 42, 0.06) !important;
-  }
-
-  .light .bg-black\/20 {
-    background-color: rgba(15, 23, 42, 0.04) !important;
-  }
-
-  .light .bg-black\/40 {
-    background-color: rgba(15, 23, 42, 0.07) !important;
-  }
-
-  .light .border-white\/5 {
-    border-color: rgba(15, 23, 42, 0.10) !important;
-  }
-
-  .light .border-white\/10 {
-    border-color: rgba(15, 23, 42, 0.15) !important;
-  }
+  .dark .bg-white\/5 { background-color: rgba(255, 255, 255, 0.05) !important; }
+  .dark .bg-white\/10 { background-color: rgba(255, 255, 255, 0.10) !important; }
+  .dark .bg-black\/20 { background-color: rgba(0, 0, 0, 0.20) !important; }
+  .dark .bg-black\/40 { background-color: rgba(0, 0, 0, 0.40) !important; }
+  .dark .border-white\/5 { border-color: rgba(255, 255, 255, 0.05) !important; }
+  .dark .border-white\/10 { border-color: rgba(255, 255, 255, 0.10) !important; }
 
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))];

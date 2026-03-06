@@ -33,9 +33,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
     const [assunto, setAssunto] = useState('');
     const [acertos, setAcertos] = useState<string>('');
     const [total, setTotal] = useState<string>('');
-    const [dificuldade, setDificuldade] = useState<any>('🟡 Médio');
-    const [relevancia, setRelevancia] = useState(5);
+    // Error Algorithm States
+    const [gabarito, setGabarito] = useState('');
+    const [minhaResposta, setMinhaResposta] = useState('');
     const [comentarios, setComentarios] = useState('');
+    const [errorText, setErrorText] = useState('');
     const [saveToBank, setSaveToBank] = useState(false);
 
     // Multi Record States (Simulado)
@@ -49,8 +51,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
     // New Meta State
     const [meta, setMeta] = useState('');
 
-    // Error Algorithm States
-    const [errorText, setErrorText] = useState('');
+    // Error Algorithm States (moved up)
     const [errorAnalysis, setErrorAnalysis] = useState<ErrorAnalysis[]>([]);
 
     // Custom Dropdown State
@@ -86,6 +87,10 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         setAcertos('');
         setTotal('');
         setComentarios('');
+        setGabarito('');
+        setMinhaResposta('');
+        setErrorText('');
+        setErrorAnalysis([]);
         setSimuladoScores({});
         console.log('📋 Formulário resetado para nova missão:', missaoAtiva);
     }, [missaoAtiva]);
@@ -112,7 +117,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         tempo: tempoHHMM,
                         acertos,
                         total,
-                        percentage: singleStats.percentage
+                        percentage: singleStats.percentage,
+                        gabarito,
+                        minha_resposta: minhaResposta
                     }
                 },
                 geminiKey,
@@ -123,7 +130,21 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
 
             // Tentar parsear o JSON retornado pela IA
             const parsed: ErrorAnalysis[] = parseAIJSON(result);
-            setErrorAnalysis(parsed);
+
+            // Adicionar gabarito e resposta do aluno aos objetos antes de salvar
+            const enriched: ErrorAnalysis[] = parsed.map(p => ({
+                ...p,
+                gabarito: gabarito || undefined,
+                minha_resposta: minhaResposta || undefined
+            }));
+
+            setErrorAnalysis(prev => [...prev, ...enriched]);
+
+            // Limpar campos para a próxima questão
+            setErrorText('');
+            setGabarito('');
+            setMinhaResposta('');
+            setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
         } catch (error) {
             console.error('Erro na análise de IA:', error);
             setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
@@ -132,18 +153,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         }
     };
 
-    const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
-        const file = e.target.files?.[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = (event) => {
-            const content = event.target?.result as string;
-            setErrorText(content);
-            handleAnalyzeErrors(content);
-        };
-        reader.readAsText(file);
-    };
+    // Removal of handleFileUpload as per user request (removing upload .txt)
 
     // Stats do Simulado (Live)
     const simuladoStats = useMemo(() => {
@@ -185,14 +195,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         return { percentage, numericAcertos, numericTotal };
     }, [acertos, total]);
 
-    // Efeito Dificuldade (Single)
-    useEffect(() => {
-        if (singleStats.numericTotal > 0 && !isSimulado) {
-            if (singleStats.percentage >= 80) setDificuldade('🟢 Fácil');
-            else if (singleStats.percentage < 60) setDificuldade('🔴 Difícil');
-            else setDificuldade('🟡 Médio');
-        }
-    }, [singleStats.percentage, singleStats.numericTotal, isSimulado]);
+    // Automatic Difficulty Logic removed as fields were removed
 
     const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         let value = e.target.value.replace(/\D/g, '');
@@ -298,8 +301,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     total: t,
                     taxa: (a / t) * 100,
                     tempo: subTime || 1, // Evita 0
-                    dificuldade: 'Simulado',
-                    relevancia: 10, // Simulados sempre relevantes
                     comentarios: comentarios,
                     rev_24h: false,
                     rev_07d: false,
@@ -352,8 +353,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 total: singleStats.numericTotal,
                 taxa: singleStats.percentage,
                 tempo: minutes,
-                dificuldade,
-                relevancia,
                 comentarios,
                 rev_24h: false,
                 rev_07d: false,
@@ -374,7 +373,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     data: dataEstudo,
                     materia,
                     assunto,
-                    relevancia,
                     anotacoes: comentarios,
                     status: 'Pendente',
                     tags: [],
@@ -634,10 +632,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         {/* PASSO 3: ANÁLISE */}
                         <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6">
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><FileText size={18} className="text-[hsl(var(--accent))]" /> Análise Qualitativa</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Dificuldade Sentida</label><div className="flex gap-2 bg-[hsl(var(--bg-user-block))] p-1.5 rounded-2xl border border-[hsl(var(--border))]">{['🟢 Fácil', '🟡 Médio', '🔴 Difícil'].map(d => (<button key={d} type="button" onClick={() => setDificuldade(d)} className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${dificuldade === d ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg shadow-[hsl(var(--accent)/0.3)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))]'}`}>{d.split(' ')[1]}</button>))}</div></div>
-                                <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1 flex justify-between"><span>Relevância</span><span className="text-[hsl(var(--accent))]">{relevancia}/10</span></label><input type="range" min="1" max="10" className="w-full accent-[hsl(var(--accent))] h-2 bg-[hsl(var(--bg-user-block))] rounded-full appearance-none cursor-pointer" value={relevancia} onChange={(e) => setRelevancia(parseInt(e.target.value))} /></div>
-                            </div>
                             <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações / Observações</label><textarea className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all h-32 text-sm text-[hsl(var(--text-main))] font-bold placeholder-[hsl(var(--text-muted)/0.5)] resize-none" placeholder="Pontos chave, links, impressões..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} /></div>
 
                             {/* NOVO: ALGORITMO DE ERROS IA */}
@@ -647,10 +641,15 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                         <Zap size={14} /> Algoritmo de Erros (IA)
                                     </h5>
                                     <div className="flex gap-2">
-                                        <label className="cursor-pointer bg-[hsl(var(--accent)/0.1)] hover:bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-[hsl(var(--accent)/0.2)]">
-                                            {isAnalyzing ? '...' : 'Upload .txt'}
-                                            <input type="file" accept=".txt" className="hidden" onChange={handleFileUpload} disabled={isAnalyzing} />
-                                        </label>
+                                        {errorAnalysis.length > 0 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setErrorAnalysis([])}
+                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 active:scale-95"
+                                            >
+                                                Limpar Análises ({errorAnalysis.length})
+                                            </button>
+                                        )}
                                         <button
                                             type="button"
                                             onClick={() => {
@@ -662,6 +661,45 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                         >
                                             Analisar Texto Colado
                                         </button>
+                                    </div>
+                                </div>
+
+                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[hsl(var(--bg-main))] p-4 rounded-2xl border border-[hsl(var(--border))]">
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest flex justify-between items-center">
+                                            <span>Gabarito Oficial</span>
+                                            {gabarito && <span className="text-green-400 animate-pulse">Selecionado</span>}
+                                        </label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
+                                                <button
+                                                    key={opt}
+                                                    type="button"
+                                                    onClick={() => setGabarito(opt)}
+                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${gabarito === opt ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-green-500/50'}`}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+                                    <div className="space-y-3">
+                                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest flex justify-between items-center">
+                                            <span>Minha Resposta</span>
+                                            {minhaResposta && <span className="text-purple-400 animate-pulse">Selecionado</span>}
+                                        </label>
+                                        <div className="flex flex-wrap gap-1.5">
+                                            {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
+                                                <button
+                                                    key={opt}
+                                                    type="button"
+                                                    onClick={() => setMinhaResposta(opt)}
+                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${minhaResposta === opt ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-purple-500/50'}`}
+                                                >
+                                                    {opt}
+                                                </button>
+                                            ))}
+                                        </div>
                                     </div>
                                 </div>
 
@@ -688,6 +726,12 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                                     <span className="text-[9px] text-[hsl(var(--text-muted))] font-bold italic truncate flex-1 ml-3">
                                                         "{err.questao_preview}..."
                                                     </span>
+                                                    {(err.gabarito || err.minha_resposta) && (
+                                                        <div className="flex gap-2 ml-auto shrink-0">
+                                                            {err.gabarito && <span className="text-[8px] font-black bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">GAB: {err.gabarito}</span>}
+                                                            {err.minha_resposta && <span className="text-[8px] font-black bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded border border-purple-500/30">EU: {err.minha_resposta}</span>}
+                                                        </div>
+                                                    )}
                                                 </div>
                                                 <div className="space-y-1">
                                                     <p className="text-[10px] text-[hsl(var(--text-bright))] font-bold tracking-tight">

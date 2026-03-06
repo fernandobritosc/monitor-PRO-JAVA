@@ -32,12 +32,17 @@ export interface StudyRecord {
 }
 
 export interface ErrorAnalysis {
+  id: string; // Identificador único para persistência e filtros
   questao_preview: string;
-  enunciado_completo?: string; // NOVO: Texto na íntegra
+  enunciado_completo?: string;
   tipo_erro: 'Atenção' | 'Lacuna de Base' | 'Interpretação';
   gatilho: string;
   sugestao: string;
   sugestao_mentor?: string;
+  gabarito?: string;
+  minha_resposta?: string;
+  resolved?: boolean; // Novo: Se foi corrigido no Modo de Recuperação
+  failed_attempts?: number; // Novo: Quantas vezes errou NOVAMENTE
 }
 
 export interface EditalMateria {

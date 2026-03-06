@@ -50,11 +50,9 @@ const App: React.FC = () => {
   const [needsConfig, setNeedsConfig] = useState(!isConfigured);
 
   useEffect(() => {
-    if (theme === 'light') {
-      document.body.classList.add('light');
-    } else {
-      document.body.classList.remove('light');
-    }
+    const root = window.document.documentElement;
+    root.classList.remove('light', 'dark');
+    root.classList.add(theme);
   }, [theme]);
 
   const {
@@ -218,6 +216,7 @@ const App: React.FC = () => {
             case 'PERFORMANCE': return <Performance />;
             case 'RELATORIOS': return <Reports records={studyRecords} missaoAtiva={missaoAtiva} />;
             case 'CONFIGURAR': return <Configurar editais={editais} records={studyRecords} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />;
+            case 'RANKING': return <RankingView setActiveView={setActiveView} />;
             default: return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
           }
         })()}

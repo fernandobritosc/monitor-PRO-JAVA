@@ -128,6 +128,16 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
     }, []);
   }, [activeRecords]);
 
+  const colorOffset = useMemo(() => {
+    if (evolutionData.length === 0) return 0;
+    const precisions = evolutionData.map(i => i.precision);
+    const max = Math.max(...precisions);
+    const min = Math.min(...precisions);
+    if (max <= 80) return 0;
+    if (min >= 80) return 1;
+    return (max - 80) / (max - min);
+  }, [evolutionData]);
+
   const errorData = useMemo(() => {
     const errorsBySubject = activeRecords.reduce<Record<string, number>>((acc, r) => {
       const current = Number(acc[r.materia] || 0);
@@ -322,6 +332,12 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
                     <stop offset="5%" stopColor="hsl(var(--accent))" stopOpacity={0.25} />
                     <stop offset="95%" stopColor="hsl(var(--accent))" stopOpacity={0} />
                   </linearGradient>
+                  <linearGradient id="lineGradient" x1="0" y1="0" x2="0" y2="1">
+                    <stop offset={0} stopColor="#4ade80" />
+                    <stop offset={colorOffset} stopColor="#4ade80" />
+                    <stop offset={colorOffset} stopColor="#facc15" />
+                    <stop offset={1} stopColor="#facc15" />
+                  </linearGradient>
                 </defs>
                 <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" vertical={false} opacity={0.3} />
                 <XAxis dataKey="date" stroke="hsl(var(--text-muted))" fontSize={9} tickFormatter={formatDateLabel} minTickGap={40} axisLine={false} tickLine={false} />
@@ -333,7 +349,7 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setA
                   formatter={(v: number) => [`${v.toFixed(1)}%`, 'PRECISÃO']}
                   labelFormatter={(label) => formatFullDate(label)}
                 />
-                <Area type="monotone" dataKey="precision" stroke="hsl(var(--accent))" strokeWidth={4} fillOpacity={1} fill="url(#colorPrecision)" activeDot={{ r: 8, fill: 'hsl(var(--accent))', stroke: 'hsl(var(--bg-main))', strokeWidth: 3 }} />
+                <Area type="monotone" dataKey="precision" stroke="url(#lineGradient)" strokeWidth={4} fillOpacity={1} fill="url(#colorPrecision)" activeDot={{ r: 8, fill: 'hsl(var(--accent))', stroke: 'hsl(var(--bg-main))', strokeWidth: 3 }} />
                 <ReferenceLine y={80} stroke="rgba(74,222,128,0.3)" strokeDasharray="8 8" />
                 <ReferenceLine y={60} stroke="rgba(250,204,21,0.3)" strokeDasharray="8 8" />
               </AreaChart>

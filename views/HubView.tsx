@@ -1,196 +1,288 @@
-import React from 'react';
-import { motion } from 'framer-motion';
+import React, { useState, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen,
     Target,
+    Settings,
     Trophy,
     Newspaper,
-    TrendingUp,
-    ArrowRight,
-    Brain,
+    CalendarClock,
+    ArrowUpRight,
+    Search,
+    Filter,
     Zap,
-    Settings
+    Loader2
 } from 'lucide-react';
 import { ViewType } from '../types';
+import { supabase } from '../services/supabase';
 
 interface HubViewProps {
     setActiveView: (view: ViewType) => void;
     userEmail: string;
 }
 
+interface NewsItem {
+    id: string;
+    title: string;
+    summary: string;
+    source_name: string;
+    source_url: string;
+    tags: string[];
+    published_at: string;
+}
+
+interface RankerItem {
+    id: string;
+    name: string;
+    hours: number;
+    questions: number;
+    isUser: boolean;
+    totalTempo: number;
+}
+
 const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
+    const [news, setNews] = useState<NewsItem[]>([]);
+    const [isLoading, setIsLoading] = useState(false);
+    const [rankers, setRankers] = useState<RankerItem[]>([]);
+    const [loadingRank, setLoadingRank] = useState(true);
+
+    useEffect(() => {
+        fetchNews();
+
+        // Subscribe to real-time additions (if a new edital drops, UI updates automatically)
+        const channel = supabase
+            .channel('public:news_feed')
+            .on(
+                'postgres_changes',
+                { event: 'INSERT', schema: 'public', table: 'news_feed' },
+                (payload) => {
+                    console.log('New news item:', payload);
+                    setNews((currentNews) => [payload.new as NewsItem, ...currentNews].slice(0, 20)); // Keep only top 20
+                }
+            )
+            .subscribe();
+
+        return () => {
+            supabase.removeChannel(channel);
+        };
+    }, []);
+
+    const fetchNews = async () => {
+        setIsLoading(true);
+        try {
+            const { data, error } = await supabase
+                .from('news_feed')
+                .select('*')
+                .order('published_at', { ascending: false })
+                .limit(20);
+
+            if (error) throw error;
+            if (data) {
+                setNews(data);
+            }
+        } catch (err) {
+            console.error('Error fetching news:', err);
+        } finally {
+            setIsLoading(false);
+        }
+    };
+
+    const fetchRanking = async () => {
+        try {
+            const { data: { user } } = await (supabase.auth as any).getUser();
+            const { data, error } = await supabase.from('ranking_geral').select('*');
+
+            if (!error && data) {
+                const formatted = data.map((r: any) => {
+                    const hours = Math.floor(r.total_tempo / 60);
+                    return {
+                        id: r.user_id,
+                        name: r.name || 'Anônimo',
+                        hours: hours,
+                        questions: r.total_questoes,
+                        isUser: user ? r.user_id === user.id : false,
+                        totalTempo: r.total_tempo
+                    };
+                });
+
+                formatted.sort((a, b) => b.totalTempo - a.totalTempo);
+                setRankers(formatted.slice(0, 15)); // Pega os 15 melhores para exibir na lateral
+            }
+        } catch (err) {
+            console.error("Erro ao buscar ranking para o Hub:", err);
+        } finally {
+            setLoadingRank(false);
+        }
+    };
+
+
+    useEffect(() => {
+        fetchNews();
+        fetchRanking();
+    }, []);
+
     const navItems = [
-        { id: 'HOME', label: 'Portal do Aluno', icon: <BookOpen size={18} /> },
-        { id: 'QUESTOES', label: 'Banco de Questões', icon: <Target size={18} /> },
-        { id: 'CONFIGURAR', label: 'Configurações', icon: <Settings size={18} /> },
+        { id: 'HOME', label: 'Portal do Aluno', desc: 'Edital e Cronômetro', icon: <BookOpen size={24} />, bg: 'from-blue-600/20 to-cyan-600/20', color: 'text-cyan-400' },
+        { id: 'QUESTOES', label: 'Banco de Provas', desc: 'Simulados e Questões', icon: <Target size={24} />, bg: 'from-purple-600/20 to-indigo-600/20', color: 'text-purple-400' },
+        { id: 'CONFIGURAR', label: 'Configurações', desc: 'Ajustes da Conta', icon: <Settings size={24} />, bg: 'from-slate-600/20 to-slate-500/20', color: 'text-slate-400' },
     ];
 
+    const formatTimeAgo = (dateString: string) => {
+        const diff = Math.floor((new Date().getTime() - new Date(dateString).getTime()) / 60000);
+        if (diff < 60) return `${diff} min atrás`;
+        if (diff < 1440) return `${Math.floor(diff / 60)}h atrás`;
+        return `${Math.floor(diff / 1440)}d atrás`;
+    };
+
     return (
-        <div className="space-y-8 pb-20 animate-in fade-in duration-700 max-w-6xl mx-auto">
-            {/* Horizontal Navigation */}
-            <nav className="flex items-center justify-center gap-2 p-2 bg-[hsl(var(--bg-user-block)/0.3)] backdrop-blur-md border border-[hsl(var(--border))] rounded-full mb-12 shadow-xl">
-                {navItems.map((item) => (
-                    <button
-                        key={item.id}
-                        onClick={() => setActiveView(item.id as ViewType)}
-                        className="flex items-center gap-2 px-6 py-2.5 rounded-full text-xs font-black uppercase tracking-widest text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.1)] transition-all duration-300 group"
-                    >
-                        <span className="group-hover:scale-110 transition-transform">{item.icon}</span>
-                        {item.label}
-                    </button>
-                ))}
-            </nav>
+        <div className="h-[calc(100vh-8rem)] w-full max-w-[1400px] mx-auto animate-in fade-in duration-700 flex flex-col lg:flex-row gap-6">
 
-            {/* Hero Section: Ranking & News (Replacing Welcome Area) */}
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 mb-12">
-                {/* Ranking Widget */}
-                <section className="glass-premium rounded-[3rem] p-8 border border-[hsl(var(--border))] relative overflow-hidden shadow-2xl flex flex-col h-[380px]">
-                    <div className="absolute top-0 right-0 w-48 h-48 bg-yellow-500/5 blur-[80px] rounded-full -mr-24 -mt-24" />
-
-                    <div className="flex justify-between items-center mb-10 relative z-10">
-                        <div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-yellow-500 opacity-70">Social & Performance</span>
-                            <h3 className="text-2xl font-black flex items-center gap-3 tracking-tighter text-[hsl(var(--text-bright))] uppercase mt-1">
-                                <Trophy className="text-yellow-500" size={24} /> Ranking Global
-                            </h3>
+            {/* MAIN CONTENT: AUTOMATED NEWS FEED (approx 75%) */}
+            <main className="flex-1 flex flex-col h-full rounded-[2rem] border border-[hsl(var(--border))] glass-premium overflow-hidden shadow-2xl relative">
+                {/* Header Filter Bar */}
+                <div className="p-6 border-b border-[hsl(var(--border))] bg-background/50 backdrop-blur-md sticky top-0 z-20 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                    <div className="flex items-center gap-3">
+                        <div className="p-3 bg-[hsl(var(--accent)/0.1)] rounded-xl text-[hsl(var(--accent))] border border-[hsl(var(--accent)/0.2)]">
+                            <Newspaper size={24} />
                         </div>
-                        <button onClick={() => setActiveView('RANKING')} className="text-[10px] font-black text-[hsl(var(--accent))] px-4 py-2 bg-[hsl(var(--accent)/0.1)] rounded-xl uppercase tracking-widest hover:bg-[hsl(var(--accent)/0.2)] transition-all">Ver Todos</button>
-                    </div>
-
-                    <div className="space-y-4 relative z-10 flex-1 overflow-hidden">
-                        {[
-                            { name: 'Gabriel S.', score: '24.5k', color: 'from-yellow-400 to-amber-600', trend: '+12%' },
-                            { name: 'Ana P.', score: '22.1k', color: 'from-slate-300 to-slate-500', trend: '+5%' },
-                            { name: 'Marcos R.', score: '19.8k', color: 'from-orange-400 to-orange-600', trend: '+8%' }
-                        ].map((u, i) => (
-                            <motion.div
-                                key={i}
-                                initial={{ opacity: 0, x: -20 }}
-                                animate={{ opacity: 1, x: 0 }}
-                                transition={{ delay: i * 0.1 }}
-                                className="flex items-center justify-between p-4 rounded-2xl bg-white/5 border border-white/5 hover:border-white/10 transition-all group"
-                            >
-                                <div className="flex items-center gap-4">
-                                    <div className={`w-9 h-9 rounded-xl bg-gradient-to-r ${u.color} flex items-center justify-center text-xs font-black text-black shadow-lg group-hover:scale-110 transition-transform`}>
-                                        #{i + 1}
-                                    </div>
-                                    <div>
-                                        <div className="text-xs font-black text-slate-200 uppercase tracking-tight">{u.name}</div>
-                                        <div className="text-[8px] font-bold text-green-500 tracking-widest uppercase">{u.trend} evolução</div>
-                                    </div>
-                                </div>
-                                <span className="text-xs font-black text-yellow-500 tracking-tighter">{u.score} <span className="text-[8px] opacity-40 uppercase ml-1">pts</span></span>
-                            </motion.div>
-                        ))}
-                    </div>
-                </section>
-
-                {/* News Widget */}
-                <section className="glass-premium rounded-[3rem] p-8 border border-[hsl(var(--border))] relative overflow-hidden shadow-2xl flex flex-col h-[380px]">
-                    <div className="absolute top-0 left-0 w-48 h-48 bg-cyan-500/5 blur-[80px] rounded-full -ml-24 -mt-24" />
-
-                    <div className="flex justify-between items-center mb-10 relative z-10">
                         <div>
-                            <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500 opacity-70">Alertas em Tempo Real</span>
-                            <h3 className="text-2xl font-black flex items-center gap-3 tracking-tighter text-[hsl(var(--text-bright))] uppercase mt-1">
-                                <Newspaper className="text-cyan-500" size={24} /> Plantão de Editais
-                            </h3>
+                            <h2 className="text-xl md:text-2xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter">Radar <span className="text-[hsl(var(--accent))]">MonitorPro</span></h2>
+                            <p className="text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest flex items-center gap-2">
+                                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
+                                Monitoramento IA Ativo
+                            </p>
                         </div>
                     </div>
 
-                    <div className="space-y-5 relative z-10 flex-1 overflow-hidden">
-                        {[1, 2].map((i) => (
-                            <motion.div
-                                key={i}
+                    <div className="flex items-center gap-3">
+                        <div className="relative">
+                            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[hsl(var(--text-muted))]" />
+                            <input
+                                type="text"
+                                placeholder="Buscar edital ou órgão..."
+                                className="bg-[hsl(var(--bg-user-block)/0.5)] border border-[hsl(var(--border))] rounded-full pl-9 pr-4 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all w-[180px] md:w-[220px]"
+                            />
+                        </div>
+                        <button className="p-2 rounded-full bg-[hsl(var(--bg-user-block)/0.5)] border border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] transition-colors">
+                            <Filter size={14} />
+                        </button>
+                    </div>
+                </div>
+
+                {/* News Grid Feed */}
+                <div className="flex-1 overflow-y-auto p-6 custom-scrollbar">
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+                        {news.map((item, idx) => (
+                            <motion.article
+                                key={item.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: i * 0.2 }}
-                                className="flex flex-col gap-4 group cursor-pointer p-6 rounded-[2.5rem] bg-white/5 border border-white/5 hover:border-[hsl(var(--accent)/0.3)] transition-all h-[130px] justify-between"
+                                transition={{ delay: idx * 0.1 }}
+                                className="group relative flex flex-col p-5 rounded-3xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.4)] hover:shadow-[0_0_30px_-10px_hsl(var(--accent)/0.3)] transition-all duration-300 h-full"
                             >
-                                <div className="flex items-center justify-between">
-                                    <span className="text-[8px] font-black uppercase tracking-widest text-cyan-400 px-3 py-1 bg-cyan-400/10 rounded-md border border-cyan-400/20">Concursos Federais</span>
-                                    <span className="text-[8px] font-bold text-slate-600 uppercase tracking-widest">3h atrás</span>
+                                <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--accent)/0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
+
+                                <div className="flex items-center justify-between mb-4 relative z-10">
+                                    <div className="flex gap-2 flex-wrap">
+                                        {item.tags.map(tag => (
+                                            <span key={tag} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.1)] rounded-md border border-[hsl(var(--accent)/0.2)]">
+                                                {tag}
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] flex items-center gap-1 whitespace-nowrap truncate shrink-0">
+                                        <CalendarClock size={10} /> {formatTimeAgo(item.published_at)}
+                                    </span>
                                 </div>
-                                <h4 className="text-[11px] font-black text-[hsl(var(--text-bright))] uppercase tracking-tight leading-relaxed group-hover:text-[hsl(var(--accent))] transition-colors line-clamp-2">
-                                    {i === 1 ? 'Déficit na PF chega a 2.500 agentes; novo edital é prioridade máxima em 2026.' : 'PRF estuda alteração de requisitos para nível superior; novo certame em pauta.'}
-                                </h4>
-                                <div className="flex items-center gap-1 text-[8px] font-bold text-[hsl(var(--accent))] uppercase tracking-widest opacity-0 group-hover:opacity-100 transition-opacity">
-                                    Ler Notícia Completa <ArrowRight size={10} />
+
+                                <div className="flex-1 relative z-10">
+                                    <h3 className="text-sm font-bold text-[hsl(var(--text-bright))] leading-snug mb-2 group-hover:text-[hsl(var(--accent))] transition-colors">
+                                        {item.title}
+                                    </h3>
+                                    <p className="text-xs text-[hsl(var(--text-main))] leading-relaxed opacity-80 line-clamp-3">
+                                        {item.summary}
+                                    </p>
                                 </div>
-                            </motion.div>
+
+                                <div className="mt-4 flex items-center justify-between pt-3 border-t border-[hsl(var(--border))] relative z-10">
+                                    <span className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))]">
+                                        Via {item.source_name}
+                                    </span>
+                                    <a
+                                        href={item.source_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--accent))] flex items-center gap-1 hover:brightness-125 transition-all"
+                                    >
+                                        Ler Completa <ArrowUpRight size={10} />
+                                    </a>
+                                </div>
+                            </motion.article>
                         ))}
                     </div>
-                </section>
-            </div>
+                </div>
+            </main>
 
-            {/* Bottom Selection Header */}
-            <div className="flex items-center gap-4 mb-8">
-                <div className="h-0.5 w-12 bg-gradient-to-r from-[hsl(var(--accent))] to-transparent rounded-full" />
-                <h4 className="text-[10px] font-black uppercase tracking-[0.5em] text-[hsl(var(--text-muted))]">Explore seu Próximo Passo</h4>
-            </div>
+            {/* SIDEBAR: ACTION QUICK LAUNCH (approx 25%) */}
+            <aside className="w-full lg:w-[280px] xl:w-[320px] shrink-0 flex flex-col gap-6">
+                <div className="glass-premium rounded-[2rem] border border-[hsl(var(--border))] shadow-2xl p-5 relative overflow-hidden flex flex-col shrink-0">
+                    <div className="absolute top-[-20%] right-[-20%] w-[60%] h-[60%] bg-[hsl(var(--accent)/0.15)] blur-[50px] rounded-full pointer-events-none" />
 
-            {/* Main Dual Modules */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-10">
-                {[
-                    {
-                        id: 'STUDY',
-                        title: 'Módulo Monitor Pro',
-                        subtitle: 'ESTUDO E PLANEJAMENTO',
-                        desc: 'Acesse o Portal do Aluno para gerenciar seu edital, cronômetro, histórico e revisar flashcards.',
-                        icon: <BookOpen size={40} />,
-                        color: 'from-cyan-600/20 to-blue-600/20',
-                        view: 'HOME' as ViewType,
-                        label: 'Portal do Aluno'
-                    },
-                    {
-                        id: 'QUESTOES',
-                        title: 'Banco de Questões',
-                        subtitle: 'PRÁTICA E PERFORMANCE',
-                        desc: 'Resolva questões com motor SRS e Neural Lab. Aumente sua precisão e velocidade de resposta.',
-                        icon: <Target size={40} />,
-                        color: 'from-purple-600/20 to-indigo-700/20',
-                        view: 'QUESTOES' as ViewType,
-                        label: 'Treinamento'
-                    }
-                ].map((mod) => (
-                    <motion.div
-                        key={mod.id}
-                        whileHover={{ scale: 1.02, y: -5 }}
-                        whileTap={{ scale: 0.98 }}
-                        onClick={() => setActiveView(mod.view)}
-                        className="group cursor-pointer relative overflow-hidden glass-premium rounded-[3.5rem] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.4)] transition-all duration-500 p-12 flex flex-col h-[280px] justify-between shadow-xl"
-                    >
-                        <div className={`absolute inset-0 bg-gradient-to-br ${mod.color} opacity-0 group-hover:opacity-100 transition-opacity duration-700`} />
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[hsl(var(--text-muted))] mb-4 relative z-10 text-center">Navegação Rápida</h3>
 
-                        <div className="relative z-10 flex gap-8">
-                            <div className="w-20 h-20 rounded-[2rem] bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] flex items-center justify-center text-[hsl(var(--accent))] shadow-2xl group-hover:scale-110 group-hover:rotate-3 transition-all duration-500">
-                                {mod.icon}
+                    <div className="flex flex-col gap-3 relative z-10">
+                        {navItems.map((item) => (
+                            <motion.button
+                                key={item.id}
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                onClick={() => setActiveView(item.id as ViewType)}
+                                className={`flex items-center gap-4 p-3 rounded-2xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.3)] transition-all group overflow-hidden relative text-left w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.5)]`}
+                            >
+                                <div className={`absolute inset-0 bg-gradient-to-br ${item.bg} opacity-0 group-hover:opacity-100 transition-opacity`} />
+
+                                <div className={`p-2 rounded-xl bg-background border border-[hsl(var(--border))] shadow-sm ${item.color} group-hover:scale-110 transition-transform relative z-10`}>
+                                    {item.icon}
+                                </div>
+                                <div className="flex-1 relative z-10">
+                                    <span className="block text-xs font-black text-[hsl(var(--text-bright))] uppercase tracking-tight group-hover:text-[hsl(var(--accent))] transition-colors">{item.label}</span>
+                                </div>
+                            </motion.button>
+                        ))}
+                    </div>
+                </div>
+
+                {/* EMbedded Ranking Widget */}
+                <div className="glass-premium rounded-[2rem] border border-[hsl(var(--border))] shadow-2xl p-5 flex flex-col relative overflow-hidden flex-1 min-h-[300px]">
+                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[hsl(var(--text-muted))] mb-4 relative z-10 text-center flex items-center justify-center gap-2">
+                        <Trophy size={14} className="text-yellow-500" /> Global Top
+                    </h3>
+
+                    <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 space-y-2">
+                        {loadingRank ? (
+                            <div className="flex justify-center items-center h-full"><Loader2 className="animate-spin text-[hsl(var(--accent))]" /></div>
+                        ) : rankers.length === 0 ? (
+                            <div className="flex justify-center items-center h-full text-[10px] uppercase font-bold text-[hsl(var(--text-muted))]">Nenhum guerreiro</div>
+                        ) : rankers.map((r, i) => (
+                            <div key={r.id} className={`flex items-center gap-3 p-3 rounded-2xl border transition-colors ${r.isUser ? 'bg-[hsl(var(--accent)/0.15)] border-[hsl(var(--accent)/0.4)]' : 'bg-[hsl(var(--bg-user-block)/0.4)] border-[hsl(var(--border))] hover:border-white/10'}`}>
+                                <div className={`w-5 text-center text-xs font-black ${i === 0 ? 'text-yellow-500' : i === 1 ? 'text-slate-400' : i === 2 ? 'text-orange-500' : 'text-slate-600'}`}>
+                                    {i + 1}º
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <div className="text-[11px] font-bold text-[hsl(var(--text-bright))] truncate leading-tight flex items-center gap-1">
+                                        {r.name.length > 10 ? r.name.substring(0, 10) + '...' : r.name}
+                                        {r.isUser && <span className="text-[8px] bg-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] px-1 py-0.5 rounded ml-1">TU</span>}
+                                    </div>
+                                    <div className="text-[8px] text-[hsl(var(--text-muted))] font-bold uppercase tracking-widest">{r.questions} questões</div>
+                                </div>
+                                <div className="text-right">
+                                    <div className="text-xs font-black text-[hsl(var(--text-bright))]">{r.hours}h</div>
+                                </div>
                             </div>
-
-                            <div className="space-y-2">
-                                <span className="text-[9px] font-black uppercase tracking-[0.3em] text-[hsl(var(--accent))] opacity-60">
-                                    {mod.subtitle}
-                                </span>
-                                <h3 className="text-2xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter">
-                                    {mod.title}
-                                </h3>
-                                <p className="text-[10px] text-[hsl(var(--text-muted))] font-medium leading-relaxed max-w-xs">
-                                    {mod.desc}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="relative z-10 flex items-center justify-between">
-                            <span className="text-[9px] font-black px-5 py-2.5 bg-[hsl(var(--bg-main))] rounded-full border border-[hsl(var(--border))] uppercase tracking-widest text-[hsl(var(--accent))] shadow-lg">
-                                Entrar no {mod.label}
-                            </span>
-                            <div className="w-10 h-10 rounded-full bg-[hsl(var(--accent)/0.1)] flex items-center justify-center text-[hsl(var(--accent))] group-hover:bg-[hsl(var(--accent))] group-hover:text-black transition-all">
-                                <ArrowRight size={18} className="group-hover:translate-x-1 transition-transform" />
-                            </div>
-                        </div>
-                    </motion.div>
-                ))}
-            </div>
+                        ))}
+                    </div>
+                </div>
+            </aside>
         </div>
     );
 };

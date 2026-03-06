@@ -108,149 +108,166 @@ const Login: React.FC<LoginProps> = () => {
   };
 
   return (
-    <div className="min-h-screen bg-[#12151D] flex items-center justify-center p-4 relative overflow-hidden font-['Montserrat']">
-      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[150px] rounded-full" />
-      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 blur-[150px] rounded-full" />
+    <div className="min-h-screen bg-background flex flex-col items-center justify-center p-4 relative overflow-hidden font-['Montserrat'] text-foreground">
+      {/* Ambient background glows */}
+      <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full pointer-events-none" />
+      <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent-secondary/10 blur-[120px] rounded-full pointer-events-none" />
 
-      <div className="w-full max-w-md z-10 flex flex-col gap-6">
-        <div className="text-center">
-          <div className="w-16 h-16 md:w-20 md:h-20 rounded-2xl bg-gradient-to-br from-purple-500 to-cyan-500 mx-auto mb-6 flex items-center justify-center text-4xl shadow-2xl shadow-purple-500/20 animate-in zoom-in duration-700">
+      <div className="w-full max-w-[420px] z-10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-8 duration-700">
+
+        {/* Header / Logo */}
+        <div className="text-center mb-8 flex flex-col items-center">
+          <div className="w-20 h-20 rounded-2xl bg-gradient-to-br from-accent to-accent-secondary flex items-center justify-center text-4xl shadow-xl shadow-accent/20 mb-6 ring-1 ring-white/10 dark:ring-white/5">
             🎯
           </div>
-          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2 text-white">
-            MONITOR<span className="text-cyan-400">PRO</span>
+          <h1 className="text-3xl md:text-4xl font-extrabold tracking-tight mb-2">
+            MONITOR<span className="text-accent">PRO</span>
           </h1>
-          <p className="text-slate-400 text-xs md:text-sm font-medium uppercase tracking-[0.2em]">Acesso Independente v{APP_VERSION}</p>
+          <p className="text-muted-foreground text-xs md:text-sm font-medium uppercase tracking-[0.2em]">SISTEMA INTELIGENTE</p>
         </div>
 
-        <form onSubmit={handleAuth} className="glass rounded-3xl p-6 md:p-8 space-y-5 shadow-2xl border-white/5 relative mx-2">
+        {/* Main Card */}
+        <div className="w-full glass-premium rounded-[2rem] shadow-2xl relative">
+          <div className="p-8 md:p-10 space-y-6">
 
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Mail size={12} /> E-mail
-            </label>
-            <input
-              type="email"
-              autoComplete="username"
-              required
-              className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
-              placeholder="seu@email.com"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Lock size={12} /> Senha
-            </label>
-            <div className="relative">
-              <input
-                type={showPassword ? "text" : "password"}
-                autoComplete={isSignUp ? "new-password" : "current-password"}
-                required
-                className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-4 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
-                placeholder="••••••••"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-              />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-0 top-0 h-full px-4 text-slate-500 hover:text-white transition-colors flex items-center justify-center z-20"
-                tabIndex={-1}
-                title={showPassword ? "Ocultar senha" : "Ver senha"}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-
-          {!isSignUp && (
-            <div className="flex justify-between items-center py-1">
-              <div className="flex items-center gap-2 cursor-pointer" onClick={() => setRememberEmail(!rememberEmail)}>
-                <div className={`w-5 h-5 rounded border flex items-center justify-center transition-colors ${rememberEmail ? 'bg-purple-500 border-purple-500' : 'border-slate-600 bg-slate-900/30'}`}>
-                  {rememberEmail && <CheckCircle size={12} className="text-white" />}
-                </div>
-                <span className="text-xs text-slate-400 select-none">Lembrar e-mail</span>
+            {/* Messages */}
+            {error && (
+              <div className="bg-destructive/10 border border-destructive/20 text-destructive text-sm p-4 rounded-xl flex items-start gap-3 animate-in shake">
+                <AlertOctagon size={18} className="shrink-0 mt-0.5" />
+                <span className="font-semibold leading-relaxed">{error}</span>
               </div>
-            </div>
-          )}
-
-          {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-400 text-xs p-3 rounded-xl flex flex-col gap-1 animate-in shake">
-              <div className="flex items-center gap-2">
-                <AlertOctagon size={16} className="shrink-0" />
-                <span className="font-bold">{error}</span>
-              </div>
-            </div>
-          )}
-
-          {successMsg && (
-            <div className="bg-green-500/10 border border-green-500/20 text-green-400 text-xs p-3 rounded-xl flex items-center gap-2 animate-in fade-in">
-              <CheckCircle size={16} className="shrink-0" />
-              {successMsg}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-bold py-4 rounded-xl shadow-md shadow-purple-500/10 transition-all disabled:opacity-50 mt-4 flex justify-center items-center gap-2"
-          >
-            {loading ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            ) : isSignUp ? (
-              'Criar Conta'
-            ) : (
-              'Entrar'
             )}
+
+            {successMsg && (
+              <div className="bg-emerald-500/10 border border-emerald-500/20 text-emerald-500 text-sm p-4 rounded-xl flex items-center gap-3 animate-in fade-in">
+                <CheckCircle size={18} className="shrink-0" />
+                <span className="font-semibold">{successMsg}</span>
+              </div>
+            )}
+
+            {/* Form */}
+            <form onSubmit={handleAuth} className="space-y-5">
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                  <Mail size={14} /> E-mail de Acesso
+                </label>
+                <input
+                  type="email"
+                  autoComplete="username"
+                  required
+                  className="w-full bg-user-block/30 border border-border rounded-xl px-4 py-3.5 focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all placeholder:text-muted-foreground/50 text-foreground text-sm font-medium"
+                  placeholder="seu@email.com"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                />
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-bold text-muted-foreground uppercase tracking-widest ml-1 flex items-center gap-2">
+                  <Lock size={14} /> Senha Segura
+                </label>
+                <div className="relative">
+                  <input
+                    type={showPassword ? "text" : "password"}
+                    autoComplete={isSignUp ? "new-password" : "current-password"}
+                    required
+                    className="w-full bg-user-block/30 border border-border rounded-xl pl-4 pr-12 py-3.5 focus:outline-none focus:ring-2 focus:ring-accent/50 transition-all placeholder:text-muted-foreground/50 text-foreground text-sm font-medium tracking-wide"
+                    placeholder="••••••••"
+                    value={password}
+                    onChange={(e) => setPassword(e.target.value)}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className="absolute right-0 top-0 h-full px-4 text-muted-foreground hover:text-foreground transition-colors flex items-center justify-center z-20"
+                    tabIndex={-1}
+                    title={showPassword ? "Ocultar senha" : "Ver senha"}
+                  >
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                  </button>
+                </div>
+              </div>
+
+              {!isSignUp && (
+                <div className="flex justify-between items-center py-2 px-1">
+                  <label className="flex items-center gap-3 cursor-pointer group" onClick={() => setRememberEmail(!rememberEmail)}>
+                    <div className={`w-5 h-5 rounded shadow-sm border flex items-center justify-center transition-all duration-300 ${rememberEmail ? 'bg-accent border-accent text-white' : 'bg-background border-border group-hover:border-muted-foreground'}`}>
+                      {rememberEmail && <CheckCircle size={14} className="animate-in zoom-in" />}
+                    </div>
+                    <span className="text-sm font-medium text-muted-foreground select-none group-hover:text-foreground transition-colors">Lembrar acesso</span>
+                  </label>
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loading}
+                className="w-full bg-gradient-to-r from-accent to-accent-secondary hover:from-accent/90 hover:to-accent-secondary/90 text-white font-bold py-4 rounded-xl shadow-lg shadow-accent/20 transition-all duration-300 disabled:opacity-50 mt-2 flex justify-center items-center gap-2 text-sm uppercase tracking-widest active:scale-[0.98]"
+              >
+                {loading ? (
+                  <Loader2 className="w-5 h-5 animate-spin" />
+                ) : isSignUp ? (
+                  'Criar Conta Agora'
+                ) : (
+                  'Entrar no Sistema'
+                )}
+              </button>
+            </form>
+
+            <div className="pt-6 border-t border-border/50 text-center">
+              <p className="text-sm text-muted-foreground">
+                {isSignUp ? 'Já possui registro?' : 'Ainda não tem acesso?'}
+                <button
+                  type="button"
+                  onClick={() => { setIsSignUp(!isSignUp); setError(null); setSuccessMsg(null); }}
+                  className="ml-2 font-bold text-accent hover:text-accent-secondary transition-colors"
+                >
+                  {isSignUp ? 'Fazer login' : 'Cadastre-se'}
+                </button>
+              </p>
+            </div>
+          </div>
+        </div>
+
+        {/* Footer / Diagnostics */}
+        <div className="mt-8 w-full">
+          <button
+            onClick={() => setShowDiagnostics(!showDiagnostics)}
+            className="mx-auto flex items-center justify-center gap-2 text-[10px] uppercase tracking-widest font-bold text-muted-foreground hover:text-foreground transition-colors py-2 px-4 rounded-full"
+          >
+            <Database size={12} />
+            <span>Diagnóstico do Sistema</span>
+            {showDiagnostics ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
           </button>
 
-          <div className="text-center pt-4 border-t border-white/5 mt-6">
-            <button
-              type="button"
-              onClick={() => { setIsSignUp(!isSignUp); setError(null); setSuccessMsg(null); }}
-              className="text-slate-400 text-xs font-bold uppercase tracking-wider hover:text-white transition-colors"
-            >
-              {isSignUp ? 'Já tem conta? Fazer Login' : 'Não tem conta? Cadastrar'}
-            </button>
-          </div>
-        </form>
+          {showDiagnostics && (
+            <div className="mt-4 p-4 rounded-xl bg-user-block border border-border animate-in fade-in slide-in-from-top-2 text-xs font-mono text-muted-foreground space-y-3">
+              <p className="flex justify-between"><strong className="text-foreground">App Version:</strong> <span>v{APP_VERSION}</span></p>
 
-        {/* NOVO PAINEL DE DIAGNÓSTICO */}
-        <div className="mt-4 mx-2">
-          <div className="glass rounded-xl border border-white/5 overflow-hidden">
-            <button
-              onClick={() => setShowDiagnostics(!showDiagnostics)}
-              className="w-full p-3 flex justify-between items-center hover:bg-white/5 transition-colors"
-            >
-              <span className="text-xs font-bold uppercase text-slate-500 tracking-widest">Status do Sistema</span>
-              {showDiagnostics ? <ChevronUp size={16} className="text-slate-500" /> : <ChevronDown size={16} className="text-slate-500" />}
-            </button>
+              <div className="flex justify-between items-center border-t border-border/50 pt-2">
+                <strong className="text-foreground flex items-center gap-1.5"><Database size={12} className={configSource === 'MISSING' ? 'text-destructive' : 'text-emerald-500'} /> Supabase DB:</strong>
+                <span className={configSource === 'MISSING' ? 'text-destructive font-bold' : 'text-emerald-500'}>{configSource}</span>
+              </div>
 
-            {showDiagnostics && (
-              <div className="p-4 border-t border-white/5 animate-in fade-in slide-in-from-top-2 space-y-2 text-xs font-mono text-slate-400">
-                <p><strong className="text-white">Versão:</strong> v{APP_VERSION}</p>
-                <div className="flex items-center gap-2">
-                  <Database size={12} className={configSource === 'MISSING' ? 'text-red-500' : 'text-green-500'} />
-                  <p><strong className="text-white">Fonte Cfg:</strong> <span className={configSource === 'MISSING' ? 'text-red-400 font-bold' : 'text-green-400'}>{configSource}</span></p>
-                </div>
-                <p className="truncate"><strong className="text-white">URL:</strong> {configUrl || 'N/A'}</p>
-                <div className="flex items-center gap-2">
-                  <KeyRound size={12} className={aiKeyStatus === 'LOADED' ? 'text-cyan-400' : 'text-slate-600'} />
-                  <p><strong className="text-white">Chave IA:</strong> <span className={aiKeyStatus === 'LOADED' ? 'text-cyan-400 font-bold' : 'text-slate-500'}>{aiKeyStatus} {aiKeyPrefix && `(${aiKeyPrefix})`}</span></p>
-                </div>
+              <p className="truncate text-[10px] opacity-70 text-right">{configUrl || 'N/A'}</p>
+
+              <div className="flex justify-between items-center border-t border-border/50 pt-2">
+                <strong className="text-foreground flex items-center gap-1.5"><KeyRound size={12} className={aiKeyStatus === 'LOADED' ? 'text-accent' : 'text-muted-foreground'} /> Engine IA:</strong>
+                <span className={aiKeyStatus === 'LOADED' ? 'text-accent font-bold' : 'text-muted-foreground'}>{aiKeyStatus} {aiKeyPrefix && `(${aiKeyPrefix})`}</span>
+              </div>
+
+              <div className="pt-3">
                 <button
                   type="button"
                   onClick={handleClearCache}
-                  className="w-full mt-3 inline-flex items-center justify-center gap-2 text-[10px] text-slate-500 hover:text-red-400 transition-colors uppercase font-bold tracking-widest border border-white/5 hover:border-red-500/20 px-3 py-1.5 rounded-full"
+                  className="w-full flex items-center justify-center gap-2 text-[10px] text-muted-foreground hover:text-destructive hover:bg-destructive/10 transition-colors uppercase font-bold tracking-widest border border-border px-3 py-2 rounded-lg"
                 >
-                  <Trash2 size={10} /> Resetar Dados Locais
+                  <Trash2 size={12} /> Resetar Cache Local
                 </button>
               </div>
-            )}
-          </div>
+            </div>
+          )}
         </div>
 
       </div>
