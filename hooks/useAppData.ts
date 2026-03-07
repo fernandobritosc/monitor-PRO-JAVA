@@ -7,6 +7,8 @@ import { logger } from '../utils/logger';
 // Importing it directly from `@supabase/auth-js` is a reliable workaround.
 import type { Session } from '@supabase/auth-js';
 
+import { studyRecordsQueries } from '../services/queries/studyRecords';
+
 export const useAppData = (session: Session | null) => {
   const [editais, setEditais] = useState<EditalMateria[]>([]);
   const [studyRecords, setStudyRecords] = useState<StudyRecord[]>([]);
@@ -174,9 +176,12 @@ export const useAppData = (session: Session | null) => {
       alert("Modo Offline: Alteração salva localmente (visualização). Conecte-se para salvar no servidor.");
       return;
     }
-    const { error } = await supabase.from('registros_estudos').update(updatedRecord).eq('id', updatedRecord.id);
-    if (error) {
-      alert("Erro ao salvar online.");
+    try {
+      await studyRecordsQueries.update(updatedRecord);
+    } catch (error: any) {
+      // LOG TEMPORÁRIO: ajuda a identificar a causa exata do erro 400
+      console.error('Erro Supabase PATCH:', error?.message, error?.details, error?.hint, JSON.stringify(error));
+      alert("Erro ao salvar online. Veja o console para detalhes.");
       if (session?.user?.id) fetchData(session.user.id);
     }
   };

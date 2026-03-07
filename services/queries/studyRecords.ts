@@ -27,9 +27,29 @@ export const studyRecordsQueries = {
 
     /** Atualiza um registro existente */
     async update(record: StudyRecord) {
+        // Whitelist rigorosa: apenas colunas confirmadas que existem em registros_estudos
+        // Colunas removidas por não existirem no banco: dificuldade, relevancia, gabarito, minha_resposta
+        const payload = {
+            concurso: record.concurso,
+            materia: record.materia,
+            assunto: record.assunto,
+            data_estudo: record.data_estudo,
+            acertos: record.acertos,
+            total: record.total,
+            taxa: record.taxa,
+            tempo: record.tempo,
+            comentarios: record.comentarios || null,
+            rev_24h: record.rev_24h,
+            rev_07d: record.rev_07d,
+            rev_15d: record.rev_15d,
+            rev_30d: record.rev_30d,
+            meta: record.meta || null,
+            analise_erros: record.analise_erros && record.analise_erros.length > 0 ? record.analise_erros : null
+        };
+
         const { error } = await supabase
             .from('registros_estudos')
-            .update(record)
+            .update(payload)
             .eq('id', record.id);
         if (error) throw error;
     },

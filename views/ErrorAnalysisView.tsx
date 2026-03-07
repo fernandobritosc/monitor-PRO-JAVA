@@ -11,7 +11,12 @@ interface ErrorAnalysisViewProps {
     missaoAtiva: string;
 }
 
-const PerformanceHeatmap: React.FC<{ records: StudyRecord[], missaoAtiva: string, onSelectAssunto?: (materia: string, assunto: string) => void }> = ({ records, missaoAtiva, onSelectAssunto }) => {
+const PerformanceHeatmap: React.FC<{
+    records: StudyRecord[],
+    localErrors?: any[],
+    missaoAtiva: string,
+    onSelectAssunto?: (materia: string, assunto: string) => void
+}> = ({ records, localErrors, missaoAtiva, onSelectAssunto }) => {
     const data = useMemo(() => {
         const heatmap: Record<string, Record<string, { total: number, errors: number, hits: number }>> = {};
 
@@ -25,13 +30,24 @@ const PerformanceHeatmap: React.FC<{ records: StudyRecord[], missaoAtiva: string
                 const current = heatmap[r.materia][r.assunto];
                 current.total += r.total;
                 current.hits += r.acertos;
-                // Filtrar apenas erros que não foram resolvidos ainda
-                const unresolvedErrors = r.analise_erros?.filter(e => !e.resolved).length || (r.total - r.acertos);
-                current.errors += unresolvedErrors;
+
+                // Lógica de contagem de erros infalível:
+                // O erro estrutural do assunto é o ERRO MATEMÁTICO DO DIA (total de questões - acertos)
+                // Se ele recuperou/acertou o erro com a IA (RecoveryMode), ele "redime" um erro daquele dia.
+                const mathErrors = r.total - r.acertos;
+                let resolvedCount = 0;
+
+                if (localErrors) {
+                    resolvedCount = localErrors.filter(e => e.recordId === r.id && e.resolved).length;
+                } else if (r.analise_erros) {
+                    resolvedCount = r.analise_erros.filter(e => e.resolved).length;
+                }
+
+                current.errors += Math.max(0, mathErrors - resolvedCount);
             });
 
         return heatmap;
-    }, [records, missaoAtiva]);
+    }, [records, localErrors, missaoAtiva]);
     // ... (rest of the component remains similar, just adding onSelectAssunto)
 
     const getIntensityColor = (errors: number, total: number) => {
@@ -78,50 +94,55 @@ const PerformanceHeatmap: React.FC<{ records: StudyRecord[], missaoAtiva: string
             </div>
 
             <div className="space-y-10 relative z-10">
-                {Object.entries(data).map(([materia, assuntos]) => (
-                    <div key={materia} className="space-y-4">
-                        <h4 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.3em] px-1 border-l-2 border-[hsl(var(--accent))] ml-1">
-                            {materia}
-                        </h4>
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
-                            {Object.entries(assuntos).map(([assunto, stats]) => (
-                                <motion.div
-                                    key={assunto}
-                                    initial={{ opacity: 0, scale: 0.9 }}
-                                    animate={{ opacity: 1, scale: 1 }}
-                                    whileHover={{ scale: 1.05, y: -2 }}
-                                    onClick={() => onSelectAssunto?.(materia, assunto)}
-                                    className={`p-4 rounded-2xl border transition-all cursor-pointer relative group/item ${getIntensityColor(stats.errors, stats.total)}`}
-                                >
-                                    <div className="space-y-2">
-                                        <div className="flex justify-between items-start gap-2">
-                                            <span className="text-[9px] font-black text-white leading-tight uppercase line-clamp-2">
-                                                {assunto}
-                                            </span>
-                                            <Info size={10} className="text-white/20 shrink-0" />
-                                        </div>
-                                        <div className="flex items-end justify-between gap-1">
-                                            <div className={`text-lg font-black tracking-tighter ${getTextColor(stats.errors, stats.total)}`}>
-                                                {Math.round((stats.hits / stats.total) * 100)}%
-                                            </div>
-                                            <div className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mb-1">
-                                                {stats.errors} erros
-                                            </div>
-                                        </div>
-                                    </div>
+                {Object.entries(data)
+                    .filter(([_, assuntos]) => Object.values(assuntos).some(s => s.errors > 0)) // Só exibe a matéria se houver pelo menos 1 assunto com erro pendente
+                    .map(([materia, assuntos]) => (
+                        <div key={materia} className="space-y-4">
+                            <h4 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.3em] px-1 border-l-2 border-[hsl(var(--accent))] ml-1">
+                                {materia}
+                            </h4>
+                            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3">
+                                {Object.entries(assuntos)
+                                    .filter(([_, stats]) => stats.errors > 0) // Se o assunto não tiver mais erros, sai do Radar
+                                    .map(([assunto, stats]) => (
 
-                                    {/* Tooltip on Hover */}
-                                    <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-2xl opacity-0 group-hover/item:opacity-100 transition-opacity z-20 p-2 text-center pointer-events-none">
-                                        <p className="text-[9px] font-black text-white uppercase tracking-tighter">
-                                            {stats.hits} Acertos / {stats.total} Total
-                                        </p>
-                                        <p className="text-[7px] font-bold text-[hsl(var(--accent))] uppercase mt-1">Clique para Recuperar</p>
-                                    </div>
-                                </motion.div>
-                            ))}
+                                        <motion.div
+                                            key={assunto}
+                                            initial={{ opacity: 0, scale: 0.9 }}
+                                            animate={{ opacity: 1, scale: 1 }}
+                                            whileHover={{ scale: 1.05, y: -2 }}
+                                            onClick={() => onSelectAssunto?.(materia, assunto)}
+                                            className={`p-4 rounded-2xl border transition-all cursor-pointer relative group/item ${getIntensityColor(stats.errors, stats.total)}`}
+                                        >
+                                            <div className="space-y-2">
+                                                <div className="flex justify-between items-start gap-2">
+                                                    <span className="text-[9px] font-black text-white leading-tight uppercase line-clamp-2">
+                                                        {assunto}
+                                                    </span>
+                                                    <Info size={10} className="text-white/20 shrink-0" />
+                                                </div>
+                                                <div className="flex items-end justify-between gap-1">
+                                                    <div className={`text-lg font-black tracking-tighter ${getTextColor(stats.errors, stats.total)}`}>
+                                                        {Math.round((stats.hits / stats.total) * 100)}%
+                                                    </div>
+                                                    <div className="text-[8px] font-bold text-slate-500 uppercase tracking-tighter mb-1">
+                                                        {stats.errors} erros
+                                                    </div>
+                                                </div>
+                                            </div>
+
+                                            {/* Tooltip on Hover */}
+                                            <div className="absolute inset-0 flex flex-col items-center justify-center bg-black/80 rounded-2xl opacity-0 group-hover/item:opacity-100 transition-opacity z-20 p-2 text-center pointer-events-none">
+                                                <p className="text-[9px] font-black text-white uppercase tracking-tighter">
+                                                    {stats.hits} Acertos / {stats.total} Total
+                                                </p>
+                                                <p className="text-[7px] font-bold text-[hsl(var(--accent))] uppercase mt-1">Clique para Recuperar</p>
+                                            </div>
+                                        </motion.div>
+                                    ))}
+                            </div>
                         </div>
-                    </div>
-                ))}
+                    ))}
             </div>
         </div>
     );
@@ -132,20 +153,21 @@ const RecoveryMode: React.FC<{
     errors: (ErrorAnalysis & { recordId: string; materia: string; assunto: string; id: string })[];
     onClose: () => void;
     onUpdateError: (recordId: string, errorId: string, resolved: boolean) => Promise<void>;
-}> = ({ errors, onClose, onUpdateError }) => {
-    const [currentIndex, setCurrentIndex] = useState(0);
+}> = ({ errors: initialErrors, onClose, onUpdateError }) => {
+    // Lista gerenciada internamente para garantir que questões resolvidas não reapareçam
+    const [queue, setQueue] = useState(() => [...initialErrors]);
     const [userAnswer, setUserAnswer] = useState('');
     const [showResult, setShowResult] = useState<'correct' | 'wrong' | null>(null);
     const [isUpdating, setIsUpdating] = useState(false);
 
-    const currentError = errors[currentIndex];
+    const currentError = queue[0];
 
     const parsedContent = useMemo(() => {
         const text = currentError?.enunciado_completo || currentError?.questao_preview || '';
 
-        // Dividir pelo espaço seguido por uma letra de A-E e um separador (. ou ) ou espaço)
-        // Usamos lookahead assertivo para não consumir a letra no split
-        const parts = text.split(/\s(?=[A-E][\.\s\)])/);
+        // Quebra pelo Letra maiúscula (A-E) seguida de ponto ou parênteses, com ou sem quebra de linhas. 
+        // O lookahead preventivo proibe strings como " A " de quebrarem tudo no meio
+        const parts = text.split(/(?=(?:^|\r?\n|\s+)[A-E][.\)])/g);
 
         if (parts.length <= 1) return { statement: text, alternatives: [] };
 
@@ -190,12 +212,16 @@ const RecoveryMode: React.FC<{
     const nextQuestion = () => {
         setShowResult(null);
         setUserAnswer('');
-        if (currentIndex < errors.length - 1) {
-            setCurrentIndex(prev => prev + 1);
-        } else {
-            onClose();
-        }
+        // Remove o erro atual da fila (já foi respondido — certo ou errado)
+        setQueue(prev => prev.slice(1));
+        // Se não houver mais questões após remover, o onClose é chamado pelo render (currentError === undefined)
     };
+
+    // Fecha automaticamente quando a fila esvazia após nextQuestion
+    if (queue.length === 0) {
+        onClose();
+        return null;
+    }
 
     return (
         <motion.div
@@ -228,7 +254,7 @@ const RecoveryMode: React.FC<{
                                 </div>
                             )}
                             <div className="text-[10px] font-black text-slate-400 uppercase tracking-tighter bg-white/5 px-3 py-1 rounded-full">
-                                Questão {currentIndex + 1} de {errors.length}
+                                Questão {initialErrors.length - queue.length + 1} de {initialErrors.length}
                             </div>
                         </div>
                     </div>
@@ -304,7 +330,7 @@ const RecoveryMode: React.FC<{
                                 onClick={nextQuestion}
                                 className="w-full py-3 rounded-xl bg-white/5 hover:bg-white/10 text-white text-[10px] font-black uppercase tracking-widest transition-all"
                             >
-                                {currentIndex < errors.length - 1 ? 'Próxima Questão' : 'Concluir Recuperação'}
+                                {queue.length > 1 ? 'Próxima Questão' : 'Concluir Recuperação'}
                             </button>
                         </motion.div>
                     )}
@@ -330,9 +356,10 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
         records
             .filter(r => r.concurso === missaoAtiva && r.analise_erros && r.analise_erros.length > 0)
             .forEach(r => {
-                r.analise_erros?.forEach(err => {
+                r.analise_erros?.forEach((err, errIdx) => {
                     const preview = err.questao_preview || '';
-                    const fallbackId = `${r.id}-${preview.substring(0, 15).replace(/\s+/g, '')}`;
+                    // Inclui o índice para evitar keys duplicadas quando dois erros têm o mesmo preview
+                    const fallbackId = `${r.id}-${errIdx}-${preview.substring(0, 10).replace(/\s+/g, '')}`;
                     errors.push({
                         ...err,
                         id: err.id || fallbackId,
@@ -383,8 +410,9 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             const record = records.find(r => r.id === recordId);
             if (!record || !record.analise_erros) return;
 
-            const updatedAnalise = record.analise_erros.map(err => {
-                const currentId = err.id || `${recordId}-${err.questao_preview.substring(0, 15).replace(/\s+/g, '')}`;
+            const updatedAnalise = record.analise_erros.map((err, errIdx) => {
+                const preview = err.questao_preview || '';
+                const currentId = err.id || `${recordId}-${errIdx}-${preview.substring(0, 10).replace(/\s+/g, '')}`;
                 if (currentId === errorId) {
                     const newAttempts = !resolved ? (Number(err.failed_attempts) || 0) + 1 : Number(err.failed_attempts);
                     return {
@@ -771,6 +799,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
 
             <PerformanceHeatmap
                 records={records}
+                localErrors={localErrors}
                 missaoAtiva={missaoAtiva}
                 onSelectAssunto={(materia, assunto) => setSelectedRecovery({ materia, assunto })}
             />
@@ -778,7 +807,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             <AnimatePresence>
                 {selectedRecovery && (
                     <RecoveryMode
-                        errors={localErrors.filter(e => e.materia === selectedRecovery.materia && e.assunto === selectedRecovery.assunto)}
+                        errors={localErrors.filter(e => e.materia === selectedRecovery.materia && e.assunto === selectedRecovery.assunto && !e.resolved)}
                         onClose={() => setSelectedRecovery(null)}
                         onUpdateError={handleUpdateError}
                     />

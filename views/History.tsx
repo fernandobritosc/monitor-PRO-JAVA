@@ -225,7 +225,15 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
             minha_resposta: (p.minha_resposta || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined
          }));
 
-         setEditForm(prev => ({ ...prev, analise_erros: enriched }));
+         setEditForm(prev => ({
+            ...prev,
+            analise_erros: [...prev.analise_erros, ...enriched]
+         }));
+
+         // Limpa os campos para facilitar a próxima adição
+         setErrorText('');
+         setEditForm(prev => ({ ...prev, gabarito: '', minha_resposta: '' }));
+         setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
       } catch (error) {
          logger.error('AI', 'Erro na análise de IA:', error);
          setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
