@@ -1,5 +1,7 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase } from '../services/supabase';
+import { questionsQueries } from '../services/queries';
+import { logger } from '../utils/logger';
 import { QuestionAttempt } from '../types';
 import {
     LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, AreaChart, Area,
@@ -24,14 +26,14 @@ const Performance: React.FC = () => {
         const { data: { user } } = await (supabase.auth as any).getUser();
         if (!user) return;
 
-        const { data, error } = await supabase
-            .from('questao_tentativas')
-            .select('*')
-            .eq('user_id', user.id)
-            .order('attempted_at', { ascending: true });
-
-        if (!error) setAttempts(data || []);
-        setLoading(false);
+        try {
+            const data = await questionsQueries.getUserAttempts(user.id);
+            setAttempts(data || []);
+        } catch (error) {
+            logger.error('DATA', 'Erro ao buscar tentativas do usuário', error);
+        } finally {
+            setLoading(false);
+        }
     };
 
     const stats = useMemo(() => {

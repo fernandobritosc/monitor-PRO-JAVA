@@ -1,5 +1,8 @@
 import { GoogleGenAI, Modality } from "@google/genai";
 import { supabase } from "./supabase";
+import { checkRateLimit, RateLimitError } from '../utils/rateLimiter';
+import { setAIOperationContext, captureAIError, startAIPerformanceTrace } from './telemetry';
+import { logger } from '../utils/logger';
 
 /**
  * SERVIÇO DE IA UNIFICADO - GEMINI & GROQ
@@ -23,7 +26,7 @@ export interface AIStreamCallback {
  * Processa erros de API de IA e retorna uma mensagem amigável.
  */
 const processAIError = (error: any, provider: 'Gemini' | 'Groq'): Error => {
-  console.error(`Erro no ${provider}:`, error);
+  logger.error('AI', `Erro no ${provider}`, { error: error?.message });
   let friendlyMessage = error.message || `Erro desconhecido na API ${provider}`;
 
   if (typeof friendlyMessage === 'string') {
@@ -86,7 +89,7 @@ const streamWithGemini = async (
 
   for (const modelId of models) {
     try {
-      console.log(`🤖 Tentando streaming Gemini SDK (${modelId}) para ${context}...`);
+      logger.info('AI', `Tentando streaming Gemini SDK (${modelId}) para ${context}`);
       const ai = new GoogleGenAI({ apiKey });
 
       const result = await ai.models.generateContentStream({
@@ -105,12 +108,12 @@ const streamWithGemini = async (
         }
       }
 
-      console.log(`✅ Streaming Gemini (${modelId}) completo`);
+      logger.info('AI', `Streaming Gemini (${modelId}) completo`);
       callbacks.onComplete();
       return;
     } catch (error: any) {
       lastError = error;
-      console.warn(`⚠️ Falha no modelo ${modelId}:`, error.message);
+      logger.warn('AI', `Falha no modelo ${modelId}: ${error.message}`);
       // Se for erro de autenticação ou cota, não adianta trocar modelo
       if (error.message?.includes('API_KEY') || error.message?.includes('quota')) break;
     }
@@ -128,7 +131,7 @@ const streamWithGroq = async (
   callbacks: AIStreamCallback
 ): Promise<void> => {
   try {
-    console.log('🚀 Iniciando streaming com Groq...');
+    logger.info('AI', 'Iniciando streaming com Groq');
 
     const systemPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua comunicação deve ser técnica, profissional e direta.\nESTRUTURA OBRIGATÓRIA:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário]\n\nREGRAS CRÍTICAS:\n1. PROIBIDO o uso de asteriscos para negrito (**).\n2. PROIBIDAS saudações, "ok", introduções ou conclusões (Ex: "Espero que ajude", "Vamos lá").\n3. Use apenas títulos (#) para separar seções.\n4. Texto puramente técnico e clínico.`;
 
@@ -182,7 +185,7 @@ const streamWithGroq = async (
                 callbacks.onChunk(content);
               }
             } catch (e) {
-              console.warn('Failed to parse Groq chunk:', e);
+              logger.warn('AI', 'Failed to parse Groq chunk', { error: e });
             }
           }
         }
@@ -191,7 +194,7 @@ const streamWithGroq = async (
       reader.releaseLock();
     }
 
-    console.log('✅ Streaming Groq completo');
+    logger.info('AI', 'Streaming Groq completo');
     callbacks.onComplete();
   } catch (error: any) {
     callbacks.onError(processAIError(error, 'Groq'));
@@ -208,6 +211,16 @@ export const streamAIContent = async (
   groqKey?: string,
   preferredProvider?: AIProviderName
 ): Promise<void> => {
+  // Rate Limiting: verifica antes de fazer qualquer chamada
+  const rateLimit = checkRateLimit('stream');
+  if (!rateLimit.allowed) {
+    callbacks.onError(new RateLimitError(
+      rateLimit.message || 'Muitas chamadas de IA. Aguarde alguns segundos.',
+      rateLimit.retryAfterMs
+    ));
+    return;
+  }
+
   const config = detectAIProvider(geminiKey, groqKey, preferredProvider);
 
   if (!config) {
@@ -216,13 +229,23 @@ export const streamAIContent = async (
     return;
   }
 
+  // Sentry: contexto da operação de IA
+  setAIOperationContext({
+    provider: config.provider,
+    operationType: 'stream',
+    promptLength: prompt.length,
+  });
+
+  const endTrace = startAIPerformanceTrace('streamAIContent', config.provider);
+
   try {
     if (config.provider === 'gemini') {
       try {
         const isFlashcard = prompt.toLowerCase().includes('flashcard') || prompt.toLowerCase().includes('mnemônico');
         await streamWithGemini(config.apiKey, prompt, callbacks, isFlashcard ? 'flashcard' : 'general');
       } catch (err: any) {
-        console.error("🔴 Falha crítica no Gemini:", err);
+        logger.error('AI', 'Falha crítica no Gemini', { error: (err as any)?.message });
+        captureAIError(err, 'Gemini', 'stream', prompt.length);
         // Fallback para Groq se Gemini falhar
         if (groqKey && groqKey.length > 10) {
           callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou (${err.message}). Ativando Groq automaticamente...]\n\n`);
@@ -235,6 +258,7 @@ export const streamAIContent = async (
       try {
         await streamWithGroq(config.apiKey, prompt, callbacks);
       } catch (err: any) {
+        captureAIError(err, 'Groq', 'stream', prompt.length);
         // Fallback para Gemini se Groq falhar
         if (geminiKey && geminiKey.length > 10) {
           callbacks.onChunk("\n\n🔄 [Aviso: Groq falhou. Ativando Gemini automaticamente...]\n\n");
@@ -246,6 +270,8 @@ export const streamAIContent = async (
     }
   } catch (error) {
     callbacks.onError(error as Error);
+  } finally {
+    endTrace();
   }
 };
 
@@ -277,7 +303,7 @@ export const parseAIJSON = <T>(jsonString: string): T => {
     try {
       return JSON.parse(cleaned);
     } catch (e) {
-      console.warn("JSON Parse inicial falhou, tentando reparo...");
+      logger.warn('AI', 'JSON Parse inicial falhou, tentando reparo...');
     }
 
     // 4. Corrige caracteres de controle e escapes inválidos
@@ -334,8 +360,7 @@ export const parseAIJSON = <T>(jsonString: string): T => {
 
     throw new Error("JSON irrecuperável");
   } catch (error) {
-    console.error("Falha crítica no parse do JSON da IA:", error);
-    console.error("String recebida:", jsonString);
+    logger.error('AI', 'Falha crítica no parse do JSON da IA', { error, jsonString: jsonString.substring(0, 200) });
     throw new Error("Resposta da IA incompleta ou inválida. Tente novamente com menos texto ou limpe o campo.");
   }
 };
@@ -472,7 +497,7 @@ Seja direto, assertivo e use tom de alta performance. Use Markdown limpo e elega
             resultText = response.candidates[0].content.parts[0].text;
           }
         } catch (e) {
-          console.warn("Falha na extração refinada do texto Gemini:", e);
+          logger.warn('AI', 'Falha na extração refinada do texto Gemini', { error: e });
         }
 
         return resultText || '';
@@ -617,7 +642,7 @@ export const handlePlayRevisionAudio = async (
     try {
       const { data: listData } = await supabase.storage.from(bucketName).list('', { search: fileName });
       if (listData && listData.length > 0) cacheExists = true;
-    } catch (e) { console.warn("Erro cache:", e); }
+    } catch (e) { logger.warn('AI', 'Erro cache de áudio', { error: e }); }
 
     if (cacheExists) {
       const { data: publicUrlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
@@ -631,7 +656,7 @@ export const handlePlayRevisionAudio = async (
       }
     }
 
-    console.log("🎙️ Áudio elite (v2.5 TTS)...");
+    logger.info('AI', 'Áudio elite (v2.5 TTS)');
     const ai = new GoogleGenAI({ apiKey });
     const response = await ai.models.generateContent({
       model: "gemini-2.5-flash-preview-tts", // Modelo TTS Preview Estritamente para MakerSuite

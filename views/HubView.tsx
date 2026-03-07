@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
     BookOpen,
@@ -15,9 +16,11 @@ import {
 } from 'lucide-react';
 import { ViewType } from '../types';
 import { supabase } from '../services/supabase';
+import { logger } from '../utils/logger';
+import { preserveMissaoOnClear } from '../utils/localStorage';
+import { profilesQueries } from '../services/queries';
 
-interface HubViewProps {
-    setActiveView: (view: ViewType) => void;
+export interface HubViewProps {
     userEmail: string;
 }
 
@@ -40,7 +43,8 @@ interface RankerItem {
     totalTempo: number;
 }
 
-const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
+const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
+    const navigate = useNavigate();
     const [news, setNews] = useState<NewsItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
     const [rankers, setRankers] = useState<RankerItem[]>([]);
@@ -56,7 +60,7 @@ const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'news_feed' },
                 (payload) => {
-                    console.log('New news item:', payload);
+                    logger.info('DATA', 'New news item:', payload);
                     setNews((currentNews) => [payload.new as NewsItem, ...currentNews].slice(0, 20)); // Keep only top 20
                 }
             )
@@ -81,7 +85,7 @@ const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
                 setNews(data);
             }
         } catch (err) {
-            console.error('Error fetching news:', err);
+            logger.error('DATA', 'Error fetching news:', err);
         } finally {
             setIsLoading(false);
         }
@@ -89,10 +93,10 @@ const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
 
     const fetchRanking = async () => {
         try {
-            const { data: { user } } = await (supabase.auth as any).getUser();
-            const { data, error } = await supabase.from('ranking_geral').select('*');
+            const { data: { user } } = await supabase.auth.getUser();
+            const data = await profilesQueries.getRanking();
 
-            if (!error && data) {
+            if (data) {
                 const formatted = data.map((r: any) => {
                     const hours = Math.floor(r.total_tempo / 60);
                     return {
@@ -109,7 +113,7 @@ const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
                 setRankers(formatted.slice(0, 15)); // Pega os 15 melhores para exibir na lateral
             }
         } catch (err) {
-            console.error("Erro ao buscar ranking para o Hub:", err);
+            logger.error('DATA', "Erro ao buscar ranking para o Hub:", err);
         } finally {
             setLoadingRank(false);
         }
@@ -236,7 +240,7 @@ const HubView: React.FC<HubViewProps> = ({ setActiveView, userEmail }) => {
                                 key={item.id}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => setActiveView(item.id as ViewType)}
+                                onClick={() => navigate('/cadastro-questoes')}
                                 className={`flex items-center gap-4 p-3 rounded-2xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.3)] transition-all group overflow-hidden relative text-left w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.5)]`}
                             >
                                 <div className={`absolute inset-0 bg-gradient-to-br ${item.bg} opacity-0 group-hover:opacity-100 transition-opacity`} />

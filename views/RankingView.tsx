@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useMemo } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
     Trophy,
@@ -11,11 +12,10 @@ import {
 import { ViewType } from '../types';
 import { supabase } from '../services/supabase';
 
-interface RankingViewProps {
-    setActiveView: (view: ViewType) => void;
-}
+interface RankingViewProps { }
 
-const RankingView: React.FC<RankingViewProps> = ({ setActiveView }) => {
+const RankingView: React.FC<RankingViewProps> = () => {
+    const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
     const [rankers, setRankers] = useState<any[]>([]);
     const [loading, setLoading] = useState(true);
@@ -105,7 +105,7 @@ const RankingView: React.FC<RankingViewProps> = ({ setActiveView }) => {
             <section className="flex flex-col md:flex-row justify-between items-start md:items-center gap-6">
                 <div className="flex items-center gap-6">
                     <button
-                        onClick={() => setActiveView('HUB')}
+                        onClick={() => navigate('/')}
                         className="p-4 bg-[hsl(var(--bg-user-block))] rounded-2xl text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] transition-all border border-[hsl(var(--border))] active:scale-95"
                     >
                         <ArrowLeft size={24} />

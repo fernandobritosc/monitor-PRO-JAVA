@@ -4,6 +4,8 @@ import { StudyRecord, EditalMateria, ErrorAnalysis } from '../types';
 import { Trash2, Filter, Search, Edit, X, Calendar, Clock, Target, AlertCircle, CheckCircle2, Calculator, BookOpen, List, ChevronDown, ChevronRight, Layers, ChevronUp, Zap, FileText } from 'lucide-react';
 import { getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
+import { logger } from '../utils/logger';
+import { questionsQueries } from '../services/queries';
 import { CustomSelector } from '../components/CustomSelector';
 
 interface HistoryProps {
@@ -211,7 +213,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
          const parsed: ErrorAnalysis[] = parseAIJSON(result);
          setEditForm(prev => ({ ...prev, analise_erros: parsed }));
       } catch (error) {
-         console.error('Erro na análise de IA:', error);
+         logger.error('AI', 'Erro na análise de IA:', error);
          setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
       } finally {
          setIsAnalyzing(false);
@@ -290,7 +292,7 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
 
       // Salvar no banco de questões é uma operação secundária (não precisa ser otimista)
       if (saveToBank && editingRecord.dificuldade !== 'Simulado') {
-         const { data: { user } } = await (supabase.auth as any).getUser();
+         const { data: { user } } = await supabase.auth.getUser();
          if (user) {
             const questionPayload = {
                user_id: user.id,
@@ -304,7 +306,11 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                tags: [],
                meta: 3
             };
-            await supabase.from('questoes_revisao').insert(questionPayload);
+            try {
+               await questionsQueries.insertRevision(questionPayload);
+            } catch (err: any) {
+               logger.error('DATA', 'Erro ao inserir questão de revisão', err);
+            }
          }
       }
    };

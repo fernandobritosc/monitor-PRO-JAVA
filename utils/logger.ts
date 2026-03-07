@@ -1,10 +1,15 @@
 /**
  * Sistema de Logging Centralizado para MonitorPro
- * Rastreia todas as operações relacionadas à missão ativa e localStorage
+ * Rastreia todas as operações da aplicação com categorias granulares.
+ * Em produção, logs são capturados em sessionStorage mas NÃO poluem o console.
  */
 
+const IS_DEV = import.meta.env.DEV;
+
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
-type LogCategory = 'MISSAO' | 'AUTH' | 'CACHE' | 'MIGRATION' | 'LOGOUT';
+type LogCategory =
+    | 'MISSAO' | 'AUTH' | 'CACHE' | 'MIGRATION' | 'LOGOUT'
+    | 'AI' | 'DATA' | 'UI' | 'SYNC' | 'PDF' | 'STORAGE' | 'NAV';
 
 interface LogEntry {
     timestamp: string;
@@ -18,11 +23,10 @@ interface LogEntry {
 
 class MonitorProLogger {
     private logs: LogEntry[] = [];
-    private maxLogs = 100;
+    private maxLogs = 200;
     private enabled = true;
 
     constructor() {
-        // Carrega logs anteriores do sessionStorage
         this.loadLogs();
     }
 
@@ -32,20 +36,15 @@ class MonitorProLogger {
             if (stored) {
                 this.logs = JSON.parse(stored);
             }
-        } catch (e) {
-            console.error('Erro ao carregar logs:', e);
-        }
+        } catch (_) { /* silencioso em caso de erro */ }
     }
 
     private saveLogs() {
         try {
-            // Mantém apenas os últimos maxLogs
             const recentLogs = this.logs.slice(-this.maxLogs);
             sessionStorage.setItem('monitorpro_logs', JSON.stringify(recentLogs));
             this.logs = recentLogs;
-        } catch (e) {
-            console.error('Erro ao salvar logs:', e);
-        }
+        } catch (_) { /* silencioso em caso de erro */ }
     }
 
     private createEntry(
@@ -72,12 +71,11 @@ class MonitorProLogger {
         this.logs.push(entry);
         this.saveLogs();
 
-        // Console output com cores
+        // Em DEV, mostra no console com cores. Em PROD, silencioso.
+        if (!IS_DEV) return;
+
         const emoji = {
-            INFO: 'ℹ️',
-            WARN: '⚠️',
-            ERROR: '❌',
-            DEBUG: '🔍'
+            INFO: 'ℹ️', WARN: '⚠️', ERROR: '❌', DEBUG: '🔍'
         }[entry.level];
 
         const color = {
@@ -87,6 +85,7 @@ class MonitorProLogger {
             DEBUG: 'color: #8b5cf6'
         }[entry.level];
 
+        // eslint-disable-next-line no-console
         console.log(
             `%c${emoji} [${entry.category}] ${entry.message}`,
             color,
@@ -94,7 +93,7 @@ class MonitorProLogger {
         );
     }
 
-    // Métodos públicos
+    // —— Métodos Públicos ——
     info(category: LogCategory, message: string, data?: any, userId?: string) {
         this.log(this.createEntry('INFO', category, message, data, userId));
     }
@@ -111,7 +110,7 @@ class MonitorProLogger {
         this.log(this.createEntry('DEBUG', category, message, data, userId));
     }
 
-    // Métodos específicos para missão
+    // —— Métodos Específicos (Domínio) ——
     missaoChanged(oldMissao: string, newMissao: string, userId?: string, source?: string) {
         this.info('MISSAO', `Missão alterada: "${oldMissao}" → "${newMissao}"`, { source }, userId);
     }
@@ -136,7 +135,7 @@ class MonitorProLogger {
         this.info('CACHE', `Cache limpo (missão preservada: ${preserved})`, { missao });
     }
 
-    // Métodos de análise
+    // —— Métodos de Análise ——
     getAllLogs(): LogEntry[] {
         return [...this.logs];
     }
@@ -153,7 +152,6 @@ class MonitorProLogger {
         return this.logs.slice(-count);
     }
 
-    // Exportar logs
     exportLogs(): string {
         return JSON.stringify(this.logs, null, 2);
     }
@@ -168,55 +166,54 @@ class MonitorProLogger {
         URL.revokeObjectURL(url);
     }
 
-    // Exibir resumo no console
     printSummary() {
+        // eslint-disable-next-line no-console
         console.group('📊 MonitorPro - Resumo de Logs');
+        // eslint-disable-next-line no-console
         console.log('Total de logs:', this.logs.length);
 
         const byCategory = this.logs.reduce((acc, log) => {
             acc[log.category] = (acc[log.category] || 0) + 1;
             return acc;
-        }, {} as Record<LogCategory, number>);
-
+        }, {} as Record<string, number>);
+        // eslint-disable-next-line no-console
         console.log('Por categoria:', byCategory);
 
         const byLevel = this.logs.reduce((acc, log) => {
             acc[log.level] = (acc[log.level] || 0) + 1;
             return acc;
-        }, {} as Record<LogLevel, number>);
-
+        }, {} as Record<string, number>);
+        // eslint-disable-next-line no-console
         console.log('Por nível:', byLevel);
 
+        // eslint-disable-next-line no-console
         console.log('\n📝 Últimos 10 logs:');
         this.getRecentLogs(10).forEach(log => {
+            // eslint-disable-next-line no-console
             console.log(`[${log.timestamp}] ${log.category}: ${log.message}`);
         });
-
+        // eslint-disable-next-line no-console
         console.groupEnd();
     }
 
-    // Limpar logs
     clearLogs() {
         this.logs = [];
         sessionStorage.removeItem('monitorpro_logs');
-        console.log('🗑️ Logs limpos');
     }
 
-    // Habilitar/desabilitar logging
     setEnabled(enabled: boolean) {
         this.enabled = enabled;
-        console.log(`📝 Logging ${enabled ? 'habilitado' : 'desabilitado'}`);
     }
 }
 
 // Singleton
 export const logger = new MonitorProLogger();
 
-// Expor globalmente para debug no console
+// Expor globalmente para debug (apenas em DEV no console, sempre em window)
 if (typeof window !== 'undefined') {
     (window as any).monitorProLogger = logger;
-    console.log('💡 Logger disponível globalmente: window.monitorProLogger');
-    console.log('   - monitorProLogger.printSummary() - Ver resumo');
-    console.log('   - monitorProLogger.downloadLogs() - Baixar logs');
-    console.log('   - monitorProLogger.clearLogs() - Limpar logs');
+    if (IS_DEV) {
+        // eslint-disable-next-line no-console
+        console.log('💡 Logger: window.monitorProLogger (.printSummary / .downloadLogs / .clearLogs)');
+    }
 }

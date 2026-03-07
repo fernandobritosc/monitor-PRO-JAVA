@@ -67,6 +67,9 @@ export default defineConfig(({ mode }) => {
       '__APP_VERSION__': JSON.stringify(pkg.version || '1.0.0'),
     },
     build: {
+      // Em produção, remove TODOS os console.* e debugger do bundle final
+      // O logger centralizado já captura tudo em sessionStorage
+      ...(mode === 'production' ? { minify: 'esbuild' } : {}),
       rollupOptions: {
         external: [],
         output: {
@@ -82,6 +85,10 @@ export default defineConfig(({ mode }) => {
           }
         }
       }
+    },
+    esbuild: {
+      // Remove console.* e debugger em produção
+      ...(mode === 'production' ? { drop: ['console', 'debugger'] } : {}),
     }
   }
 })

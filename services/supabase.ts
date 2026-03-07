@@ -1,4 +1,5 @@
 import { createClient } from '@supabase/supabase-js';
+import { logger } from '../utils/logger';
 
 const getSupabaseConfig = () => {
   // 1. Prioritize localStorage for user-defined config
@@ -6,7 +7,7 @@ const getSupabaseConfig = () => {
   const storedKey = typeof window !== 'undefined' ? localStorage.getItem('monitorpro_supabase_key') : null;
 
   if (storedUrl && storedKey && storedUrl.length > 5 && !storedUrl.includes('placeholder')) {
-    console.info('[MonitorPro] Supabase config carregado via localStorage (prioridade).');
+    logger.debug('STORAGE', 'Supabase config carregado via localStorage (prioridade)');
     return {
       url: storedUrl.trim().replace(/^"|"$/g, ''),
       key: storedKey.trim().replace(/^"|"$/g, '')
@@ -20,7 +21,7 @@ const getSupabaseConfig = () => {
   if (typeof __SUPABASE_KEY__ !== 'undefined') envKey = __SUPABASE_KEY__;
 
   if (envUrl && envUrl.length > 5 && !envUrl.includes('undefined')) {
-    console.info('[MonitorPro] Supabase config carregado via Build ENV.');
+    logger.debug('STORAGE', 'Supabase config carregado via Build ENV');
     return {
       url: envUrl.trim().replace(/^"|"$/g, ''),
       key: envKey.trim().replace(/^"|"$/g, '')
@@ -28,7 +29,7 @@ const getSupabaseConfig = () => {
   }
 
   // 3. If nothing is found
-  console.warn('[MonitorPro] Nenhuma configuração Supabase encontrada (ENV ou localStorage).');
+  logger.warn('STORAGE', 'Nenhuma configuração Supabase encontrada (ENV ou localStorage)');
   return { url: "", key: "" };
 };
 
@@ -80,7 +81,7 @@ export const getGroqKey = () => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('monitorpro_groq_key');
     if (stored && stored.length > 5) {
-      console.info('[MonitorPro] Chave Groq carregada do localStorage (prioridade).');
+      logger.debug('STORAGE', 'Chave Groq carregada do localStorage (prioridade)');
       return stored.trim().replace(/^"|"$/g, '');
     }
   }
@@ -95,7 +96,7 @@ export const getGroqKey = () => {
   } catch (e) { }
 
   if (envKey) {
-    console.info('[MonitorPro] Chave Groq carregada de ENV (fallback).');
+    logger.debug('STORAGE', 'Chave Groq carregada de ENV (fallback)');
     return envKey;
   }
 
@@ -112,7 +113,7 @@ export const getGeminiKey = () => {
   if (typeof window !== 'undefined') {
     const stored = localStorage.getItem('monitorpro_ai_key');
     if (stored && stored.length > 10) {
-      console.info('[MonitorPro] Chave Gemini carregada do localStorage (prioridade).');
+      logger.debug('STORAGE', 'Chave Gemini carregada do localStorage (prioridade)');
       return stored.trim().replace(/^"|"$/g, '');
     }
   }
@@ -135,7 +136,7 @@ export const getGeminiKey = () => {
   }
 
   if (envKey && envKey.length > 10) {
-    console.info('[MonitorPro] Chave Gemini carregada de ENV (fallback).');
+    logger.debug('STORAGE', 'Chave Gemini carregada de ENV (fallback)');
     return envKey;
   }
 

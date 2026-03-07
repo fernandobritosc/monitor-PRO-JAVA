@@ -3,7 +3,9 @@ import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CustomSelector } from '../components/CustomSelector';
+import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
+import { studyRecordsQueries, questionsQueries } from '../services/queries';
 import { ErrorAnalysis } from '../types';
 
 interface StudyFormProps {
@@ -92,7 +94,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         setErrorText('');
         setErrorAnalysis([]);
         setSimuladoScores({});
-        console.log('📋 Formulário resetado para nova missão:', missaoAtiva);
+        logger.info('UI', `📋 Formulário resetado para nova missão: ${missaoAtiva}`);
     }, [missaoAtiva]);
 
     // Reseta o assunto quando a matéria muda
@@ -146,7 +148,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             setMinhaResposta('');
             setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
         } catch (error) {
-            console.error('Erro na análise de IA:', error);
+            logger.error('AI', 'Erro na análise de IA:', error);
             setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
         } finally {
             setIsAnalyzing(false);
@@ -252,7 +254,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
 
         setLoading(true);
         // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
-        const { data: { user } } = await (supabase.auth as any).getUser();
+        const { data: { user } } = await supabase.auth.getUser();
 
         if (isSimulado) {
             // --- MODO SIMULADO (MÚLTIPLOS REGISTROS) ---
@@ -281,8 +283,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 return;
             }
 
-            // Fix: Explicitly type the score object in map
-            const payloads = (Object.entries(simuladoScores) as [string, { acertos: string, total: string }][]).map(([mat, score]) => {
+            const payloads = (Object.entries(simuladoScores)).map(([mat, score]: [string, any]) => {
                 const a = parseInt(score.acertos || '0');
                 const t = parseInt(score.total || '0');
                 if (t === 0) return null;
@@ -307,20 +308,18 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     rev_15d: false,
                     rev_30d: false
                 };
-            }).filter(Boolean); // Remove nulos
+            }).filter(Boolean) as any[]; // Remove nulos
 
-            const { error } = await supabase.from('registros_estudos').insert(payloads);
-
-            if (error) {
-                setMsg({ type: 'error', text: 'Erro ao salvar simulado: ' + error.message });
-            } else {
+            try {
+                await studyRecordsQueries.insert(payloads);
                 setMsg({ type: 'success', text: 'Simulado registrado com sucesso!' });
                 onSaved();
                 // Reset
-                setAssunto('');
                 setComentarios('');
                 setTempoHHMM('');
                 setSimuladoScores({});
+            } catch (error: any) {
+                setMsg({ type: 'error', text: 'Erro ao salvar simulado: ' + error.message });
             }
 
         } else {
@@ -343,7 +342,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 return;
             }
 
-            const payload = {
+            // Validar e tipar o payload para StudyRecord
+            const payload: any = {
                 user_id: user?.id,
                 concurso: missaoAtiva,
                 materia,
@@ -362,29 +362,25 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 analise_erros: errorAnalysis.length > 0 ? errorAnalysis : null
             };
 
-            const { error } = await supabase.from('registros_estudos').insert(payload);
+            try {
+                await studyRecordsQueries.insert(payload);
 
-            // Opcional: Banco de Questões
-            let bankError = null;
-            if (!error && saveToBank) {
-                const questionPayload = {
-                    user_id: user?.id,
-                    concurso: missaoAtiva,
-                    data: dataEstudo,
-                    materia,
-                    assunto,
-                    anotacoes: comentarios,
-                    status: 'Pendente',
-                    tags: [],
-                    meta: 3
-                };
-                const { error: qError } = await supabase.from('questoes_revisao').insert(questionPayload);
-                bankError = qError;
-            }
+                // Opcional: Banco de Questões
+                if (saveToBank) {
+                    const questionPayload = {
+                        user_id: user?.id,
+                        concurso: missaoAtiva,
+                        data: dataEstudo,
+                        materia,
+                        assunto,
+                        anotacoes: comentarios,
+                        status: 'Pendente',
+                        tags: [],
+                        meta: 3
+                    };
+                    await questionsQueries.insertRevision(questionPayload);
+                }
 
-            if (error || bankError) {
-                setMsg({ type: 'error', text: 'Erro ao salvar: ' + (error?.message || bankError?.message) });
-            } else {
                 setMsg({ type: 'success', text: 'Estudo registrado!' });
                 onSaved();
                 // Reset parcial
@@ -398,6 +394,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                 setErrorText('');
                 setErrorAnalysis([]);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
+            } catch (error: any) {
+                setMsg({ type: 'error', text: 'Erro ao salvar: ' + error.message });
             }
         }
         setLoading(false);

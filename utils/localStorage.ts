@@ -114,6 +114,6 @@ export const clearCacheExceptMissao = (userId?: string): void => {
 
     if (currentMissao) {
         saveMissaoAtiva(currentMissao, userId);
-        console.log('✅ Cache limpo, missão preservada:', currentMissao);
+        logger.info('CACHE', 'Cache limpo, missão preservada', { missao: currentMissao });
     }
 };

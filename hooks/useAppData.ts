@@ -57,7 +57,7 @@ export const useAppData = (session: Session | null) => {
         }
       }
     } catch (e) {
-      console.error("Erro ao carregar do cache:", e);
+      logger.error('DATA', 'Erro ao carregar do cache', { error: e });
     }
     setIsOfflineMode(false);
     return false;
@@ -126,7 +126,7 @@ export const useAppData = (session: Session | null) => {
       setIsError(false);
 
     } catch (error: any) {
-      console.error(`Erro de sincronização (Tentativa ${retryCount + 1}):`, error);
+      logger.error('SYNC', `Erro de sincronização (Tentativa ${retryCount + 1})`, { error: error?.message });
       if (retryCount < 2) {
         setTimeout(() => fetchData(userId, retryCount + 1), 2000);
       } else {

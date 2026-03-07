@@ -1,6 +1,8 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
+import { logger } from '../utils/logger';
+import { gabaritosQueries } from '../services/queries';
 import { GoogleGenAI, Type } from "@google/genai";
 import { GabaritoItem, SavedGabarito } from '../types';
 import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
@@ -105,12 +107,11 @@ const GabaritoIA: React.FC = () => {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const { data, error } = await supabase.from('gabaritos_salvos').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await gabaritosQueries.getAll();
       setSavedGabaritos(data || []);
     } catch (err: any) {
-      console.error(err);
-      if (err.message.includes('relation "public.gabaritos_salvos" does not exist')) {
+      logger.error('DATA', 'Erro ao buscar histórico', err);
+      if (err.message && err.message.includes('relation "public.gabaritos_salvos" does not exist')) {
         setError("Tabela de gabaritos não encontrada. Execute o script SQL em Configurações > Diagnóstico.");
       }
     } finally {
@@ -171,7 +172,7 @@ const GabaritoIA: React.FC = () => {
         try {
           const pageResults = parseAIJSON(responseText) as any;
           if (Array.isArray(pageResults)) allResults.push(...pageResults);
-        } catch (e) { console.warn(`Página ${i} JSON inválido.`); }
+        } catch (e) { logger.warn('AI', `Página ${i} JSON inválido.`); }
       }
 
       const sortedResults = allResults.sort((a, b) => a.numero_questao - b.numero_questao);
@@ -179,14 +180,10 @@ const GabaritoIA: React.FC = () => {
       const { data: { user } } = await (supabase.auth as any).getUser();
       if (!user) throw new Error("Usuário não autenticado para salvar a análise.");
 
-      const { data: newRecord, error: insertError } = await supabase.from('gabaritos_salvos')
-        .insert({ user_id: user.id, file_name: file.name, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} })
-        .select().single();
+      const newRecord = await gabaritosQueries.insert({ user_id: user.id, file_name: file.name, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} });
 
-      if (insertError) throw insertError;
-
-      fetchHistory(); setSelectedGabarito(newRecord); setUserAnswers({}); setOfficialAnswers({});
-    } catch (err: any) { setError("Falha na análise: " + err.message); console.error(err); } finally { setProcessing(false); }
+      fetchHistory(); setSelectedGabarito(newRecord as SavedGabarito); setUserAnswers({}); setOfficialAnswers({});
+    } catch (err: any) { setError("Falha na análise: " + err.message); logger.error('AI', 'Falha na IA PDF', err); } finally { setProcessing(false); }
   };
 
   const handleManualAnalyze = async () => {
@@ -214,13 +211,10 @@ const GabaritoIA: React.FC = () => {
       if (!user) throw new Error("Usuário não autenticado para salvar a análise.");
 
       const fileName = `Análise Manual - ${new Date().toLocaleDateString('pt-BR')}`;
-      const { data: newRecord, error: insertError } = await supabase.from('gabaritos_salvos')
-        .insert({ user_id: user.id, file_name: fileName, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} })
-        .select().single();
+      const newRecord = await gabaritosQueries.insert({ user_id: user.id, file_name: fileName, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} });
 
-      if (insertError) throw insertError;
-      fetchHistory(); setSelectedGabarito(newRecord); setUserAnswers({}); setOfficialAnswers({});
-    } catch (err: any) { setError("Falha na análise manual: " + err.message); console.error(err); } finally { setProcessing(false); }
+      fetchHistory(); setSelectedGabarito(newRecord as SavedGabarito); setUserAnswers({}); setOfficialAnswers({});
+    } catch (err: any) { setError("Falha na análise manual: " + err.message); logger.error('AI', 'Falha na IA TXT', err); } finally { setProcessing(false); }
   };
 
   const handleManualAddAndAnalyze = async () => {
@@ -283,21 +277,28 @@ const GabaritoIA: React.FC = () => {
 
   const handleUpdate = async () => {
     if (!selectedGabarito) return;
-    const { error } = await supabase.from('gabaritos_salvos')
-      .update({
+    try {
+      await gabaritosQueries.update(selectedGabarito.id, {
         user_answers_json: userAnswers,
         official_answers_json: officialAnswers,
         results_json: selectedGabarito.results_json
-      })
-      .eq('id', selectedGabarito.id);
-    if (error) setError("Falha ao salvar alterações."); else alert("Salvo com sucesso!");
+      });
+      alert("Salvo com sucesso!");
+    } catch (error) {
+      setError("Falha ao salvar alterações.");
+      logger.error('DATA', 'Erro ao salvar gabarito', error);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm("Excluir esta análise permanentemente?")) return;
-    await supabase.from('gabaritos_salvos').delete().eq('id', id);
-    fetchHistory();
-    if (selectedGabarito?.id === id) setSelectedGabarito(null);
+    try {
+      await gabaritosQueries.delete(id);
+      fetchHistory();
+      if (selectedGabarito?.id === id) setSelectedGabarito(null);
+    } catch (error) {
+      logger.error('DATA', 'Erro ao excluir gabarito', error);
+    }
   };
 
   const generatePDF = async () => {

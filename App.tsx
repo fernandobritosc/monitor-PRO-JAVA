@@ -1,4 +1,5 @@
 import React, { useState, useEffect, lazy, Suspense } from 'react';
+import { Routes, Route, Navigate, useNavigate, useLocation } from 'react-router-dom';
 import { supabase, isConfigured } from './services/supabase';
 import { ViewType, StudyRecord } from './types';
 import Layout from './components/Layout';
@@ -38,12 +39,14 @@ const App: React.FC = () => {
   const {
     session, setSession,
     userEmail, setUserEmail,
-    activeView, setActiveView,
     theme, setTheme, toggleTheme,
     isOfflineMode: storeOfflineMode, setIsOfflineMode: setStoreOfflineMode,
     isError: storeIsError, setIsError: setStoreIsError,
     isLoading, setIsLoading
   } = useStore();
+
+  const navigate = useNavigate();
+  const location = useLocation();
 
   const loading = isLoading;
 
@@ -134,14 +137,14 @@ const App: React.FC = () => {
 
   // One-time migration to HUB for existing users
   useEffect(() => {
-    if (session && (activeView === 'HOME' || !activeView)) {
+    if (session && location.pathname === '/') {
       const migrated = localStorage.getItem('hub_migrated_v1');
       if (!migrated) {
-        setActiveView('HUB');
+        navigate('/');
         localStorage.setItem('hub_migrated_v1', 'true');
       }
     }
-  }, [session, activeView, setActiveView]);
+  }, [session, location.pathname, navigate]);
 
   const handleTemplateSelection = async (templateData: any[]) => {
     if (!session?.user?.id) return;
@@ -178,7 +181,7 @@ const App: React.FC = () => {
   const renderView = () => {
     // Se estiver carregando dados e NÃO tivermos registros ainda (primeiro carregamento sem cache),
     // mostramos o Skeleton correspondente à view ativa.
-    if (dataLoading && studyRecords.length === 0 && !isOfflineMode && activeView !== 'CONFIGURAR') {
+    if (dataLoading && studyRecords.length === 0 && !isOfflineMode && location.pathname !== '/configurar') {
       return (
         <div className="animate-in fade-in duration-500">
           <div className="flex items-center gap-3 mb-8">
@@ -190,44 +193,40 @@ const App: React.FC = () => {
               <p className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Aguardando resposta do motor de dados...</p>
             </div>
           </div>
-          {activeView === 'FLASHCARDS' ? <FlashcardSkeleton /> : <DashboardSkeleton />}
+          {location.pathname === '/flashcards' ? <FlashcardSkeleton /> : <DashboardSkeleton />}
         </div>
       );
     }
 
     return (
       <Suspense fallback={<LoadingFallback />}>
-        {(() => {
-          switch (activeView) {
-            case 'HUB': return <HubView setActiveView={setActiveView} userEmail={userEmail} />;
-            case 'HOME': case 'DASHBOARD': return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
-            case 'EDITAL': return <EditalProgress records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />;
-            case 'FLASHCARDS': return <Flashcards missaoAtiva={missaoAtiva} editais={editais} />;
-            case 'DISCURSIVA': return <Discursiva />;
-            case 'GABARITO_IA': return <GabaritoIA />;
-            case 'QUESTOES': return <QuestionsBank missaoAtiva={missaoAtiva} editais={editais} />;
-            case 'CADASTRO_QUESTOES': return <QuestionsBank missaoAtiva={missaoAtiva} editais={editais} initialTab="cadastro" />;
-            case 'REGISTRAR': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => session?.user?.id && fetchData(session.user.id)} />;
-            case 'REVISOES': return <Revisoes records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onUpdated={() => session?.user?.id && fetchData(session.user.id)} />;
-            case 'HISTORICO': return <History records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onRecordDelete={handleRecordDelete} />;
-            case 'SIMULADOS': return <Simulados records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onGroupDelete={handleMultipleRecordDelete} setActiveView={setActiveView} />;
-            case 'REGISTRAR_SIMULADO': return <StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => { session?.user?.id && fetchData(session.user.id); setActiveView('SIMULADOS'); }} isSimulado={true} onCancel={() => setActiveView('SIMULADOS')} />;
-            case 'ANALISE_ERROS': return <ErrorAnalysisView records={studyRecords} missaoAtiva={missaoAtiva} />;
-            case 'PERFORMANCE': return <Performance />;
-            case 'RELATORIOS': return <Reports records={studyRecords} missaoAtiva={missaoAtiva} />;
-            case 'CONFIGURAR': return <Configurar editais={editais} records={studyRecords} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />;
-            case 'RANKING': return <RankingView setActiveView={setActiveView} />;
-            default: return <HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} setActiveView={setActiveView} />;
-          }
-        })()}
+        <Routes>
+          <Route path="/" element={<HubView userEmail={userEmail} />} />
+          <Route path="/dashboard" element={<HomeView records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />} />
+          <Route path="/edital" element={<EditalProgress records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} />} />
+          <Route path="/flashcards" element={<Flashcards missaoAtiva={missaoAtiva} editais={editais} />} />
+          <Route path="/discursiva" element={<Discursiva />} />
+          <Route path="/gabarito-ia" element={<GabaritoIA />} />
+          <Route path="/questoes" element={<QuestionsBank missaoAtiva={missaoAtiva} editais={editais} />} />
+          <Route path="/cadastro-questoes" element={<QuestionsBank missaoAtiva={missaoAtiva} editais={editais} initialTab="cadastro" />} />
+          <Route path="/registrar" element={<StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => session?.user?.id && fetchData(session.user.id)} />} />
+          <Route path="/revisoes" element={<Revisoes records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onUpdated={() => session?.user?.id && fetchData(session.user.id)} />} />
+          <Route path="/historico" element={<History records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onRecordDelete={handleRecordDelete} />} />
+          <Route path="/simulados" element={<Simulados records={studyRecords} missaoAtiva={missaoAtiva} editais={editais} onRecordUpdate={handleRecordUpdate} onGroupDelete={handleMultipleRecordDelete} />} />
+          <Route path="/registrar-simulado" element={<StudyForm editais={editais} missaoAtiva={missaoAtiva} onSaved={() => { session?.user?.id && fetchData(session.user.id); navigate('/simulados'); }} isSimulado={true} onCancel={() => navigate('/simulados')} />} />
+          <Route path="/analise-erros" element={<ErrorAnalysisView records={studyRecords} missaoAtiva={missaoAtiva} />} />
+          <Route path="/performance" element={<Performance />} />
+          <Route path="/relatorios" element={<Reports records={studyRecords} missaoAtiva={missaoAtiva} />} />
+          <Route path="/configurar" element={<Configurar editais={editais} records={studyRecords} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />} />
+          <Route path="/ranking" element={<RankingView />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
+        </Routes>
       </Suspense>
     );
   };
 
   return (
     <Layout
-      activeView={activeView}
-      setActiveView={setActiveView}
       userEmail={userEmail || 'Usuário Offline'}
       onLogout={handleLogout}
       missaoAtiva={missaoAtiva}
@@ -279,7 +278,7 @@ class ErrorBoundary extends React.Component<{ children: React.ReactNode }, { has
   }
 
   componentDidCatch(error: any, errorInfo: any) {
-    console.error("ErrorBoundary caught an error", error, errorInfo);
+    logger.error('UI', 'ErrorBoundary caught an error', { error: error?.message, componentStack: errorInfo?.componentStack });
   }
 
   render() {

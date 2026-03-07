@@ -43,10 +43,9 @@ interface HomeViewProps {
   records: StudyRecord[];
   missaoAtiva: string;
   editais: EditalMateria[];
-  setActiveView: (view: ViewType) => void;
 }
 
-const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais, setActiveView }) => {
+const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais }) => {
   const [analysisTab, setAnalysisTab] = useState<'time' | 'errors'>('time');
   const [filterPeriod, setFilterPeriod] = useState<number>(30);
 

@@ -3,95 +3,22 @@ import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { Question, EditalMateria, GlobalQuestion, QuestionAttempt } from '../types';
 import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock, Plus, Brain, Volume2, Sparkles, Trophy, RotateCcw, ChevronLeft, ChevronRight, Save, Headphones, Music, Table, Map as MapIcon, Send, MessageSquarePlus, Hash, PlusCircle, BarChart2, Upload, ImageIcon, RefreshCw } from 'lucide-react';
 import { streamAIContent, AIProviderName, generateAIContent, handlePlayRevisionAudio, generatePodcastAudio, deleteCachedAudio } from '../services/aiService';
-import { CustomSelector } from '../components/CustomSelector';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
+import { logger } from '../utils/logger';
+import { questionsQueries, profilesQueries } from '../services/queries';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import Underline from '@tiptap/extension-underline';
+import { EditorToolbar } from '../components/QuestionsBank/EditorToolbar';
+import { QuestionAnalytics } from '../components/QuestionsBank/QuestionAnalytics';
+import QuestionCard from '../components/QuestionsBank/QuestionCard';
+import QuestionForm from '../components/QuestionsBank/QuestionForm';
+import { getGeminiKey, getGroqKey } from '../utils/localStorage';
+import { QuestionsFilter } from '../components/QuestionsBank/QuestionsFilter';
+import { getLocalToday, extractTecId, formatTextWithLinks } from '../components/QuestionsBank/utils';
 import Image from '@tiptap/extension-image';
-import { AIContentBox } from '../components/shared/AIContentBox';
-import { useStore } from '../hooks/useStore';
+import { CustomSelector } from '../components/CustomSelector';
 import { ResponsiveContainer, PieChart, Pie, Cell, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid } from 'recharts';
-interface EditorToolbarProps {
-  editor: Editor | null;
-}
-
-const EditorToolbar: React.FC<EditorToolbarProps & { onImageUpload?: (file: File) => void }> = ({ editor, onImageUpload }) => {
-  if (!editor) return null;
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
-  const addImageUrl = () => {
-    const url = window.prompt('URL da imagem:');
-    if (url) {
-      editor.chain().focus().setImage({ src: url }).run();
-    }
-  };
-
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file && onImageUpload) {
-      onImageUpload(file);
-    }
-    // Reset input to allow same file again
-    e.target.value = '';
-  };
-
-  return (
-    <div className="flex flex-wrap gap-1 p-2 bg-white/5 border-b border-white/10">
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleBold().run()}
-        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('bold') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
-        title="Negrito"
-      >
-        <span className="font-bold">B</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleItalic().run()}
-        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('italic') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
-        title="Itálico"
-      >
-        <span className="italic font-serif">I</span>
-      </button>
-      <button
-        type="button"
-        onClick={() => editor.chain().focus().toggleUnderline().run()}
-        className={`p-2 rounded hover:bg-white/10 transition-colors ${editor.isActive('underline') ? 'text-[hsl(var(--accent))] bg-white/10' : 'text-slate-400'}`}
-        title="Sublinhado"
-      >
-        <span className="underline">U</span>
-      </button>
-      <div className="w-px h-6 bg-white/10 mx-1 self-center" />
-      <div className="flex gap-0.5 items-center">
-        <button
-          type="button"
-          onClick={() => fileInputRef.current?.click()}
-          className="p-2 rounded hover:bg-white/10 transition-colors text-slate-400 hover:text-cyan-400 group relative"
-          title="Upload de Imagem"
-        >
-          <Upload size={16} />
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={handleFileChange}
-            className="hidden"
-            accept="image/*"
-          />
-        </button>
-        <button
-          type="button"
-          onClick={addImageUrl}
-          className="p-2 rounded hover:bg-white/10 transition-colors text-slate-400 hover:text-cyan-400"
-          title="Inserir via URL"
-        >
-          <ImageIcon size={16} />
-        </button>
-      </div>
-    </div>
-  );
-};
 
 interface QuestionsBankProps {
   missaoAtiva: string;
@@ -99,547 +26,6 @@ interface QuestionsBankProps {
   initialTab?: 'gerador' | 'cadastro';
 }
 
-// Helper para pegar data local YYYY-MM-DD
-const getLocalToday = () => {
-  const now = new Date();
-  const year = now.getFullYear();
-  const month = String(now.getMonth() + 1).padStart(2, '0');
-  const day = String(now.getDate()).padStart(2, '0');
-  return `${year}-${month}-${day}`;
-};
-
-const extractTecId = (tecField: string | undefined): { id: string, url: string } | null => {
-  if (!tecField) return null;
-  const numericRegex = /^\d+$/;
-  const urlRegex = /https?:\/\/www\.tecconcursos\.com\.br\/questoes\/(\d+)/;
-
-  if (numericRegex.test(tecField)) {
-    return {
-      id: tecField,
-      url: `https://www.tecconcursos.com.br/questoes/${tecField}`
-    };
-  }
-
-  const match = tecField.match(urlRegex);
-  if (match) {
-    return {
-      id: match[1],
-      url: tecField
-    };
-  }
-
-  // Se não bater no regex mas parecer uma URL, retornamos ela mas com ID vazio
-  if (tecField.startsWith('http')) {
-    return { id: 'Ver Link', url: tecField };
-  }
-
-  return { id: tecField, url: `https://www.tecconcursos.com.br/questoes/${tecField}` };
-};
-
-// Helper para links
-const formatTextWithLinks = (text: string | undefined) => {
-  if (!text) return null;
-  const urlRegex = /(https?:\/\/[^\s]+)/g;
-  return text.split(urlRegex).map((part, index) => {
-    if (part.match(urlRegex)) {
-      return (
-        <a
-          key={index}
-          href={part}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-cyan-400 hover:text-cyan-300 underline decoration-cyan-500/30 hover:decoration-cyan-300 transition-colors inline-flex items-center gap-1"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {part} <ExternalLink size={10} />
-        </a>
-      );
-    }
-    return part;
-  });
-};
-
-const QuestionAnalytics: React.FC<{
-  questionId: string;
-  alternativas: any[];
-  onClose: () => void;
-}> = ({ questionId, alternativas, onClose }) => {
-  const [data, setData] = useState<{ global: any[], alts: any[], userStats: { correct: number, total: number } | null, avgTime: number | null } | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { data: { user } } = await supabase.auth.getUser();
-        const { data: attempts } = await supabase.from('questao_tentativas').select('*').eq('question_id', questionId);
-
-        if (attempts) {
-          const correct = attempts.filter(a => a.is_correct).length;
-          const total = attempts.length;
-          const globalStats = [
-            { name: 'Acertos', value: correct, color: '#22c55e' },
-            { name: 'Erros', value: total - correct, color: '#ef4444' }
-          ];
-          const altCounts = alternativas.map(alt => {
-            const count = attempts.filter(a => a.selected_alt === alt.id).length;
-            return { name: alt.label, count: count, percentage: total > 0 ? ((count / total) * 100).toFixed(1) : "0" };
-          });
-          let userPerformance = null;
-          if (user) {
-            const userAttempts = attempts.filter(a => a.user_id === user.id);
-            userPerformance = { correct: userAttempts.filter(a => a.is_correct).length, total: userAttempts.length };
-          }
-          // Avg response time from attempts that have tempo_resposta
-          const withTime = attempts.filter(a => a.tempo_resposta != null);
-          const avgTime = withTime.length > 0
-            ? Math.round(withTime.reduce((sum, a) => sum + a.tempo_resposta, 0) / withTime.length)
-            : null;
-
-          setData({ global: globalStats, alts: altCounts, userStats: userPerformance, avgTime });
-        }
-      } catch (err) { console.error("Stats Error:", err); }
-      finally { setLoading(false); }
-    };
-    fetchStats();
-  }, [questionId, alternativas]);
-
-  if (loading) return (
-    <div className="flex items-center justify-center p-4 rounded-xl border border-[hsl(var(--border))] bg-[hsl(var(--bg-card))] animate-pulse min-h-[100px]">
-      <div className="w-4 h-4 rounded-full border-t-2 border-[hsl(var(--accent))] animate-spin mr-3" />
-      <span className="text-[7px] font-black uppercase text-[hsl(var(--text-muted))] tracking-[0.2em]">Sincronizando Dados...</span>
-    </div>
-  );
-
-  if (!data) return null;
-  const totalGlobal = data.global.reduce((acc, curr) => acc + curr.value, 0);
-  const correctRate = totalGlobal > 0 ? (data.global[0].value / totalGlobal) * 100 : 0;
-  const isDark = document.documentElement.classList.contains('dark') || !document.documentElement.classList.contains('light');
-  const tooltipBg = isDark ? '#0f172a' : '#f1f5f9';
-  const tooltipText = isDark ? '#fff' : '#1e293b';
-  const gridStroke = isDark ? 'rgba(255,255,255,0.05)' : 'rgba(0,0,0,0.06)';
-  const tickFill = isDark ? '#64748b' : '#475569';
-
-  return (
-    <div className="border border-[hsl(var(--border))] bg-[hsl(var(--bg-card))] backdrop-blur-md rounded-xl p-3 animate-in fade-in zoom-in-95 duration-500 shadow-lg space-y-3">
-      <div className="flex justify-between items-center pb-2 border-b border-[hsl(var(--border))]">
-        <div className="flex items-center gap-2">
-          <div className="p-1 px-2 border border-[hsl(var(--accent)/0.3)] bg-[hsl(var(--accent)/0.08)] rounded text-[hsl(var(--accent))] flex items-center gap-1.5">
-            <BarChart2 size={10} />
-            <span className="text-[7px] font-black uppercase tracking-widest">Analytics Pro</span>
-          </div>
-        </div>
-        <button onClick={onClose} className="px-2 py-1 bg-red-500/10 hover:bg-red-500/20 rounded-md text-red-500 font-black uppercase text-[7px] tracking-widest border border-red-500/20 transition-all active:scale-95">
-          FECHAR
-        </button>
-      </div>
-
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-        <div className="flex flex-col items-center space-y-2">
-          <p className="text-[7px] font-black uppercase tracking-[0.2em] text-[hsl(var(--text-muted))]">Desempenho Geral</p>
-          <div className="h-28 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <PieChart>
-                <Pie data={data.global} innerRadius={25} outerRadius={40} paddingAngle={2} dataKey="value">
-                  {data.global.map((entry, index) => <Cell key={`cell-${index}`} fill={entry.color} stroke="none" />)}
-                </Pie>
-                <Tooltip contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${gridStroke}`, borderRadius: '6px', fontSize: '8px', color: tooltipText }} />
-              </PieChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="flex flex-col gap-1 w-full max-w-[120px]">
-            {data.global.map(g => (
-              <div key={g.name} className="flex items-center justify-between text-[7px] font-bold">
-                <span className="flex items-center gap-1.5 text-[hsl(var(--text-muted))]"><div className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: g.color }} />{g.name}:</span>
-                <span className="text-[hsl(var(--text-bright))] font-black">{totalGlobal > 0 ? ((g.value / totalGlobal) * 100).toFixed(1) + '%' : '0%'}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center space-y-2">
-          <p className="text-[7px] font-black uppercase tracking-[0.2em] text-[hsl(var(--text-muted))]">Alternativas</p>
-          <div className="h-28 w-full">
-            <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={data.alts}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={gridStroke} />
-                <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 7, fill: tickFill, fontWeight: 'bold' }} />
-                <Bar dataKey="count" radius={[2, 2, 0, 0]}>
-                  {data.alts.map((entry, index) => <Cell key={`cell-${index}`} fill="hsl(188,80%,40%)" />)}
-                </Bar>
-                <Tooltip cursor={{ fill: isDark ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.04)' }} contentStyle={{ backgroundColor: tooltipBg, border: `1px solid ${gridStroke}`, borderRadius: '6px', fontSize: '8px', color: tooltipText }} />
-              </BarChart>
-            </ResponsiveContainer>
-          </div>
-          <div className="grid grid-cols-2 gap-x-3 gap-y-0.5 w-full text-[6.5px] font-black uppercase tracking-tight text-[hsl(var(--text-muted))]">
-            {data.alts.map((a, i) => (
-              <div key={`alt-row-${i}`} className="flex justify-between border-b border-[hsl(var(--border))] pb-0.5">
-                <span>{a.name}:</span> <span className="text-[hsl(var(--text-bright))]">{a.percentage}%</span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div className="flex flex-col items-center space-y-2">
-          <p className="text-[7px] font-black uppercase tracking-[0.2em] text-[hsl(var(--text-muted))]">Meu Histórico</p>
-          <div className="h-28 w-full flex items-center justify-center">
-            {data.userStats && data.userStats.total > 0 ? (
-              <div className="relative w-20 h-20 flex items-center justify-center">
-                <div className="absolute inset-0 rounded-full border-4 border-[hsl(var(--border))]" />
-                <div className="absolute inset-0 rounded-full border-4 border-emerald-500/40" style={{ clipPath: `conic-gradient(transparent 0%, transparent ${(1 - data.userStats.correct / data.userStats.total) * 100}%, currentColor ${(1 - data.userStats.correct / data.userStats.total) * 100}%, currentColor 100%)` }} />
-                <div className="flex flex-col items-center">
-                  <span className="text-[14px] font-black text-[hsl(var(--text-bright))] italic">{((data.userStats.correct / data.userStats.total) * 100).toFixed(0)}%</span>
-                  <span className="text-[5px] text-[hsl(var(--text-muted))] uppercase font-black">Accuracy</span>
-                </div>
-              </div>
-            ) : (
-              <div className="text-center p-3 rounded-xl border border-dashed border-[hsl(var(--border))]">
-                <AlertOctagon size={14} className="mx-auto text-[hsl(var(--text-muted))] mb-1" />
-                <p className="text-[hsl(var(--text-muted))] font-bold uppercase text-[6px] tracking-widest leading-tight">Sem dados</p>
-              </div>
-            )}
-          </div>
-          {data.userStats && data.userStats.total > 0 && (
-            <div className="flex flex-col gap-0.5 w-full text-[7px] font-black uppercase tracking-tight text-[hsl(var(--text-muted))]">
-              <div className="flex justify-between"><span>Tentativas:</span> <span className="text-[hsl(var(--text-bright))]">{data.userStats.total}</span></div>
-              <div className="flex justify-between"><span>Sucessos:</span> <span className="text-emerald-500">{data.userStats.correct}</span></div>
-              <div className="flex justify-between"><span>Falhas:</span> <span className="text-red-500">{data.userStats.total - data.userStats.correct}</span></div>
-            </div>
-          )}
-        </div>
-      </div>
-
-      <div className="pt-2 border-t border-[hsl(var(--border))] flex justify-between text-[7px] font-black uppercase tracking-[0.1em] text-[hsl(var(--text-muted))]">
-        <div className="flex items-center gap-1.5"><AlertOctagon size={10} className="text-[hsl(var(--accent))]" /> Dificuldade: <span className="text-[hsl(var(--text-bright))]">{correctRate > 75 ? 'Fácil' : correctRate > 50 ? 'Média' : 'Difícil'}</span></div>
-        <div className="flex items-center gap-1.5"><Target size={10} className="text-[hsl(var(--accent-secondary))]" /> Total: <span className="text-[hsl(var(--text-bright))]">{totalGlobal} Resoluções</span></div>
-        <div className="flex items-center gap-1.5"><Clock size={10} className="text-orange-500" /> Avg: <span className={data.avgTime != null ? 'text-[hsl(var(--text-bright))]' : 'text-[hsl(var(--text-muted))]'}>{data.avgTime != null ? `${data.avgTime}s` : 'N/A'}</span></div>
-      </div>
-    </div>
-  );
-};
-
-interface QuestionCardProps {
-  q: GlobalQuestion;
-  isExpanded: boolean;
-  isAdmin: boolean;
-  onToggle: (id: string) => void;
-  onEdit: (q: GlobalQuestion) => void;
-  onDelete: (id: string) => void;
-  onSolve: (q: GlobalQuestion, selectedAltId: string | null, tempo?: number) => void;
-  // IA Lab Props
-  selectedAI: AIProviderName | 'auto';
-  setSelectedAI: (val: AIProviderName | 'auto') => void;
-  aiStreamText: string;
-  aiLoading: boolean;
-  mnemonicText: string;
-  mnemonicLoading: boolean;
-  extraContent: string;
-  extraLoading: boolean;
-  activeAiTool: string;
-  setActiveAiTool: (val: any) => void;
-  onGenerateExplanation: (q: GlobalQuestion) => void;
-  onGenerateMnemonic: (q: GlobalQuestion) => void;
-  onGenerateExtra: (q: GlobalQuestion, format: any) => void;
-  onSendFollowUp: (q: GlobalQuestion) => void;
-  followUpQuery: string;
-  setFollowUpQuery: (val: string) => void;
-  isPlayingNeural: boolean;
-  onPlayAudio: (q: GlobalQuestion, text: string) => void;
-  onPlayPodcast: (q: GlobalQuestion) => void;
-  handleExportLabPDF: (id: string) => void;
-  isGeneratingPodcast: boolean;
-  podcastStatus: string;
-  podcastCache: Set<string>;
-}
-
-const QuestionCard: React.FC<QuestionCardProps> = ({
-  q, isExpanded, isAdmin, onToggle, onEdit, onDelete, onSolve,
-  selectedAI, setSelectedAI, aiStreamText, aiLoading, mnemonicText, mnemonicLoading,
-  extraContent, extraLoading, activeAiTool, setActiveAiTool,
-  onGenerateExplanation, onGenerateMnemonic, onGenerateExtra, onSendFollowUp,
-  followUpQuery, setFollowUpQuery, isPlayingNeural, onPlayAudio, onPlayPodcast,
-  handleExportLabPDF, isGeneratingPodcast, podcastStatus, podcastCache
-}) => {
-  const [selectedAlt, setSelectedAlt] = useState<string | null>(null);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [showStats, setShowStats] = useState(false);
-  const [analyticsKey, setAnalyticsKey] = useState(0);
-  const startTimeRef = useRef<number>(Date.now());
-
-  // Reset timer when card expands
-  useEffect(() => {
-    if (isExpanded) startTimeRef.current = Date.now();
-  }, [isExpanded]);
-
-  const handleConfirm = (e: React.MouseEvent) => {
-    e.stopPropagation();
-    if (!selectedAlt) return;
-    const elapsed = Math.round((Date.now() - startTimeRef.current) / 1000);
-    setIsFlipped(true);
-    onSolve(q, selectedAlt, elapsed);
-    // Refresh analytics after a short delay to let Supabase register the insert
-    if (showStats) setTimeout(() => setAnalyticsKey(k => k + 1), 800);
-  };
-  const statusInfo = {
-    'Pendente': { bg: 'bg-yellow-500/10', border: 'border-yellow-500/30', text: 'text-yellow-400', accent: 'bg-yellow-500' },
-    'Revisado': { bg: 'bg-blue-500/10', border: 'border-blue-500/30', text: 'text-blue-400', accent: 'bg-blue-500' },
-    'Dominado': { bg: 'bg-green-500/10', border: 'border-green-500/30', text: 'text-green-400', accent: 'bg-green-500' },
-  }[(q as any).status as 'Pendente' || 'Pendente'];
-
-  return (
-    <div className={`glass-premium rounded-lg overflow-hidden border transition-all duration-300 group ${isExpanded ? `border-[hsl(var(--accent)/0.3)] shadow-lg` : 'border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.1)]'}`}>
-      <div className="p-2 cursor-pointer" onClick={() => onToggle(q.id)}>
-        <div className="flex flex-col gap-1">
-          <div className="flex items-center gap-1.5 text-[7px] font-black uppercase tracking-widest text-slate-500">
-            <span className="text-cyan-400 px-1 py-0 border border-cyan-400/20">{q.materia}</span>
-            <span className="opacity-20">•</span>
-            <span className="text-slate-500">{q.banca}</span>
-            <span className="opacity-20">•</span>
-            <span className="text-slate-500">{q.ano}</span>
-            {q.tec_id && (() => {
-              const tecInfo = extractTecId(q.tec_id);
-              if (!tecInfo) return null;
-              return (
-                <>
-                  <span className="opacity-20">•</span>
-                  <a
-                    href={tecInfo.url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={(e) => e.stopPropagation()}
-                    className="text-blue-400 hover:text-blue-300 transition-colors flex items-center gap-1"
-                  >
-                    <Hash size={8} /> <span>{tecInfo.id}</span>
-                  </a>
-                </>
-              );
-            })()}
-            <button
-              onClick={(e) => { e.stopPropagation(); setShowStats(!showStats); if (!isExpanded) onToggle(q.id); }}
-              className={`ml-auto flex items-center gap-1 px-1.5 py-0.5 rounded border transition-all ${showStats ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'border-white/5 text-slate-500 hover:text-white hover:bg-white/5'}`}
-            >
-              <BarChart2 size={8} /> <span className="text-[6px]">Estatísticas</span>
-            </button>
-          </div>
-          <h4 className={`text-[10px] font-black uppercase tracking-tight transition-colors duration-300 ${isExpanded ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-bright))] group-hover:text-[hsl(var(--accent))]'}`}>
-            {q.assunto}
-          </h4>
-        </div>
-      </div>
-
-      {showStats && q.alternativas && (
-        <div className="px-2 pb-2 animate-in slide-in-from-top-2 duration-300">
-          <QuestionAnalytics
-            key={analyticsKey}
-            questionId={q.id}
-            alternativas={q.alternativas}
-            onClose={() => setShowStats(false)}
-          />
-        </div>
-      )}
-
-      {isExpanded && (
-        <div className="bg-black/10 border-t border-[hsl(var(--border))] p-2.5 space-y-3 animate-in slide-in-from-top-4 duration-300">
-          <div className="prose prose-sm prose-invert max-w-none">
-            <div dangerouslySetInnerHTML={{ __html: isFlipped && q.resposta ? q.resposta : (q.enunciado || 'Enunciado não disponível') }} className="text-[10px] font-bold tracking-tight text-[hsl(var(--text-bright))] leading-tight" />
-          </div>
-
-          <div className="grid grid-cols-1 gap-1.5">
-            {q.alternativas?.map((alt, idx) => {
-              const letter = String.fromCharCode(65 + idx);
-              const isSelected = selectedAlt === alt.id;
-
-              let statusClasses = "border-white/5 hover:border-[hsl(var(--accent)/0.2)] hover:bg-white/5";
-              if (isFlipped) {
-                if (alt.is_correct) statusClasses = "border-green-500/50 bg-green-500/10 text-green-400 shadow-[0_0_15px_rgba(34,197,94,0.05)]";
-                else if (isSelected) statusClasses = "border-red-500/50 bg-red-500/10 text-red-400";
-                else statusClasses = "border-white/5 opacity-40";
-              } else if (isSelected) {
-                statusClasses = "border-[hsl(var(--accent)/0.5)] bg-[hsl(var(--accent)/0.05)] text-[hsl(var(--accent))]";
-              }
-
-              return (
-                <button
-                  key={alt.id}
-                  disabled={isFlipped}
-                  onClick={(e) => { e.stopPropagation(); setSelectedAlt(alt.id); }}
-                  className={`w-full flex gap-2 items-center px-2 py-1.5 rounded-lg border text-left transition-all group/alt ${statusClasses}`}
-                >
-                  <div className={`w-5 h-5 rounded flex items-center justify-center text-[9px] font-black transition-all ${isSelected ? 'bg-[hsl(var(--accent))] text-black' : 'bg-white/5 group-hover/alt:bg-white/10'}`}>
-                    {letter}
-                  </div>
-                  <div className="flex-1 font-bold text-[9px] uppercase tracking-tight leading-tight">{alt.texto}</div>
-                  {isFlipped && alt.is_correct && <CheckCircle2 size={12} className="text-green-500" />}
-                  {isFlipped && isSelected && !alt.is_correct && <X size={12} className="text-red-500" />}
-                </button>
-              );
-            })}
-          </div>
-
-          {!isFlipped ? (
-            <button
-              onClick={handleConfirm}
-              disabled={!selectedAlt}
-              className="w-full py-2 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-lg text-black font-black uppercase tracking-widest text-[8px] shadow-lg active:scale-[0.98] disabled:opacity-20 transition-all font-sans"
-            >
-              Resolver Questão
-            </button>
-          ) : (
-            <div className="flex gap-2 py-1.5 bg-white/5 rounded-lg border border-white/5 items-center justify-center">
-              <span className="text-[8px] font-black uppercase text-slate-500 tracking-widest">Processado</span>
-              <button onClick={(e) => { e.stopPropagation(); setIsFlipped(false); setSelectedAlt(null); }} className="text-[8px] font-black uppercase text-[hsl(var(--accent))] hover:underline flex items-center gap-1 border-l border-white/10 pl-2">
-                <RotateCcw size={10} /> Recomeçar
-              </button>
-            </div>
-          )}
-
-          {q.anotacoes && (
-            <div className="space-y-2">
-              <h5 className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] flex items-center gap-2">
-                <FileText size={12} className="text-[hsl(var(--accent))]" /> Anotações Contextuais
-              </h5>
-              <div className="bg-[hsl(var(--bg-user-block))] p-3 rounded-xl border border-[hsl(var(--border))] text-[10px] font-bold text-[hsl(var(--text-main))] leading-normal whitespace-pre-wrap font-sans opacity-90">
-                {formatTextWithLinks(q.anotacoes)}
-              </div>
-            </div>
-          )}
-
-          {/* LABORATÓRIO NEURAL (IA) */}
-          <div className="pt-3 border-t border-white/10 space-y-3">
-            <div className="flex items-center justify-between gap-4">
-              <div className="flex items-center gap-2">
-                <div className="p-1.5 bg-purple-500/10 rounded-lg border border-purple-500/20 text-purple-400">
-                  <Brain size={12} />
-                </div>
-                <span className="text-[8px] font-black uppercase tracking-widest text-white/50">Lab Neural</span>
-              </div>
-
-              <div className="flex gap-1 p-0.5 bg-black/40 rounded-lg border border-white/5 backdrop-blur-sm shadow-inner">
-                {[
-                  { id: 'explanation', icon: <Sparkles size={10} />, label: 'Análise', color: 'purple' },
-                  { id: 'mnemonic', icon: <Music size={10} />, label: 'Mnemônico', color: 'orange' },
-                  { id: 'mapa', icon: <MapIcon size={10} />, label: 'Mapa', color: 'emerald' },
-                  { id: 'tabela', icon: <Table size={10} />, label: 'Tabela', color: 'cyan' }
-                ].map((tool) => (
-                  <button
-                    key={tool.id}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      if (activeAiTool === tool.id && (aiStreamText || mnemonicText || extraContent)) {
-                        setActiveAiTool(null as any);
-                      } else {
-                        setActiveAiTool(tool.id as any);
-                        if (tool.id === 'explanation' && !aiStreamText) onGenerateExplanation(q);
-                        if (tool.id === 'mnemonic' && !mnemonicText && !q.ai_generated_assets?.mnemonic) onGenerateMnemonic(q);
-                        if (['mapa', 'tabela'].includes(tool.id) && !q.ai_generated_assets?.[tool.id as any]) onGenerateExtra(q, tool.id as any);
-                      }
-                    }}
-                    className={`px-2 py-1 rounded-md text-[7px] font-black uppercase tracking-widest transition-all flex items-center gap-1.5 ${activeAiTool === tool.id ? `bg-${tool.color}-600 text-white shadow-lg` : 'text-slate-500 hover:text-white hover:bg-white/5'}`}
-                  >
-                    {tool.icon} {tool.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {activeAiTool && (aiStreamText || mnemonicLoading || extraLoading || mnemonicText || extraContent || aiLoading) && (
-              <div className="animate-in slide-in-from-bottom-2 duration-300 relative group/lab">
-                <button onClick={() => setActiveAiTool(null as any)} className="absolute -top-2 -right-2 p-1.5 bg-slate-800 rounded-full border border-white/10 text-slate-400 hover:text-white z-10 opacity-0 group-hover/lab:opacity-100 transition-opacity">
-                  <X size={10} />
-                </button>
-
-                {activeAiTool === 'explanation' && (
-                  <AIContentBox
-                    title="Análise Pro"
-                    icon={<Sparkles size={12} />}
-                    content={aiStreamText}
-                    isLoading={aiLoading}
-                    isMarkdown={true}
-                    accentColor="purple"
-                    activeTool="explanation"
-                    onRegenerate={() => onGenerateExplanation(q)}
-                    handleExportLabPDF={() => handleExportLabPDF(q.id)}
-                  >
-                    {aiStreamText && !aiLoading && (
-                      <div className="mt-3 pt-3 border-t border-white/5 space-y-3">
-                        <div className="flex gap-2 items-center">
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onPlayAudio(q, aiStreamText); }}
-                            disabled={isPlayingNeural}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-[8px] uppercase tracking-widest transition-all ${isPlayingNeural ? 'bg-slate-800 text-slate-500' : 'bg-white/5 hover:bg-white/10 text-white'}`}
-                          >
-                            <Headphones size={12} /> {isPlayingNeural ? "Ouvindo" : "Solo"}
-                          </button>
-                          <button
-                            onClick={(e) => { e.stopPropagation(); onPlayPodcast(q); }}
-                            disabled={isGeneratingPodcast}
-                            className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg font-bold text-[8px] uppercase tracking-widest transition-all border ${isGeneratingPodcast ? 'bg-purple-600/10 border-purple-500/20 text-purple-400 animate-pulse' : (podcastCache.has(q.original_audio_id || q.id) ? 'bg-emerald-600/10 border-emerald-500/20 text-emerald-400' : 'bg-purple-600/10 border-purple-500/20 text-purple-400')}`}
-                          >
-                            <Headphones size={12} /> {isGeneratingPodcast ? "Gerando" : (podcastCache.has(q.original_audio_id || q.id) ? "No ar!" : "Podcast")}
-                          </button>
-                        </div>
-                        <div className="relative">
-                          <input
-                            type="text"
-                            value={followUpQuery}
-                            onChange={(e) => setFollowUpQuery(e.target.value)}
-                            onKeyDown={(e) => e.key === 'Enter' && onSendFollowUp(q)}
-                            placeholder="Dúvida rápida..."
-                            className="w-full bg-black/20 border border-white/10 rounded-lg px-2.5 py-1.5 text-[9px] text-slate-200 outline-none focus:border-purple-500/30 pr-8"
-                          />
-                          <button onClick={() => onSendFollowUp(q)} disabled={!followUpQuery.trim() || aiLoading} className="absolute right-2.5 top-1/2 -translate-y-1/2 text-purple-400 disabled:opacity-20"><Send size={12} /></button>
-                        </div>
-                      </div>
-                    )}
-                  </AIContentBox>
-                )}
-
-                {activeAiTool === 'mnemonic' && (
-                  <AIContentBox
-                    title="Mnemônico"
-                    icon={<Music size={12} />}
-                    content={mnemonicText || q.ai_generated_assets?.mnemonic || ''}
-                    isLoading={mnemonicLoading}
-                    isMarkdown={true}
-                    accentColor="orange"
-                    activeTool="mnemonic"
-                    onRegenerate={() => onGenerateMnemonic(q)}
-                    handleExportLabPDF={() => handleExportLabPDF(q.id)}
-                  />
-                )}
-
-                {(['mapa', 'tabela'] as const).includes(activeAiTool as any) && (
-                  <AIContentBox
-                    title={activeAiTool.toUpperCase()}
-                    icon={activeAiTool === 'mapa' ? <MapIcon size={12} /> : <Table size={12} />}
-                    content={extraContent || q.ai_generated_assets?.[activeAiTool as keyof typeof q.ai_generated_assets] || ''}
-                    isLoading={extraLoading}
-                    isMarkdown={true}
-                    accentColor={activeAiTool === 'mapa' ? 'emerald' : 'cyan'}
-                    activeTool={activeAiTool}
-                    onRegenerate={() => onGenerateExtra(q, activeAiTool as any)}
-                    handleExportLabPDF={() => handleExportLabPDF(q.id)}
-                  />
-                )}
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-between items-center pt-3 border-t border-white/10">
-            <div className="flex gap-2">
-              {isAdmin && (
-                <>
-                  <button onClick={(e) => { e.stopPropagation(); onEdit(q); }} className="p-2 bg-white/5 rounded-lg text-slate-500 hover:text-cyan-400 border border-white/5 transition-all"><Edit size={12} /></button>
-                  <button onClick={(e) => { e.stopPropagation(); onDelete(q.id); }} className="p-2 bg-white/5 rounded-lg text-slate-500 hover:text-red-400 border border-white/5 transition-all"><Trash2 size={12} /></button>
-                </>
-              )}
-            </div>
-            {q.simulado && <span className="text-[7px] font-black bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] px-3 py-1 rounded-full border border-[hsl(var(--accent)/0.2)] uppercase tracking-widest">{q.simulado}</span>}
-          </div>
-        </div>
-      )}
-    </div>
-  );
-};
 
 const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, initialTab = 'gerador' }) => {
   const [questions, setQuestions] = useState<GlobalQuestion[]>([]);
@@ -697,59 +83,6 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
   const [viewMode, setViewMode] = useState<'list' | 'study'>('study');
   const [currentQuestionIndex, setCurrentQuestionIndex] = useState(0);
 
-  const handleSmartPaste = (text: string) => {
-    setSmartPasteText(text);
-    if (!text.trim()) return;
-
-    // Regex para identificar A), A -, [A], A. etc no início da linha
-    // Ou apenas a letra seguida de nova linha
-    const lines = text.split('\n').map(l => l.trim()).filter(Boolean);
-    const newAlts: any[] = [];
-    let currentAltText = '';
-    let currentLabel = '';
-
-    // Regex mais flexível para identificar A), A., A-, [A] ou apenas "A" isolado na linha
-    const labelRegex = /^([A-E]|[a-e])([\)\.\-\s]|$)/;
-
-    lines.forEach((line) => {
-      const match = line.match(labelRegex);
-      if (match) {
-        // Se já tínhamos uma alternativa sendo formada, salva ela
-        if (currentLabel) {
-          newAlts.push({
-            id: Math.random().toString(36).substr(2, 9),
-            label: currentLabel.toUpperCase(),
-            texto: currentAltText.trim(),
-            is_correct: false
-          });
-        }
-        currentLabel = match[1];
-        // Remove a etiqueta e possíveis separadores do início do texto
-        currentAltText = line.replace(/^([A-E]|[a-e])[\)\.\-\s]*/i, '').trim();
-      } else if (currentLabel) {
-        // Se não tem match mas temos uma letra ativa, acumula o texto
-        currentAltText += (currentAltText ? ' ' : '') + line;
-      }
-    });
-
-    // Adiciona a última
-    if (currentLabel) {
-      newAlts.push({
-        id: Math.random().toString(36).substr(2, 9),
-        label: currentLabel.toUpperCase(),
-        texto: currentAltText.trim(),
-        is_correct: false
-      });
-    }
-
-    if (newAlts.length > 0) {
-      setFormData(prev => ({
-        ...prev,
-        alternativas: newAlts,
-        tipo: 'Multipla Escolha'
-      }));
-    }
-  };
   const [selectedAI, setSelectedAI] = useState<AIProviderName | 'auto'>('auto');
   const [aiStreamText, setAiStreamText] = useState<string>("");
   const [followUpQuery, setFollowUpQuery] = useState("");
@@ -800,84 +133,11 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
     }
   };
 
-  const createEditorProps = (targetEditor: string) => ({
-    attributes: {
-      class: 'prose prose-invert prose-sm max-w-none focus:outline-none min-h-[200px] p-6 text-[hsl(var(--text-bright))]'
-    },
-    handlePaste: (view: any, event: ClipboardEvent) => {
-      const items = Array.from(event.clipboardData?.items || []);
-      const imageItem = items.find(item => item.type.startsWith('image'));
-
-      if (imageItem) {
-        const file = imageItem.getAsFile();
-        if (file) {
-          handleImageUpload(file).then(url => {
-            if (url && (targetEditor === 'enunciado' ? enunciadoEditor : respostaEditor)) {
-              (targetEditor === 'enunciado' ? enunciadoEditor : respostaEditor)?.chain().focus().setImage({ src: url }).run();
-            }
-          });
-          return true;
-        }
-      }
-      return false;
-    },
-    handleDrop: (view: any, event: DragEvent) => {
-      const files = Array.from(event.dataTransfer?.files || []);
-      const imageFile = files.find(file => file.type.startsWith('image'));
-
-      if (imageFile) {
-        handleImageUpload(imageFile).then(url => {
-          if (url && (targetEditor === 'enunciado' ? enunciadoEditor : respostaEditor)) {
-            (targetEditor === 'enunciado' ? enunciadoEditor : respostaEditor)?.chain().focus().setImage({ src: url }).run();
-          }
-        });
-        return true;
-      }
-      return false;
-    }
-  });
-
-  // Tiptap Editors
-  const enunciadoEditor = useEditor({
-    extensions: [
-      StarterKit.configure({ underline: false }),
-      Underline,
-      Image,
-      Placeholder.configure({ placeholder: 'Digite o enunciado...' })
-    ],
-    content: formData.enunciado,
-    onUpdate: ({ editor }) => setFormData(prev => ({ ...prev, enunciado: editor.getHTML() })),
-    editorProps: createEditorProps('enunciado'),
-  });
-
-  const respostaEditor = useEditor({
-    extensions: [
-      StarterKit.configure({ underline: false }),
-      Underline,
-      Image,
-      Placeholder.configure({ placeholder: 'Digite o gabarito comentado...' })
-    ],
-    content: formData.resposta,
-    onUpdate: ({ editor }) => setFormData(prev => ({ ...prev, resposta: editor.getHTML() })),
-    editorProps: createEditorProps('resposta'),
-  });
-
-  useEffect(() => {
-    if (isEditing && showForm) {
-      enunciadoEditor?.commands.setContent(formData.enunciado || '');
-      respostaEditor?.commands.setContent(formData.resposta || '');
-    } else if (!isEditing && showForm) {
-      enunciadoEditor?.commands.setContent('');
-      respostaEditor?.commands.setContent('');
-    }
-  }, [isEditing, showForm]);
-
-
   const syncPodcastCache = async () => {
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.storage.from('audio-revisions').list('', { limit: 1000, sortBy: { column: 'name', order: 'desc' } });
-      if (error) { console.error("Erro ao listar áudios:", error); return; }
+      if (error) { logger.error('DATA', "Erro ao listar áudios:", error); return; }
       if (data) {
         const podcastIds = new Set<string>();
         let count = 0;
@@ -888,25 +148,29 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
             count++;
           }
         });
-        console.log(`✅ Sincronização: ${count} podcasts identificados no servidor.`);
+        logger.info('DATA', `✅ Sincronização: ${count} podcasts identificados no servidor.`);
         setPodcastCache(podcastIds);
       }
-    } catch (e) { console.error("Erro exceção sync podcast:", e); } finally { setIsSyncing(false); }
+    } catch (e) { logger.error('DATA', "Erro exceção sync podcast:", e); } finally { setIsSyncing(false); }
   };
 
   const fetchQuestions = async () => {
     setLoading(true);
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
     setCurrentUser(user);
 
     try {
-      const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
-      if (user.email === 'fernandobritosc@gmail.com' || profile?.is_admin === true) setIsAdmin(true);
+      const isAdmin = await profilesQueries.isAdmin(user.id);
+      if (user.email === 'fernandobritosc@gmail.com' || isAdmin) setIsAdmin(true);
     } catch (e) { }
 
-    const { data, error } = await supabase.from('banco_questoes').select('*').order('created_at', { ascending: false });
-    if (!error) setQuestions(data || []);
+    try {
+      const data = await questionsQueries.getAll();
+      setQuestions(data || []);
+    } catch (error) {
+      logger.error('DATA', 'Erro ao buscar questões:', error);
+    }
     setLoading(false);
   };
 
@@ -973,15 +237,11 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
         [assetType]: content
       };
 
-      const { error } = await supabase
-        .from('banco_questoes')
-        .update({ ai_generated_assets: updatedAssets })
-        .eq('id', questionId);
+      await questionsQueries.update(questionId, { ai_generated_assets: updatedAssets });
 
-      if (error) throw error;
       setQuestions(prev => prev.map(item => item.id === questionId ? { ...item, ai_generated_assets: updatedAssets } : item));
-    } catch (err) {
-      console.error("Erro ao salvar asset da IA:", err);
+    } catch (err: any) {
+      logger.error('DATA', "Erro ao salvar asset da IA:", err);
     }
   };
 
@@ -1046,7 +306,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
       setMnemonicText(content);
       await saveAiAsset(question.id, 'mnemonic', content);
     } catch (err) {
-      console.error(err);
+      logger.error('AI', 'Erro generate mnemonic:', err);
     } finally {
       setMnemonicLoading(false);
     }
@@ -1069,7 +329,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
       setExtraContent(content);
       await saveAiAsset(question.id, format, content);
     } catch (err) {
-      console.error(err);
+      logger.error('AI', 'Erro generate extra format:', err);
     } finally {
       setExtraLoading(false);
     }
@@ -1089,7 +349,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
           onChunk: (chunk) => setAiStreamText(prev => prev + chunk),
           onComplete: () => setAiLoading(false),
           onError: (err) => {
-            console.error(err);
+            logger.error('AI', 'Erro stream AI content:', err);
             setAiLoading(false);
           }
         },
@@ -1385,10 +645,10 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
 
   const logAttempt = async (question: GlobalQuestion, selectedAltId: string | null, tempo?: number) => {
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
-      if (!user) { console.warn('[logAttempt] No user session'); return; }
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { logger.warn('AI', '[logAttempt] No user session'); return; }
       const isCorrect = question.alternativas?.find(a => a.id === selectedAltId)?.is_correct || false;
-      console.log('[logAttempt] Saving attempt:', question.id, selectedAltId, isCorrect, tempo);
+      logger.info('DATA', `[logAttempt] Saving attempt: ${question.id}, ${selectedAltId}, ${isCorrect}, ${tempo}`);
 
       const payload: any = {
         user_id: user.id,
@@ -1401,44 +661,46 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
         tempo_resposta: tempo ?? null
       };
 
-      const { error } = await supabase.from('questao_tentativas').insert([payload]);
+      const { error } = await questionsQueries.insertAttempt(payload);
 
       if (error) {
-        console.warn('[logAttempt] Insert error (tentando sem tempo_resposta):', error.message);
-        // Fallback: insert sem tempo_resposta caso a coluna não exista ainda
-        const { tempo_resposta, ...payloadSemTempo } = payload;
-        const { error: error2 } = await supabase.from('questao_tentativas').insert([payloadSemTempo]);
-        if (error2) console.error('[logAttempt] Falha definitiva no insert:', error2.message);
-        else console.log('[logAttempt] Saved (sem tempo_resposta)');
+        logger.warn('DATA', `[logAttempt] Insert error (tentando sem tempo_resposta): ${error.message}`);
+        const { error: error2 } = await questionsQueries.insertAttemptWithoutTime(payload);
+        if (error2) logger.error('DATA', `[logAttempt] Falha definitiva no insert: ${error2.message}`);
+        else logger.info('DATA', '[logAttempt] Saved (sem tempo_resposta)');
       } else {
-        console.log('[logAttempt] Saved OK');
+        logger.info('DATA', '[logAttempt] Saved OK');
       }
     } catch (e) {
-      console.error('[logAttempt] Exceção:', e);
+      logger.error('DATA', '[logAttempt] Exceção:', e);
     }
   };
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+  const handleSaveForm = async (updatedFormData: any) => {
     if (!isAdmin) return;
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     if (!user) return;
 
-    const payload = { ...formData, tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean), created_by: user.id };
+    const payload = { ...updatedFormData, tags: updatedFormData.tags.split(',').map((t: string) => t.trim()).filter(Boolean), created_by: user.id };
     delete (payload as any).gabarito_oficial;
 
-    const { error } = isEditing
-      ? await supabase.from('banco_questoes').update(payload).eq('id', isEditing)
-      : await supabase.from('banco_questoes').insert([payload]);
-
-    if (!error) { handleCancel(); fetchQuestions(); }
-    else alert('Erro: ' + error.message);
+    try {
+      await questionsQueries.upsert(payload, isEditing || undefined);
+      handleCancel(); fetchQuestions();
+    } catch (error: any) {
+      alert('Erro: ' + error.message);
+    }
   };
 
   const handleDelete = async (id: string) => {
     if (!isAdmin || !confirm("Excluir questão?")) return;
-    await supabase.from('banco_questoes').delete().eq('id', id);
-    fetchQuestions();
+    try {
+      await questionsQueries.delete(id);
+      fetchQuestions();
+    } catch (error: any) {
+      logger.error('DATA', 'Erro ao excluir questão', error);
+      alert('Erro ao excluir questão');
+    }
   };
 
   const toggleCard = (id: string) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
@@ -1462,64 +724,18 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
       {activeBankTab === 'gerador' && (
         <div className="space-y-3 animate-in fade-in slide-in-from-bottom-4 duration-500">
           {/* Barra de Busca & Filtros Compacta */}
-          <div className="glass-premium p-1.5 rounded-lg border border-[hsl(var(--border))] flex flex-col gap-1.5">
-            <div className="flex gap-1.5">
-              <div className="relative flex-1">
-                <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-500" size={9} />
-                <input
-                  type="text"
-                  placeholder="Pesquisar questões..."
-                  className="w-full bg-white/5 border border-white/5 rounded-md pl-7 pr-2 py-1 text-[8px] font-bold text-[hsl(var(--text-bright))] focus:border-cyan-500/50 outline-none transition-all"
-                  value={searchTerm}
-                  onChange={e => setSearchTerm(e.target.value)}
-                />
-              </div>
-              <button
-                onClick={() => setShowFilters(!showFilters)}
-                className={`px-2 rounded-md border flex items-center gap-1 transition-all ${showFilters ? 'bg-cyan-500/10 border-cyan-500/50 text-cyan-400' : 'bg-white/5 border-white/5 text-slate-400 hover:bg-white/10'}`}
-              >
-                <Layers size={9} />
-                {showFilters ? <ChevronUp size={9} /> : <ChevronDown size={9} />}
-              </button>
-              <button
-                onClick={syncPodcastCache}
-                disabled={isSyncing}
-                className="px-2 rounded-md border border-white/5 bg-white/5 text-slate-400 hover:text-white transition-all outline-none"
-                title="Sincronizar Áudios"
-              >
-                <RefreshCw size={9} className={isSyncing ? 'animate-spin text-cyan-400' : ''} />
-              </button>
-            </div>
-
-            {showFilters && (
-              <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2 pb-1 animate-in slide-in-from-top-2 duration-300">
-                {[
-                  { label: 'Matéria', val: filterMateria, set: setFilterMateria, list: savedMaterias },
-                  { label: 'Assunto', val: filterAssunto, set: setFilterAssunto, list: savedAssuntosGerais },
-                  { label: 'Banca', val: filterBanca, set: setFilterBanca, list: savedBancas },
-                  { label: 'Orgão', val: filterOrgao, set: setFilterOrgao, list: savedOrgaos },
-                  { label: 'Cargo', val: filterCargo, set: setFilterCargo, list: savedCargos },
-                  { label: 'Ano', val: filterAno, set: setFilterAno, list: savedAnos },
-                  { label: 'Podcast', val: filterPodcast, set: setFilterPodcast, list: ['Todos', 'Com Podcast', 'Sem Podcast'] }
-                ].map(f => (
-                  <div key={f.label} className="space-y-1">
-                    <label className="text-[6px] font-black text-slate-500 uppercase tracking-widest ml-1">{f.label}</label>
-                    <input
-                      type="text"
-                      list={`list-${f.label}`}
-                      className="w-full bg-black/20 border border-white/5 rounded px-2 py-1 text-[8px] font-bold text-slate-300"
-                      value={f.val === 'Todas' || f.val === 'Todos' ? '' : f.val}
-                      placeholder="Qualquer"
-                      onChange={e => f.set(e.target.value || (f.label === 'Ano' ? 'Todos' : (f.label === 'Assunto' || f.label === 'Orgão' || f.label === 'Cargo' ? 'Todos' : 'Todas')))}
-                    />
-                    <datalist id={`list-${f.label}`}>
-                      {f.list.map((item, i) => <option key={i} value={item.toString()} />)}
-                    </datalist>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
+          <QuestionsFilter
+            searchTerm={searchTerm} setSearchTerm={setSearchTerm}
+            showFilters={showFilters} setShowFilters={setShowFilters}
+            isSyncing={isSyncing} syncPodcastCache={syncPodcastCache}
+            filterMateria={filterMateria} setFilterMateria={setFilterMateria} savedMaterias={savedMaterias}
+            filterAssunto={filterAssunto} setFilterAssunto={setFilterAssunto} savedAssuntosGerais={savedAssuntosGerais}
+            filterBanca={filterBanca} setFilterBanca={setFilterBanca} savedBancas={savedBancas}
+            filterOrgao={filterOrgao} setFilterOrgao={setFilterOrgao} savedOrgaos={savedOrgaos}
+            filterCargo={filterCargo} setFilterCargo={setFilterCargo} savedCargos={savedCargos}
+            filterAno={filterAno} setFilterAno={setFilterAno} savedAnos={savedAnos}
+            filterPodcast={filterPodcast} setFilterPodcast={setFilterPodcast}
+          />
 
           {/* Listagem Control Headers */}
           <div className="flex justify-between items-center mb-2 px-1">
@@ -1687,209 +903,19 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva, editais, ini
               </button>
             </div>
           ) : (
-            <div className="glass-premium p-4 rounded-2xl border border-[hsl(var(--accent)/0.3)] shadow-2xl relative">
-              <button onClick={handleCancel} className="absolute top-4 right-4 p-1.5 bg-white/5 rounded-lg text-slate-500 hover:text-white transition-all"><X size={14} /></button>
-              <h3 className="text-sm font-black uppercase tracking-widest mb-4 bg-gradient-to-r from-white to-white/40 bg-clip-text text-transparent">
-                {isEditing ? 'Editar Registro' : 'Novo Cadastro'}
-              </h3>
-
-              <form onSubmit={handleSubmit} className="space-y-4">
-                <div className="grid grid-cols-1 md:grid-cols-4 gap-3 bg-white/5 p-3 rounded-xl border border-white/5">
-                  {[
-                    { field: 'tec_id', label: 'ID/URL TEC', list: null },
-                    { field: 'banca', label: 'Banca', list: savedBancas },
-                    { field: 'ano', label: 'Ano', list: savedAnos },
-                    { field: 'orgao', label: 'Orgão', list: savedOrgaos },
-                    { field: 'cargo', label: 'Cargo', list: savedCargos }
-                  ].map(item => (
-                    <div key={item.field} className="space-y-1">
-                      <label className="text-[7px] font-black uppercase text-slate-500 ml-1 tracking-widest">
-                        {item.label}
-                      </label>
-                      <input
-                        type="text"
-                        list={item.list ? `list-form-${item.field}` : undefined}
-                        placeholder={item.field === 'tec_id' ? 'Ex: 123456' : ''}
-                        className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-lg px-2.5 py-1.5 text-[9px] font-bold text-[hsl(var(--text-bright))] focus:border-[hsl(var(--accent)/0.5)] transition-all"
-                        value={(formData as any)[item.field]}
-                        onChange={e => setFormData({ ...formData, [item.field]: item.field === 'ano' ? (parseInt(e.target.value) || '') : e.target.value })}
-                      />
-                      {item.list && (
-                        <datalist id={`list-form-${item.field}`}>
-                          {item.list.map((val, i) => <option key={i} value={val.toString()} />)}
-                        </datalist>
-                      )}
-                    </div>
-                  ))}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  {['materia', 'assunto'].map(field => (
-                    <div key={field} className="space-y-1">
-                      <label className="text-[7px] font-black uppercase text-slate-500 ml-1 tracking-widest">{field}</label>
-                      <input
-                        type="text"
-                        list={`list-form-${field}`}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-[10px] font-bold text-[hsl(var(--text-bright))] focus:border-[hsl(var(--accent)/0.5)] transition-all"
-                        value={(formData as any)[field]}
-                        onChange={e => setFormData({ ...formData, [field]: e.target.value })}
-                      />
-                      <datalist id={`list-form-${field}`}>
-                        {(field === 'materia' ? savedMaterias : topicosSugeridos).map((item, i) => <option key={i} value={item} />)}
-                      </datalist>
-                    </div>
-                  ))}
-                </div>
-
-                <div className="space-y-1.5">
-                  <label className="text-[7px] font-black uppercase text-slate-500 ml-1 tracking-widest flex items-center gap-1.5">
-                    Enunciado <span className="text-[6px] opacity-30 uppercase font-bold">(Imagens & Rich Text)</span>
-                  </label>
-                  <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.3)] transition-all shadow-inner">
-                    <EditorToolbar
-                      editor={enunciadoEditor}
-                      onImageUpload={(file) => handleImageUpload(file).then(url => url && enunciadoEditor?.chain().focus().setImage({ src: url }).run())}
-                    />
-                    <EditorContent editor={enunciadoEditor} />
-                  </div>
-                </div>
-
-                <div className="space-y-4">
-                  <div className="flex flex-col gap-1.5">
-                    <label className="text-[7px] font-black uppercase text-slate-500 ml-1 tracking-widest">Tipo de Item</label>
-                    <div className="flex gap-2">
-                      {['Multipla Escolha', 'Certo/Errado'].map(type => (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setFormData({
-                            ...formData,
-                            tipo: type as any,
-                            alternativas: type === 'Certo/Errado' ? [
-                              { id: '1', label: 'Certo', texto: 'Certo', is_correct: true },
-                              { id: '2', label: 'Errado', texto: 'Errado', is_correct: false }
-                            ] : []
-                          })}
-                          className={`px-4 py-1.5 rounded-lg text-[8px] font-black transition-all ${formData.tipo === type ? 'bg-[hsl(var(--accent))] text-black' : 'bg-white/5 text-slate-400 hover:bg-white/10 border border-white/5'}`}
-                        >
-                          {type.toUpperCase()}
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center px-1">
-                      <label className="text-[8px] font-black uppercase text-[hsl(var(--accent))] tracking-widest flex items-center gap-1.5">
-                        <CheckCircle2 size={10} /> Configuração de Gabarito
-                      </label>
-                      <button
-                        type="button"
-                        onClick={() => setShowSmartPaste(!showSmartPaste)}
-                        className={`text-[7px] font-black uppercase tracking-widest px-2.5 py-1 rounded-md border transition-all flex items-center gap-1.5 ${showSmartPaste ? 'bg-[hsl(var(--accent))] text-black border-[hsl(var(--accent))]' : 'bg-white/5 text-slate-400 border-white/10 hover:bg-white/10'}`}
-                      >
-                        <Zap size={10} /> {showSmartPaste ? 'Fechar Scanner' : 'Smart Paste'}
-                      </button>
-                    </div>
-
-                    {showSmartPaste && (
-                      <div className="bg-purple-500/5 border border-purple-500/20 rounded-xl p-3 space-y-2 animate-in zoom-in-95 duration-300">
-                        <textarea
-                          placeholder="Cole as alternativas do site aqui..."
-                          className="w-full bg-black/40 border border-white/10 rounded-lg p-2.5 text-[9px] font-bold text-slate-200 min-h-[120px] focus:border-purple-500/50 transition-all outline-none"
-                          value={smartPasteText}
-                          onChange={(e) => handleSmartPaste(e.target.value)}
-                        />
-                      </div>
-                    )}
-
-                    <div className="space-y-2">
-                      {(formData.alternativas || []).map((alt, i) => (
-                        <div key={alt.id} className="flex gap-2 items-center group/alt">
-                          <button
-                            type="button"
-                            onClick={() => setFormData({ ...formData, alternativas: (formData.alternativas || []).map(a => ({ ...a, is_correct: a.id === alt.id })), gabarito_oficial: String.fromCharCode(65 + i) })}
-                            className={`w-8 h-8 rounded-lg font-black text-[10px] flex items-center justify-center transition-all shadow-lg shrink-0 border ${alt.is_correct
-                              ? 'bg-green-500 border-green-400 text-black scale-105 shadow-green-500/20'
-                              : 'bg-white/5 text-slate-500 border-white/5 hover:border-white/20'
-                              }`}
-                          >
-                            {alt.is_correct ? <CheckCircle2 size={14} /> : (formData.tipo === 'Multipla Escolha' ? String.fromCharCode(65 + i) : alt.label[0])}
-                          </button>
-                          <div className="flex-1 relative">
-                            <input
-                              type="text"
-                              placeholder={`Texto da opção ${String.fromCharCode(65 + i)}...`}
-                              className={`w-full bg-white/5 border rounded-lg px-3 py-2 text-[10px] font-bold transition-all pr-10 ${alt.is_correct
-                                ? 'border-green-500/30 text-green-400 bg-green-500/5'
-                                : 'border-white/10 focus:border-[hsl(var(--accent)/0.5)] text-slate-300'
-                                }`}
-                              value={alt.texto}
-                              onChange={e => {
-                                const newAlts = [...(formData.alternativas || [])];
-                                newAlts[i].texto = e.target.value;
-                                setFormData({ ...formData, alternativas: newAlts });
-                              }}
-                            />
-                            {formData.tipo === 'Multipla Escolha' && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const newAlts = (formData.alternativas || []).filter(a => a.id !== alt.id);
-                                  setFormData({ ...formData, alternativas: newAlts });
-                                }}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-slate-600 hover:text-red-400 transition-all"
-                              >
-                                <Trash2 size={12} />
-                              </button>
-                            )}
-                          </div>
-                        </div>
-                      ))}
-
-                      {formData.tipo === 'Multipla Escolha' && (formData.alternativas || []).length < 5 && (
-                        <button
-                          type="button"
-                          onClick={() => setFormData({ ...formData, alternativas: [...(formData.alternativas || []), { id: Date.now().toString(), texto: '', label: '', is_correct: false }] })}
-                          className="w-full py-2 border border-dashed border-white/10 rounded-lg text-[7px] font-black text-slate-500 hover:text-[hsl(var(--accent))] hover:bg-white/5 transition-all flex items-center justify-center gap-1.5 tracking-widest uppercase"
-                        >
-                          <Plus size={10} /> Adicionar Opção
-                        </button>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[7px] font-black uppercase text-slate-500 ml-1 tracking-widest flex items-center gap-1.5">
-                      Gabarito Comentado <span className="text-[6px] opacity-30 uppercase font-bold">(Opcional)</span>
-                    </label>
-                    <div className="bg-black/40 border border-white/10 rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.3)] transition-all shadow-inner">
-                      <EditorToolbar
-                        editor={respostaEditor}
-                        onImageUpload={(file) => handleImageUpload(file).then(url => url && respostaEditor?.chain().focus().setImage({ src: url }).run())}
-                      />
-                      <EditorContent editor={respostaEditor} />
-                    </div>
-                  </div>
-
-                  <div className="flex justify-end gap-3 pt-4 border-t border-white/5">
-                    <button
-                      type="button"
-                      onClick={handleCancel}
-                      className="px-4 py-2 text-[8px] font-black uppercase text-slate-500 hover:text-white transition-all tracking-widest"
-                    >
-                      Descartar
-                    </button>
-                    <button
-                      type="submit"
-                      className="px-6 py-2 bg-gradient-to-r from-cyan-600 to-blue-600 rounded-lg text-black font-black uppercase text-[8px] shadow-lg shadow-cyan-500/20 hover:scale-105 active:scale-95 transition-all tracking-widest"
-                    >
-                      {isEditing ? 'Salvar Alterações' : 'Concluir Registro'}
-                    </button>
-                  </div>
-                </div>
-              </form>
-            </div>
+            <QuestionForm
+              initialData={formData}
+              isEditing={!!isEditing}
+              onSave={handleSaveForm}
+              onCancel={handleCancel}
+              savedMaterias={savedMaterias}
+              topicosSugeridos={topicosSugeridos}
+              savedBancas={savedBancas}
+              savedAnos={savedAnos}
+              savedOrgaos={savedOrgaos}
+              savedCargos={savedCargos}
+              handleImageUpload={handleImageUpload}
+            />
           )}
         </div>
       )}

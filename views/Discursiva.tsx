@@ -7,6 +7,8 @@ import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
 import { trackEvent, captureError } from '../services/telemetry';
 import { Discursiva as DiscursivaType } from '../types';
+import { discursivasQueries } from '../services/queries';
+import { logger } from '../utils/logger';
 import {
   FileEdit, UploadCloud, Loader2, Sparkles, Download, Database, Copy, X, Trash2, Image as ImageIcon, MessageSquare, List, AlertTriangle, ChevronDown, ChevronUp, ChevronLeft, CheckCircle2, Calendar
 } from 'lucide-react';
@@ -205,12 +207,11 @@ const Discursiva: React.FC = () => {
   const fetchHistory = async () => {
     setLoadingHistory(true);
     try {
-      const { data, error } = await supabase.from('discursivas').select('*').order('created_at', { ascending: false });
-      if (error) throw error;
+      const data = await discursivasQueries.getAll();
       setHistory(data || []);
     } catch (err: any) {
-      console.error("Erro ao buscar histórico:", err);
-      if (err.message.includes('relation "public.discursivas" does not exist')) {
+      logger.error('DATA', "Erro ao buscar histórico:", err);
+      if (err.message && err.message.includes('relation "public.discursivas" does not exist')) {
         setError("Tabela 'discursivas' não encontrada. Execute o script SQL de configuração.");
       }
     } finally {
@@ -289,19 +290,13 @@ ${AI_PROMPT}
       // Nota: Atualmente generateAIContent não processa imagem no Groq.
       // Se Gemini falhar, o Groq tentará analisar apenas pelo enunciado (finalPrompt).
 
-      const { data: newRecord, error: dbError } = await supabase
-        .from('discursivas')
-        .insert({
-          user_id: user.id,
-          title,
-          prompt, // SALVA O ENUNCIADO NO BANCO
-          image_url: publicUrl,
-          analysis_text: analysisText,
-        })
-        .select()
-        .single();
-
-      if (dbError) throw dbError;
+      const newRecord = await discursivasQueries.insert({
+        user_id: user.id,
+        title,
+        prompt, // SALVA O ENUNCIADO NO BANCO
+        image_url: publicUrl,
+        analysis_text: analysisText,
+      });
 
       setAnalysisResult(newRecord);
 
@@ -323,7 +318,7 @@ ${AI_PROMPT}
       trackEvent('Discursiva_Analysis_Success', { title, score: extractFinalScore(analysisText) });
     } catch (err: any) {
       captureError(err, { stage: 'discursiva_analysis' });
-      console.error(err);
+      logger.error('DATA', 'Erro na discursiva:', err);
       if (err.message && (err.message.includes("column \"prompt\" of relation \"discursivas\" does not exist") || err.message.includes("column 'prompt' does not exist"))) {
         setError("ERRO DE BANCO DE DADOS: Sua tabela 'discursivas' está desatualizada. Por favor, execute o script SQL mais recente (botão 'Permissões (SQL)') para adicionar a coluna 'prompt'.");
       } else {
@@ -345,8 +340,7 @@ ${AI_PROMPT}
           await supabase.storage.from('discursivas_images').remove([`${user.id}/${fileName}`]);
         }
       }
-      const { error } = await supabase.from('discursivas').delete().eq('id', id);
-      if (error) throw error;
+      await discursivasQueries.delete(id);
       setHistory(prev => prev.filter(item => item.id !== id));
       if (selectedHistory?.id === id) setSelectedHistory(null);
     } catch (err: any) {
@@ -503,7 +497,7 @@ ${AI_PROMPT}
 
       doc.save(`Analise_Discursiva_${analysis.id.substring(0, 8)}.pdf`);
     } catch (err: any) {
-      console.error(err);
+      logger.error('DATA', 'Erro ao gerar PDF', err);
       alert("Erro ao gerar PDF: " + err.message);
     }
   };

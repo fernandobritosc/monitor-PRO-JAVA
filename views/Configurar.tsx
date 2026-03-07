@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, saveAppConfig } from '../services/supabase';
 import { EditalMateria, UserProfile, StudyRecord } from '../types';
+import { logger } from '../utils/logger';
+import { editaisQueries, profilesQueries } from '../services/queries';
 import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock } from 'lucide-react';
 
 interface ConfigurarProps {
@@ -128,8 +130,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
       if (!user) return;
       setCurrentUserEmail(user.email || '');
       try {
-        const { data: profile } = await supabase.from('profiles').select('is_admin').eq('id', user.id).maybeSingle();
-        if (user.email === 'fernandobritosc@gmail.com' || profile?.is_admin === true) {
+        const profile = await profilesQueries.getById(user.id);
+        if (profile?.is_admin === true) {
           setIsAdmin(true);
           fetchUsers();
         }
@@ -184,8 +186,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
   const fetchCommunityTemplates = async () => {
     setLoadingTemplates(true);
     try {
-      const { data, error } = await supabase.from('editais_materias').select('*').limit(2000);
-      if (!error && data && data.length > 0) {
+      const data = await editaisQueries.getAll(2000);
+      if (data && data.length > 0) {
         const grouped: Record<string, any[]> = {};
         data.forEach((row: any) => {
           const key = row.concurso;
@@ -202,7 +204,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
         }).sort((a, b) => a.title.localeCompare(b.title));
         setCommunityTemplates(list);
       }
-    } catch (e) { console.error(e); } finally { setLoadingTemplates(false); }
+    } catch (e) { logger.error('DATA', 'Erro fetchCommunityTemplates', e); } finally { setLoadingTemplates(false); }
   };
 
   const handleImportTemplate = async (template: any) => {
@@ -211,14 +213,13 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
       const { data: { user } } = await (supabase.auth as any).getUser();
       if (!user) throw new Error("Usuário não logado");
       const payload = template.materias.map((m: any) => ({
-        user_id: user.id, concurso: m.concurso, cargo: m.cargo, materia: m.m.materia,
+        user_id: user.id, concurso: m.concurso, cargo: m.cargo, materia: m.materia,
         topicos: m.topicos, is_principal: true, data_prova: m.data_prova, peso: m.peso || 1
       }));
-      const { error } = await supabase.from('editais_materias').upsert(payload, { onConflict: 'user_id,concurso,materia', ignoreDuplicates: false });
-      if (error) throw error;
+      await editaisQueries.upsert(payload, false);
       setMissaoAtiva(template.title); await onUpdated(); alert(`Edital "${template.title}" importado com sucesso!`); setActiveTab('mission');
     } catch (e: any) {
-      console.error(e);
+      logger.error('DATA', 'Erro importando template', e);
       if (e.message?.includes('constraint') || e.message?.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE BANCO DE DADOS: Faltam regras de unicidade. O modal de correção abrirá automaticamente."); }
       else { alert("Erro ao importar: " + e.message); }
     } finally { setImportingId(null); }
@@ -227,9 +228,9 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
   const fetchUsers = async () => {
     setLoadingUsers(true);
     try {
-      const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false });
+      const data = await profilesQueries.getAll();
       if (data) setUsersList(data);
-    } catch (e) { } finally { setLoadingUsers(false); }
+    } catch (e: any) { logger.error('DATA', 'Erro ao buscar perfis', e); } finally { setLoadingUsers(false); }
   };
 
   const runDiagnostics = async () => {
@@ -258,9 +259,10 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, 
     setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: newStatus } : u));
     setApprovalMsg(newStatus ? 'Usuário APROVADO com sucesso!' : 'Acesso do usuário BLOQUEADO.');
     setTimeout(() => setApprovalMsg(null), 3000);
-    const { error } = await supabase.from('profiles').update({ approved: newStatus }).eq('id', userId);
-    if (error) {
-      console.error("Erro no update de perfil:", error);
+    try {
+      await profilesQueries.updateApproval(userId, newStatus);
+    } catch (error: any) {
+      logger.error('DATA', "Erro no update de perfil:", error);
       if (error.code === '42501' || error.message?.includes('permission')) setPermissionError(true); else alert('Erro ao atualizar: ' + error.message);
       setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: !newStatus } : u));
     }
@@ -320,7 +322,7 @@ NOTIFY pgrst, 'reload schema';
     return Object.entries(groups).map(([concurso, data]) => ({ concurso, ...data }));
   }, [editais]);
 
-  const handleManualRefresh = async () => { if (refreshing) return; setRefreshing(true); try { await onUpdated(); } catch (e) { console.error(e); } finally { setTimeout(() => setRefreshing(false), 800); } };
+  const handleManualRefresh = async () => { if (refreshing) return; setRefreshing(true); try { await onUpdated(); } catch (e) { logger.error('DATA', 'Erro no refresh', e); } finally { setTimeout(() => setRefreshing(false), 800); } };
 
   const handleOpenCreate = () => { setEditingOldName(null); setFormConcurso(''); setFormCargo(''); setFormDataProva(''); setFormSubjects([]); setNewSubjectName(''); setNewSubjectTopics(''); setNewSubjectWeight(1); setEditingSubjectIndex(null); setIsModalOpen(true); };
   const handleOpenEdit = (concurso: string) => { const missionRows = editais.filter(e => e.concurso === concurso); if (missionRows.length === 0) return; const firstRow = missionRows[0]; setEditingOldName(concurso); setFormConcurso(concurso); setFormCargo(firstRow.cargo); setFormDataProva(firstRow.data_prova || ''); setFormSubjects(missionRows.map(row => ({ id: row.id, materia: row.materia, topicos: row.topicos || [], peso: row.peso || 1 }))); setEditingSubjectIndex(null); setIsModalOpen(true); };
@@ -343,18 +345,18 @@ NOTIFY pgrst, 'reload schema';
       if (editingOldName) { const originalIds = editais.filter(e => e.concurso === editingOldName).map(e => e.id); const currentIds = formSubjects.map(s => s.id).filter(Boolean) as string[]; originalIds.forEach(id => { if (!currentIds.includes(id)) idsToDelete.push(id); }); }
       const toUpdate: any[] = []; const toInsert: any[] = []; const seenMaterias = new Set<string>();
       for (const sub of formSubjects) { const matName = sub.materia.trim(); const key = matName.toLowerCase(); if (seenMaterias.has(key)) continue; seenMaterias.add(key); const payload = { user_id: user.id, concurso: formConcurso.trim(), cargo: formCargo.trim(), materia: matName, topicos: sub.topicos, data_prova: dateToSave, is_principal: isPrincipal, peso: sub.peso || 1 }; if (sub.id) { toUpdate.push({ ...payload, id: sub.id }); } else { toInsert.push(payload); } }
-      if (idsToDelete.length > 0) { const { error } = await supabase.from('editais_materias').delete().in('id', idsToDelete); if (error) throw error; }
-      if (toUpdate.length > 0) { const { error } = await supabase.from('editais_materias').upsert(toUpdate); if (error) throw error; }
-      if (toInsert.length > 0) { const { error } = await supabase.from('editais_materias').insert(toInsert); if (error) throw error; }
+      if (idsToDelete.length > 0) { await editaisQueries.deleteMany(idsToDelete); }
+      if (toUpdate.length > 0) { await editaisQueries.update(toUpdate); }
+      if (toInsert.length > 0) { await editaisQueries.insert(toInsert); }
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) { setMissaoAtiva(formConcurso); } else if (!missaoAtiva) { setMissaoAtiva(formConcurso); }
       await onUpdated(); setIsModalOpen(false);
-    } catch (err: any) { console.error(err); if (err.message.includes('duplicate key') || err.message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (err.message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + err.message); } } finally { setLoadingMission(false); }
+    } catch (err: any) { logger.error('DATA', 'Erro salvando form de edição', err); if (err.message.includes('duplicate key') || err.message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (err.message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + err.message); } } finally { setLoadingMission(false); }
   };
 
   const handleDeleteMission = async (concurso: string) => {
     if (!window.confirm(`Tem certeza que deseja apagar o edital "${concurso}"?`)) { return; }
-    const { data: { user } } = await (supabase.auth as any).getUser(); if (!user) return;
-    try { setRefreshing(true); const { data: dbItems, error: fetchError } = await supabase.from('editais_materias').select('id').eq('user_id', user.id).eq('concurso', concurso); if (fetchError) throw new Error(fetchError.message); if (!dbItems || dbItems.length === 0) { if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); return; } const idsToDelete = dbItems.map(i => i.id); const { error: deleteError } = await supabase.from('editais_materias').delete().in('id', idsToDelete); if (deleteError) throw new Error(deleteError.message); if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); } catch (e: any) { alert("Falha na exclusão: " + e.message); } finally { setRefreshing(false); }
+    const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
+    try { setRefreshing(true); const idsToDelete = await editaisQueries.getIdsByConcurso(user.id, concurso); if (!idsToDelete || idsToDelete.length === 0) { if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); return; } await editaisQueries.deleteMany(idsToDelete); if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); } catch (e: any) { alert("Falha na exclusão: " + e.message); } finally { setRefreshing(false); }
   };
 
   const filteredUsers = usersList.filter(u => u.email?.toLowerCase().includes(userSearch.toLowerCase()));

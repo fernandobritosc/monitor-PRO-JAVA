@@ -27,11 +27,10 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { ViewType } from '../types';
+import { useLocation, useNavigate, Link } from 'react-router-dom';
 
 interface LayoutProps {
   children: React.ReactNode;
-  activeView: ViewType;
-  setActiveView: (view: ViewType) => void;
   missaoAtiva: string;
   theme?: 'dark' | 'light';
   toggleTheme?: () => void;
@@ -53,17 +52,71 @@ const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
   })
   : '17/02/2026 23:30';
 
-const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, missaoAtiva, theme, toggleTheme, userEmail: propEmail, onLogout: propLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleTheme, userEmail: propEmail, onLogout: propLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const getActiveViewFromPath = (path: string): ViewType => {
+    switch (path) {
+      case '/': return 'HUB';
+      case '/dashboard': return 'DASHBOARD';
+      case '/edital': return 'EDITAL';
+      case '/flashcards': return 'FLASHCARDS';
+      case '/discursiva': return 'DISCURSIVA';
+      case '/gabarito-ia': return 'GABARITO_IA';
+      case '/questoes': return 'QUESTOES';
+      case '/cadastro-questoes': return 'CADASTRO_QUESTOES';
+      case '/registrar': return 'REGISTRAR';
+      case '/revisoes': return 'REVISOES';
+      case '/historico': return 'HISTORICO';
+      case '/simulados': return 'SIMULADOS';
+      case '/registrar-simulado': return 'REGISTRAR_SIMULADO';
+      case '/analise-erros': return 'ANALISE_ERROS';
+      case '/performance': return 'PERFORMANCE';
+      case '/relatorios': return 'RELATORIOS';
+      case '/configurar': return 'CONFIGURAR';
+      case '/ranking': return 'RANKING';
+      default: return 'HUB';
+    }
+  };
+
+  const activeView = getActiveViewFromPath(location.pathname);
+
+  const getPathFromView = (view: string): string => {
+    switch (view) {
+      case 'HUB': return '/';
+      case 'HOME':
+      case 'DASHBOARD': return '/dashboard';
+      case 'EDITAL': return '/edital';
+      case 'FLASHCARDS': return '/flashcards';
+      case 'DISCURSIVA': return '/discursiva';
+      case 'GABARITO_IA': return '/gabarito-ia';
+      case 'QUESTOES': return '/questoes';
+      case 'CADASTRO_QUESTOES': return '/cadastro-questoes';
+      case 'REGISTRAR': return '/registrar';
+      case 'REVISOES': return '/revisoes';
+      case 'HISTORICO': return '/historico';
+      case 'SIMULADOS': return '/simulados';
+      case 'REGISTRAR_SIMULADO': return '/registrar-simulado';
+      case 'ANALISE_ERROS': return '/analise-erros';
+      case 'PERFORMANCE': return '/performance';
+      case 'RELATORIOS': return '/relatorios';
+      case 'CONFIGURAR': return '/configurar';
+      case 'RANKING': return '/ranking';
+      default: return '/';
+    }
+  };
 
   useEffect(() => {
     if (propEmail) {
       setUserEmail(propEmail);
       return;
     }
-    supabase.auth.getSession().then(({ data: { session } }) => {
+    (supabase.auth as any).getSession().then(({ data: { session } }: any) => {
       if (session) setUserEmail(session.user.email || '');
     });
   }, [propEmail]);
@@ -74,7 +127,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
       return;
     }
 
-    await supabase.auth.signOut();
+    await (supabase.auth as any).signOut();
     preserveMissaoOnClear(); // Usa função utilitária
     window.location.reload();
   };
@@ -216,10 +269,12 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
             {menuItems.map((item) => {
               const Icon = item.icon;
               const isActive = activeView === item.id;
+              const targetPath = getPathFromView(item.id);
               return (
-                <button
+                <Link
                   key={item.id}
-                  onClick={() => { setActiveView(item.id as ViewType); setSidebarOpen(false); }}
+                  to={targetPath}
+                  onClick={() => setSidebarOpen(false)}
                   className={`w-full flex items-center gap-2 rounded-lg transition-all duration-300 text-[11px] group relative overflow-hidden ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'} ${isActive ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))] shadow-[inset_0_0_20px_hsl(var(--accent)/0.05)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))]'}`}
                 >
                   <Icon size={14} className={`${isActive ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--accent))]'} transition-colors shrink-0`} />
@@ -228,7 +283,7 @@ const Layout: React.FC<LayoutProps> = ({ children, activeView, setActiveView, mi
                       <span className={`truncate text-left font-bold tracking-tight ${isActive ? 'text-[hsl(var(--text-bright))]' : 'opacity-70 group-hover:opacity-100'}`}>{item.label}</span>
                     </div>
                   )}
-                </button>
+                </Link>
               );
             })}
           </nav>
