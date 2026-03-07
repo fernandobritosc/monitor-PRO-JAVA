@@ -74,7 +74,9 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
       comentarios: '',
       dificuldade: '🟡 Médio',
       meta: '',
-      analise_erros: []
+      analise_erros: [],
+      gabarito: '',
+      minhaResposta: ''
    });
 
    const [errorText, setErrorText] = useState('');
@@ -200,7 +202,9 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                   tempo: editForm.tempoHHMM,
                   acertos: editForm.acertos,
                   total: editForm.total,
-                  percentage: percentage
+                  percentage: percentage,
+                  gabarito: editForm.gabarito,
+                  minha_resposta: editForm.minhaResposta
                }
             },
             geminiKey,
@@ -702,6 +706,45 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                                  >
                                     Analisar Texto
                                  </button>
+                              </div>
+                           </div>
+
+                           <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-black/20 p-4 rounded-xl border border-white/5">
+                              <div className="space-y-3">
+                                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
+                                    <span>Gabarito Oficial</span>
+                                    {editForm.gabarito && <span className="text-green-400 animate-pulse">Selecionado</span>}
+                                 </label>
+                                 <div className="flex flex-wrap gap-1.5">
+                                    {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
+                                       <button
+                                          key={opt}
+                                          type="button"
+                                          onClick={() => setEditForm(prev => ({ ...prev, gabarito: opt }))}
+                                          className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${editForm.gabarito === opt ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'bg-slate-900/50 border-white/5 text-slate-400 hover:border-green-500/50'}`}
+                                       >
+                                          {opt}
+                                       </button>
+                                    ))}
+                                 </div>
+                              </div>
+                              <div className="space-y-3">
+                                 <label className="text-[9px] font-black text-slate-500 uppercase tracking-widest flex justify-between items-center">
+                                    <span>Minha Resposta</span>
+                                    {editForm.minhaResposta && <span className="text-purple-400 animate-pulse">Selecionado</span>}
+                                 </label>
+                                 <div className="flex flex-wrap gap-1.5">
+                                    {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
+                                       <button
+                                          key={opt}
+                                          type="button"
+                                          onClick={() => setEditForm(prev => ({ ...prev, minhaResposta: opt }))}
+                                          className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${editForm.minhaResposta === opt ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' : 'bg-slate-900/50 border-white/5 text-slate-400 hover:border-purple-500/50'}`}
+                                       >
+                                          {opt}
+                                       </button>
+                                    ))}
+                                 </div>
                               </div>
                            </div>
 
