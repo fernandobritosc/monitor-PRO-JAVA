@@ -643,41 +643,6 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
                         </div>
                      </div>
 
-                     {/* GRUPO 4: CLASSIFICAÇÃO */}
-                     {!isSimuladoEdit && (
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                           <div className="space-y-2">
-                              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Dificuldade Sentida</label>
-                              <div className="flex gap-2 bg-slate-900/30 p-1 rounded-xl border border-white/5">
-                                 {['🟢 Fácil', '🟡 Médio', '🔴 Difícil'].map(d => (
-                                    <button
-                                       key={d}
-                                       type="button"
-                                       onClick={() => setEditForm({ ...editForm, dificuldade: d as any })}
-                                       className={`flex-1 py-2 rounded-lg text-xs font-bold transition-all ${editForm.dificuldade === d ? 'bg-white/10 text-white shadow-lg' : 'text-slate-500 hover:text-slate-300'}`}
-                                    >
-                                       {d.split(' ')[1]}
-                                    </button>
-                                 ))}
-                              </div>
-                           </div>
-
-                           <div className="space-y-2">
-                              <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex justify-between">
-                                 <span>Relevância</span>
-                                 <span className="text-cyan-400">{editForm.relevancia}/10</span>
-                              </label>
-                              <input
-                                 type="range"
-                                 min="1"
-                                 max="10"
-                                 className="w-full accent-cyan-500 h-2 bg-slate-900/30 rounded-lg appearance-none cursor-pointer"
-                                 value={editForm.relevancia}
-                                 onChange={(e) => setEditForm({ ...editForm, relevancia: parseInt(e.target.value) })}
-                              />
-                           </div>
-                        </div>
-                     )}
 
                      {/* GRUPO 5: ANOTAÇÕES */}
                      <div className="space-y-2">
