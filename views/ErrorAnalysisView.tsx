@@ -157,10 +157,23 @@ const RecoveryMode: React.FC<{
 
     if (!currentError) return null;
 
+    // Helper para extrair gabarito de tags no texto (#GABARITO B) se o campo estiver vazio
+    const getCalculatedGabarito = () => {
+        if (currentError.gabarito) return String(currentError.gabarito).trim();
+
+        // Tenta detectar tag #GABARITO [letra] no enunciado completo ou preview
+        const textToSearch = `${currentError.enunciado_completo || ''} ${currentError.questao_preview || ''}`;
+        const match = textToSearch.match(/#GABARITO\s*([A-Ea-e])/i);
+        return match ? match[1].toUpperCase() : '';
+    };
+
     const handleAnswer = async () => {
         if (!userAnswer.trim() || isUpdating) return;
 
-        const isCorrect = userAnswer.trim().toLowerCase() === (currentError.gabarito ? String(currentError.gabarito).trim().toLowerCase() : '');
+        const targetGabarito = getCalculatedGabarito().toLowerCase();
+        const cleanUserAnswer = userAnswer.trim().toLowerCase().replace(/[\s\)]/g, "").replace(/^letra/, "");
+
+        const isCorrect = cleanUserAnswer === targetGabarito;
         setIsUpdating(true);
 
         if (isCorrect) {

@@ -211,7 +211,15 @@ const History: React.FC<HistoryProps> = ({ records, missaoAtiva, editais, onReco
 
 
          const parsed: ErrorAnalysis[] = parseAIJSON(result);
-         setEditForm(prev => ({ ...prev, analise_erros: parsed }));
+
+         // Enriquecimento com detecção inteligente
+         const enriched: ErrorAnalysis[] = parsed.map(p => ({
+            ...p,
+            gabarito: (p.gabarito || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined,
+            minha_resposta: (p.minha_resposta || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined
+         }));
+
+         setEditForm(prev => ({ ...prev, analise_erros: enriched }));
       } catch (error) {
          logger.error('AI', 'Erro na análise de IA:', error);
          setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });

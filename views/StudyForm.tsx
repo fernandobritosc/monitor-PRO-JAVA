@@ -135,10 +135,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             const parsed: ErrorAnalysis[] = parseAIJSON(result);
 
             // Adicionar gabarito e resposta do aluno aos objetos antes de salvar
+            // Prioriza o que a IA detectou no texto (Ex: #GABARITO B)
             const enriched: ErrorAnalysis[] = parsed.map(p => ({
                 ...p,
-                gabarito: gabarito || undefined,
-                minha_resposta: minhaResposta || undefined
+                gabarito: (p.gabarito || gabarito || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined,
+                minha_resposta: (p.minha_resposta || minhaResposta || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined
             }));
 
             setErrorAnalysis(prev => [...prev, ...enriched]);

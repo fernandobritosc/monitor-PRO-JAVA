@@ -447,7 +447,9 @@ export const generateAIContent = async (
         "tipo_erro": "Atenção" | "Lacuna de Base" | "Interpretação",
         "gatilho": "Termo exato da falha",
         "sugestao": "Ação imediata aluno",
-        "sugestao_mentor": "Dica técnica mentor"
+        "sugestao_mentor": "Dica técnica mentor",
+        "gabarito": "Letra ou resposta detectada no texto (Ex: B)",
+        "minha_resposta": "Letra ou resposta do aluno detectada (Ex: E)"
       }
     ]`;
   } else if (context === 'macro_diagnostico') {
