@@ -4,8 +4,8 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-// Importação do pdf-parse para extrair texto para o Groq
-import pdf from "https://esm.sh/pdf-parse@1.1.1";
+// unpdf é otimizada para serverless/Deno e não usa o 'fs' do Node
+import { extractText } from "https://esm.sh/unpdf@0.10.0";
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -131,14 +131,13 @@ serve(async (req: Request) => {
 
             console.log(`[AI] Extraindo texto do PDF para Groq...`);
             const arrayBuffer = await fileData.arrayBuffer();
-            // pdf-parse espera um Buffer do Node em algumas implementações, no Deno passamos Uint8Array
-            const data = await pdf(new Uint8Array(arrayBuffer));
-            const extractedText = data.text;
+            // unpdf extrai texto de forma segura e sem Node dependencies
+            const { text: extractedText } = await extractText(new Uint8Array(arrayBuffer));
 
-            console.log(`[AI] Texto extraído (${extractedText.length} chars). Chamando Groq...`);
+            console.log(`[AI] Texto extraído (${extractedText?.length || 0} chars). Chamando Groq...`);
 
-            // Truncar texto se for MUITO grande (ex: max 30000 chars para manter tokens seguros)
-            const safeText = extractedText.length > 50000 ? extractedText.substring(0, 50000) + "..." : extractedText;
+            // Truncar texto se for MUITO grande (ex: max 50000 chars para manter tokens seguros)
+            const safeText = (extractedText || "").length > 50000 ? extractedText.substring(0, 50000) + "..." : extractedText;
 
             const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
