@@ -38,31 +38,20 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
         setLoading(true);
 
         try {
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) throw new Error("Não autenticado");
-
-            const response = await fetch(`${import.meta.env.VITE_SUPABASE_URL}/functions/v1/chat-with-pdf`, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Authorization': `Bearer ${session.access_token}`
-                },
-                body: JSON.stringify({
+            const { data, error: invokeError } = await supabase.functions.invoke('chat-with-pdf', {
+                body: {
                     materialId,
                     message: userMsg,
                     provider
-                })
+                }
             });
 
-            if (!response.ok) {
-                const err = await response.json();
-                throw new Error(err.error || "Erro na comunicação com a IA");
+            if (invokeError) {
+                throw new Error(invokeError.message || "Erro ao invocar função de IA");
             }
 
-            const result = await response.json();
-
             // O backend já retorna o campo 'text' limpo
-            const aiContent = result.text || "Não consegui processar uma resposta.";
+            const aiContent = data.text || "Não consegui processar uma resposta.";
 
             setMessages(prev => [...prev, { role: 'assistant', content: aiContent }]);
         } catch (e: any) {
