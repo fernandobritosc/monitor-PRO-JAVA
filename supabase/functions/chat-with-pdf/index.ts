@@ -2,7 +2,6 @@
  * Chat with PDF — Supabase Edge Function
  * Permite interagir com PDFs na biblioteca usando Gemini.
  */
-
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
 
@@ -23,96 +22,102 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     let binary = '';
     const bytes = new Uint8Array(buffer);
     const len = bytes.byteLength;
-    const chunkSize = 8192; // Chunk seguro para não estourar a call stack
+    const chunkSize = 8192; // Chunk seguro contra Stack Overflow
     for (let i = 0; i < len; i += chunkSize) {
-        // Converte subarray para Array normal pois reduce/apply com subarray em browsers antigos pode dar erro, 
-        // mas no Deno Array.from garante compatibilidade.
         binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
     }
     return btoa(binary);
 }
 
-serve(async (req: Request) => {
-    // Handle CORS preflight
-    if (req.method === "OPTIONS") {
-        return new Response("ok", { status: 200, headers: corsHeaders });
+// Decode JWT without external HTTP database call (avoids EarlyDrop timeout)
+function parseJwtUserId(token: string): string | null {
+    try {
+        const base64Url = token.split('.')[1];
+        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
+            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
+        }).join(''));
+        const payload = JSON.parse(jsonPayload);
+        return payload.sub || payload.id;
+    } catch (e) {
+        console.error("JWT Decode error:", e);
+        return null;
     }
+}
+
+// Ensure logs flush
+const flushAndReturn = async (body: any, status: number) => {
+    console.log(`[EXIT] Returning status ${status}`);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    return new Response(JSON.stringify(body), {
+        status,
+        headers: { ...corsHeaders, "Content-Type": "application/json" }
+    });
+};
+
+serve(async (req: Request) => {
+    console.log(`[BOOT] Request: ${req.method}`);
+    if (req.method === "OPTIONS") return new Response("ok", { status: 200, headers: corsHeaders });
 
     try {
-        if (req.method !== "POST") {
-            return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: corsHeaders });
-        }
+        if (req.method !== "POST") return await flushAndReturn({ error: "Method not allowed" }, 405);
 
         const authHeader = req.headers.get("Authorization");
-        if (!authHeader) {
-            return new Response(JSON.stringify({ error: "Faltando header de Authorization" }), {
-                status: 401,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
+        if (!authHeader) return await flushAndReturn({ error: "Missing Authorization header" }, 401);
+
+        console.log(`[AUTH] Extrating JWT locally`);
+        const token = authHeader.replace("Bearer ", "").trim();
+        const userId = parseJwtUserId(token);
+
+        if (!userId) {
+            console.error(`[AUTH FATAL] Invalid JWT payload`);
+            return await flushAndReturn({ error: "Invalid token payload" }, 401);
         }
 
-        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+        console.log(`[AUTH] Success for user: ${userId}. Parsing body...`);
+        const bodyRaw = await req.text();
+        const { materialId, message, provider = "gemini" } = JSON.parse(bodyRaw) as ChatRequest;
 
-        // Inicializa com chave Root mas desativa coisas locais do Edge
-        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        // USANDO SERVICE ROLE: Ignorar bloqueios RLS para downloads restritos. RLS validado logicamente.
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey, {
             auth: { autoRefreshToken: false, persistSession: false }
         });
 
-        // Pega o usuário logado com base no token que recebemos
-        const token = authHeader.replace("Bearer ", "");
-        const { data: { user }, error: authError } = await supabase.auth.getUser(token);
-
-        if (authError || !user) {
-            return new Response(JSON.stringify({ error: "Unauthorized", details: authError }), {
-                status: 401,
-                headers: { ...corsHeaders, "Content-Type": "application/json" },
-            });
-        }
-
-        const bodyRaw = await req.text();
-        const { materialId, message, provider = "gemini", stream = false } = JSON.parse(bodyRaw) as ChatRequest;
-
-        // 1. Buscar metadados do material
-        const { data: material, error: matError } = await supabase
+        console.log(`[STORAGE] Querying DB for material ${materialId}`);
+        const { data: material, error: matError } = await supabaseAdmin
             .from("study_materials")
             .select("*")
             .eq("id", materialId)
-            .eq("user_id", user.id)
+            // Lógica essencial: garantir que o usuário dono do token é o dono do arquivo
+            .eq("user_id", userId)
             .single();
 
         if (matError || !material) {
-            return new Response(JSON.stringify({ error: "Material não encontrado ou acesso negado." }), {
-                status: 404,
-                headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
+            console.error("[STORAGE FATAL] Failed/access denied:", matError);
+            return await flushAndReturn({ error: "Material não encontrado ou sem acesso" }, 404);
         }
 
-        // 2. Obter o arquivo do Storage
-        const { data: fileData, error: storageError } = await supabase.storage
+        console.log(`[STORAGE] Downloading ${material.storage_path}`);
+        const { data: fileData, error: storageError } = await supabaseAdmin.storage
             .from("study-materials")
             .download(material.storage_path);
 
         if (storageError || !fileData) {
-            return new Response(JSON.stringify({ error: "Erro ao baixar arquivo do servidor.", details: storageError }), {
-                status: 500,
-                headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
+            console.error("[STORAGE FATAL] Download falhou:", storageError);
+            return await flushAndReturn({ error: "Falha ao acessar PDF no bucket" }, 500);
         }
 
         if (provider === "gemini") {
             const apiKey = Deno.env.get("GEMINI_API_KEY");
-            if (!apiKey) {
-                return new Response(JSON.stringify({ error: "Chave Gemini não configurada no Supabase." }), {
-                    status: 500,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" }
-                });
-            }
+            if (!apiKey) return await flushAndReturn({ error: "API Key ausente no painel" }, 500);
 
-            // Conversão buffer seguro para PDFs grandes
+            console.log(`[AI] Encoding file (${fileData.size} bytes) to Base64`);
             const arrayBuffer = await fileData.arrayBuffer();
             const base64PDF = arrayBufferToBase64(arrayBuffer);
 
+            console.log(`[AI] Sending prompt to Gemini...`);
             const geminiResponse = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
                 {
@@ -121,7 +126,7 @@ serve(async (req: Request) => {
                     body: JSON.stringify({
                         contents: [{
                             parts: [
-                                { text: `Você é um tutor de alto nível para concursos públicos. Baseado EXCLUSIVAMENTE no PDF anexo (analise as páginas, tabelas e gráficos), responda de forma técnica, focada e didática à seguinte dúvida/solicitação do estudante: ${message}. Se não encontrar no PDF, informe isso.` },
+                                { text: `Você é um tutor de alto nível. Baseado SOMENTE no PDF anexo, responda técnica e didaticamente o usuário: ${message}` },
                                 {
                                     inline_data: {
                                         mime_type: "application/pdf",
@@ -134,33 +139,23 @@ serve(async (req: Request) => {
                 }
             );
 
+            console.log(`[AI] Response status: ${geminiResponse.status}`);
             const result = await geminiResponse.json();
 
             if (result.error) {
-                return new Response(JSON.stringify({ error: result.error.message || "Erro na API do Gemini" }), {
-                    status: 502,
-                    headers: { ...corsHeaders, "Content-Type": "application/json" }
-                });
+                console.error("[AI ERROR] Gemini:", result.error.message);
+                return await flushAndReturn({ error: result.error.message }, 502);
             }
 
-            // Retorna o formato simplificado para o frontend
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta da IA.";
-
-            return new Response(JSON.stringify({ text }), {
-                headers: { ...corsHeaders, "Content-Type": "application/json" }
-            });
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta.";
+            console.log(`[AI] Success. Output length: ${text.length}`);
+            return await flushAndReturn({ text }, 200);
         }
 
-        // Caso tente usar groq sem texto puro
-        return new Response(JSON.stringify({ error: "Provider Groq suporta apenas extração de texto que ainda será ativada." }), {
-            status: 501,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        return await flushAndReturn({ error: "Groq não suportado para PDF multimodal no momento" }, 501);
 
     } catch (err: any) {
-        return new Response(JSON.stringify({ error: "Erro interno no processamento.", details: err.message }), {
-            status: 500,
-            headers: { ...corsHeaders, "Content-Type": "application/json" }
-        });
+        console.error("[FATAL CRASH]", err);
+        return await flushAndReturn({ error: err.message }, 500);
     }
 });
