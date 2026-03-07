@@ -398,7 +398,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             });
 
             const { error } = await supabase
-                .from('study_records')
+                .from('registros_estudos')
                 .update({ analise_erros: updatedAnalise })
                 .eq('id', recordId);
 
