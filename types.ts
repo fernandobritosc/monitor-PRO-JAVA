@@ -28,6 +28,8 @@ export interface StudyRecord {
   rev_15d: boolean;
   rev_30d: boolean;
   meta?: string | number | null;
+  gabarito?: string;
+  minha_resposta?: string;
   analise_erros?: ErrorAnalysis[]; // Qualitativo: O "porquê" do erro
 }
 

@@ -38,7 +38,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
     const [total, setTotal] = useState<string>('');
     // Error Algorithm States
     const [gabarito, setGabarito] = useState('');
-    const [minhaResposta, setMinhaResposta] = useState('');
+    const [minha_resposta, setMinha_resposta] = useState('');
     const [comentarios, setComentarios] = useState('');
     const [errorText, setErrorText] = useState('');
     const [saveToBank, setSaveToBank] = useState(false);
@@ -91,7 +91,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         setTotal('');
         setComentarios('');
         setGabarito('');
-        setMinhaResposta('');
+        setMinha_resposta('');
         setErrorText('');
         setErrorAnalysis([]);
         setSimuladoScores({});
@@ -122,7 +122,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         total,
                         percentage: singleStats.percentage,
                         gabarito,
-                        minha_resposta: minhaResposta
+                        minha_resposta: minha_resposta
                     }
                 },
                 geminiKey,
@@ -139,7 +139,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             const enriched: ErrorAnalysis[] = parsed.map(p => ({
                 ...p,
                 gabarito: (p.gabarito || gabarito || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined,
-                minha_resposta: (p.minha_resposta || minhaResposta || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined
+                minha_resposta: (p.minha_resposta || minha_resposta || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined
             }));
 
             setErrorAnalysis(prev => [...prev, ...enriched]);
@@ -147,7 +147,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             // Limpar campos para a próxima questão
             setErrorText('');
             setGabarito('');
-            setMinhaResposta('');
+            setMinha_resposta('');
             setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
         } catch (error) {
             logger.error('AI', 'Erro na análise de IA:', error);
@@ -687,15 +687,15 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                     <div className="space-y-3">
                                         <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest flex justify-between items-center">
                                             <span>Minha Resposta</span>
-                                            {minhaResposta && <span className="text-purple-400 animate-pulse">Selecionado</span>}
+                                            {minha_resposta && <span className="text-purple-400 animate-pulse">Selecionado</span>}
                                         </label>
                                         <div className="flex flex-wrap gap-1.5">
                                             {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
                                                 <button
                                                     key={opt}
                                                     type="button"
-                                                    onClick={() => setMinhaResposta(opt)}
-                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${minhaResposta === opt ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-purple-500/50'}`}
+                                                    onClick={() => setMinha_resposta(opt)}
+                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${minha_resposta === opt ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-purple-500/50'}`}
                                                 >
                                                     {opt}
                                                 </button>
