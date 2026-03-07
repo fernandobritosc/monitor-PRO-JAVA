@@ -136,8 +136,8 @@ serve(async (req: Request) => {
 
             console.log(`[AI] Texto extraído (${extractedText?.length || 0} chars). Chamando Groq...`);
 
-            // Truncar texto se for MUITO grande (ex: max 50000 chars para manter tokens seguros)
-            const safeText = (extractedText || "").length > 50000 ? extractedText.substring(0, 50000) + "..." : extractedText;
+            // Truncar texto se for MUITO grande (ex: max 15000 chars para manter tokens seguros na cota free de 12k TPM)
+            const safeText = (extractedText || "").length > 15000 ? extractedText.substring(0, 15000) + "..." : extractedText;
 
             const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
