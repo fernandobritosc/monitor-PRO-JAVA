@@ -24,6 +24,7 @@ const RankingView = lazy(() => import('./views/RankingView'));
 const GabaritoIA = lazy(() => import('./views/GabaritoIA'));
 const Performance = lazy(() => import('./views/Performance'));
 const ErrorAnalysisView = lazy(() => import('./views/ErrorAnalysisView').then(m => ({ default: m.ErrorAnalysisView })));
+const LibraryView = lazy(() => import('./views/LibraryView'));
 import { useAppData } from './hooks/useAppData';
 import { useStore } from './hooks/useStore';
 import { WifiOff, Loader2, RefreshCw, Database, LogIn, AlertOctagon } from 'lucide-react';
@@ -218,6 +219,7 @@ const App: React.FC = () => {
           <Route path="/performance" element={<Performance />} />
           <Route path="/relatorios" element={<Reports records={studyRecords} missaoAtiva={missaoAtiva} />} />
           <Route path="/configurar" element={<Configurar editais={editais} records={studyRecords} missaoAtiva={missaoAtiva} onUpdated={() => session?.user?.id && fetchData(session.user.id)} setMissaoAtiva={setMissaoAtiva} />} />
+          <Route path="/biblioteca" element={<LibraryView editais={editais} missaoAtiva={missaoAtiva} />} />
           <Route path="/ranking" element={<RankingView />} />
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

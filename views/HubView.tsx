@@ -127,6 +127,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
     const navItems = [
         { id: 'HOME', label: 'Portal do Aluno', desc: 'Edital e Cronômetro', icon: <BookOpen size={24} />, bg: 'from-blue-600/20 to-cyan-600/20', color: 'text-cyan-400' },
+        { id: 'LIBRARY', label: 'Biblioteca', desc: 'Meus Materiais e PDFs', icon: <Zap size={24} />, bg: 'from-indigo-600/20 to-blue-600/20', color: 'text-indigo-400' },
         { id: 'QUESTOES', label: 'Banco de Provas', desc: 'Simulados e Questões', icon: <Target size={24} />, bg: 'from-purple-600/20 to-indigo-600/20', color: 'text-purple-400' },
         { id: 'CONFIGURAR', label: 'Configurações', desc: 'Ajustes da Conta', icon: <Settings size={24} />, bg: 'from-slate-600/20 to-slate-500/20', color: 'text-slate-400' },
     ];
@@ -181,8 +182,9 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                                 key={item.id}
                                 initial={{ opacity: 0, y: 20 }}
                                 animate={{ opacity: 1, y: 0 }}
-                                transition={{ delay: idx * 0.1 }}
-                                className="group relative flex flex-col p-5 rounded-3xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.4)] hover:shadow-[0_0_30px_-10px_hsl(var(--accent)/0.3)] transition-all duration-300 h-full"
+                                whileHover={{ y: -8, scale: 1.01, transition: { duration: 0.2 } }}
+                                transition={{ delay: idx * 0.05 }}
+                                className="group relative flex flex-col p-5 rounded-3xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.4)] hover:shadow-[0_20px_40px_-15px_rgba(0,0,0,0.3)] transition-all duration-300 h-full"
                             >
                                 <div className="absolute inset-0 bg-gradient-to-br from-[hsl(var(--accent)/0.05)] to-transparent opacity-0 group-hover:opacity-100 transition-opacity rounded-3xl pointer-events-none" />
 
@@ -240,7 +242,13 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                                 key={item.id}
                                 whileHover={{ scale: 1.02 }}
                                 whileTap={{ scale: 0.98 }}
-                                onClick={() => navigate('/cadastro-questoes')}
+                                onClick={() => {
+                                    const path = item.id === 'HOME' ? '/dashboard' :
+                                        item.id === 'QUESTOES' ? '/questoes' :
+                                            item.id === 'LIBRARY' ? '/biblioteca' :
+                                                item.id === 'CONFIGURAR' ? '/configurar' : '/';
+                                    navigate(path);
+                                }}
                                 className={`flex items-center gap-4 p-3 rounded-2xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.3)] transition-all group overflow-hidden relative text-left w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.5)]`}
                             >
                                 <div className={`absolute inset-0 bg-gradient-to-br ${item.bg} opacity-0 group-hover:opacity-100 transition-opacity`} />

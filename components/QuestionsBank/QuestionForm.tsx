@@ -5,7 +5,7 @@ import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
 import { X, Plus, CheckCircle2, Zap } from 'lucide-react';
-import EditorToolbar from './EditorToolbar';
+import { EditorToolbar } from './EditorToolbar';
 import { Question } from '../../types';
 
 interface QuestionFormProps {

@@ -22,13 +22,14 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, percentage, icon, trend
                 <div className="flex justify-between items-start mb-6">
                     <motion.div
                         whileHover={{ rotate: 5, scale: 1.1 }}
-                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg"
+                        className="w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg relative overflow-hidden"
                         style={{
                             backgroundColor: `hsl(${color} / 0.1)`,
                             color: `hsl(${color})`,
                             border: `1px solid hsl(${color} / 0.2)`
                         }}
                     >
+                        <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent pointer-events-none" />
                         {icon}
                     </motion.div>
                     <div className="text-right">
@@ -63,8 +64,8 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, percentage, icon, trend
                         transition={{ duration: 1.5, ease: "easeOut" }}
                         className="h-full rounded-full"
                         style={{
-                            backgroundColor: `hsl(${color})`,
-                            boxShadow: `0 0 15px hsl(${color} / 0.5)`
+                            background: `linear-gradient(90deg, hsl(${color} / 0.8) 0%, hsl(${color}) 100%)`,
+                            boxShadow: `0 0 15px hsl(${color} / 0.4)`
                         }}
                     />
                 </div>

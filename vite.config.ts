@@ -22,15 +22,65 @@ export default defineConfig(({ mode }) => {
       react(),
       VitePWA({
         registerType: 'autoUpdate',
-        includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png'],
+        includeAssets: ['favicon.ico', 'pwa-192x192.png', 'pwa-512x512.png', 'robots.txt', 'apple-touch-icon.png'],
         workbox: {
-          maximumFileSizeToCacheInBytes: 5000000 // Aumentado para 5MB para suportar o bundle de vendor
+          maximumFileSizeToCacheInBytes: 5000000,
+          globPatterns: ['**/*.{js,css,html,ico,png,svg,woff2}'],
+          runtimeCaching: [
+            {
+              urlPattern: /^https:\/\/fonts\.(?:googleapis|gstatic)\.com\/.*/i,
+              handler: 'CacheFirst',
+              options: {
+                cacheName: 'google-fonts',
+                expiration: {
+                  maxEntries: 10,
+                  maxAgeSeconds: 60 * 60 * 24 * 365 // 1 ano
+                }
+              }
+            },
+            {
+              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
+              handler: 'StaleWhileRevalidate',
+              options: {
+                cacheName: 'supabase-data',
+                expiration: {
+                  maxEntries: 100,
+                  maxAgeSeconds: 60 * 60 * 24 // 24 horas
+                },
+                cacheableResponse: {
+                  statuses: [0, 200]
+                }
+              }
+            }
+          ]
         },
         manifest: {
-          name: 'MonitorPro AI',
+          name: 'MonitorPro AI - Estudo Inteligente',
           short_name: 'MonitorPro',
-          description: 'AI-Powered Study Assistant',
+          description: 'Seu copiloto de estudos avançado com IA e analytics.',
           theme_color: '#0B0E14',
+          background_color: '#0B0E14',
+          display: 'standalone',
+          orientation: 'portrait',
+          scope: '/',
+          start_url: '/',
+          categories: ['education', 'productivity', 'utilities'],
+          shortcuts: [
+            {
+              name: 'Registrar Estudo',
+              short_name: 'Estudar',
+              description: 'Registrar novo tempo de estudo ou questões',
+              url: '/registrar',
+              icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+            },
+            {
+              name: 'Ver Dashboard',
+              short_name: 'Dashboard',
+              description: 'Analisar meu progresso e estatísticas',
+              url: '/dashboard',
+              icons: [{ src: 'pwa-192x192.png', sizes: '192x192' }]
+            }
+          ],
           icons: [
             {
               src: 'pwa-192x192.png',

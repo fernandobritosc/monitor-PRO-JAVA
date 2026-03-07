@@ -342,13 +342,28 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais }) =>
                 <XAxis dataKey="date" stroke="hsl(var(--text-muted))" fontSize={9} tickFormatter={formatDateLabel} minTickGap={40} axisLine={false} tickLine={false} />
                 <YAxis stroke="hsl(var(--text-muted))" fontSize={9} domain={[0, 100]} axisLine={false} tickLine={false} />
                 <Tooltip
-                  contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '20px' }}
-                  labelStyle={{ color: 'hsl(var(--text-muted))', fontSize: '10px', fontWeight: '900' }}
-                  itemStyle={{ color: 'hsl(var(--accent))', fontWeight: '900', fontSize: '14px' }}
+                  contentStyle={{
+                    backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                    backdropFilter: 'blur(16px)',
+                    border: '1px solid rgba(255, 255, 255, 0.1)',
+                    borderRadius: '24px',
+                    boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)'
+                  }}
+                  labelStyle={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                  itemStyle={{ color: 'hsl(var(--accent))', fontWeight: '900', fontSize: '16px' }}
                   formatter={(v: number) => [`${v.toFixed(1)}%`, 'PRECISÃO']}
                   labelFormatter={(label) => formatFullDate(label)}
                 />
-                <Area type="monotone" dataKey="precision" stroke="url(#lineGradient)" strokeWidth={4} fillOpacity={1} fill="url(#colorPrecision)" activeDot={{ r: 8, fill: 'hsl(var(--accent))', stroke: 'hsl(var(--bg-main))', strokeWidth: 3 }} />
+                <Area
+                  type="monotone"
+                  dataKey="precision"
+                  stroke="url(#lineGradient)"
+                  strokeWidth={4}
+                  fillOpacity={1}
+                  fill="url(#colorPrecision)"
+                  filter="url(#shadow)"
+                  activeDot={{ r: 8, fill: 'white', stroke: 'hsl(var(--accent))', strokeWidth: 4 }}
+                />
                 <ReferenceLine y={80} stroke="rgba(74,222,128,0.3)" strokeDasharray="8 8" />
                 <ReferenceLine y={60} stroke="rgba(250,204,21,0.3)" strokeDasharray="8 8" />
               </AreaChart>
@@ -450,8 +465,16 @@ const HomeView: React.FC<HomeViewProps> = ({ records, missaoAtiva, editais }) =>
             {analysisTab === 'time' ? (
               <ResponsiveContainer width="100%" height="100%">
                 <PieChart>
+                  <defs>
+                    {timeData.map((_, i) => (
+                      <linearGradient key={`grad-${i}`} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="0%" stopColor={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 65%)`} />
+                        <stop offset="100%" stopColor={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 45%)`} />
+                      </linearGradient>
+                    ))}
+                  </defs>
                   <Pie data={timeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
-                    {timeData.map((e, i) => <Cell key={`c-${i}`} fill={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 55%)`} stroke="none" />)}
+                    {timeData.map((e, i) => <Cell key={`c-${i}`} fill={`url(#grad-${i})`} stroke="none" />)}
                   </Pie>
                   <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '10px' }} formatter={(v: number) => [`${Math.floor(v / 60)}h ${v % 60}m`, 'TEMPO']} />
                   <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(value) => <span className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))] ml-2">{value}</span>} />

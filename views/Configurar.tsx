@@ -3,7 +3,8 @@ import { supabase, saveAppConfig } from '../services/supabase';
 import { EditalMateria, UserProfile, StudyRecord } from '../types';
 import { logger } from '../utils/logger';
 import { editaisQueries, profilesQueries } from '../services/queries';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock, Smartphone } from 'lucide-react';
+import { usePWAInstall } from '../hooks/usePWAInstall';
 
 interface ConfigurarProps {
   editais: EditalMateria[];
@@ -77,6 +78,7 @@ const KeyStatusIndicator: React.FC<{ value: string; type: 'url' | 'supabase' | '
 };
 
 const Configurar: React.FC<ConfigurarProps> = ({ editais, records, missaoAtiva, onUpdated, setMissaoAtiva }) => {
+  const { isInstallable, installApp } = usePWAInstall();
   const [activeTab, setActiveTab] = useState<'mission' | 'goals' | 'import' | 'admin' | 'diagnostics' | 'system'>('mission');
 
   const [isAdmin, setIsAdmin] = useState(false);
@@ -450,6 +452,26 @@ NOTIFY pgrst, 'reload schema';
             {sysLoading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
             Salvar e Recarregar
           </button>
+
+          {isInstallable && (
+            <div className="pt-6 border-t border-white/10 animate-in slide-in-from-bottom-2">
+              <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col gap-4">
+                <div className="flex items-center gap-3">
+                  <Smartphone className="text-indigo-400" size={24} />
+                  <div>
+                    <h4 className="text-sm font-black text-white uppercase tracking-widest">App no Dispositivo</h4>
+                    <p className="text-[10px] text-slate-400">Instale como um aplicativo para acesso rápido e offline.</p>
+                  </div>
+                </div>
+                <button
+                  onClick={installApp}
+                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
+                >
+                  Instalar Agora
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

@@ -80,6 +80,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleThe
       case '/relatorios': return 'RELATORIOS';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
+      case '/biblioteca': return 'LIBRARY';
       default: return 'HUB';
     }
   };
@@ -107,6 +108,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleThe
       case 'RELATORIOS': return '/relatorios';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
+      case 'LIBRARY': return '/biblioteca';
       default: return '/';
     }
   };
@@ -150,6 +152,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleThe
       { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
       { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
       { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
+      { id: 'LIBRARY', label: 'Biblioteca PDF', icon: BookOpen, isNew: true },
       { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
       { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
       { id: 'SIMULADOS', label: 'Simulados', icon: Target },
@@ -169,7 +172,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleThe
     const isStudyModule = [
       'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
       'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-      'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
+      'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'LIBRARY'
     ].includes(activeView);
 
     const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
@@ -275,28 +278,44 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleThe
                   key={item.id}
                   to={targetPath}
                   onClick={() => setSidebarOpen(false)}
-                  className={`w-full flex items-center gap-2 rounded-lg transition-all duration-300 text-[11px] group relative overflow-hidden ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'} ${isActive ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))] shadow-[inset_0_0_20px_hsl(var(--accent)/0.05)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))]'}`}
+                  className="block group"
                 >
-                  <Icon size={14} className={`${isActive ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--accent))]'} transition-colors shrink-0`} />
-                  {!isCollapsed && (
-                    <div className="flex-1 flex justify-between items-center">
-                      <span className={`truncate text-left font-bold tracking-tight ${isActive ? 'text-[hsl(var(--text-bright))]' : 'opacity-70 group-hover:opacity-100'}`}>{item.label}</span>
-                    </div>
-                  )}
+                  <motion.div
+                    whileHover={{ x: 4, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+                    whileTap={{ scale: 0.98 }}
+                    className={`w-full flex items-center gap-2 rounded-lg transition-all duration-300 text-[11px] relative overflow-hidden ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'} ${isActive ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))] shadow-[inset_0_0_20px_hsl(var(--accent)/0.05)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))]'}`}
+                  >
+                    <Icon size={14} className={`${isActive ? 'text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))] group-hover:text-[hsl(var(--accent))]'} transition-colors shrink-0`} />
+                    {!isCollapsed && (
+                      <div className="flex-1 flex justify-between items-center">
+                        <span className={`truncate text-left font-bold tracking-tight ${isActive ? 'text-[hsl(var(--text-bright))]' : 'opacity-70 group-hover:opacity-100'}`}>{item.label}</span>
+                      </div>
+                    )}
+                  </motion.div>
                 </Link>
               );
             })}
           </nav>
 
           <div className="mt-2 shrink-0 space-y-1 pb-4 px-3">
-            <button onClick={toggleTheme} className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] hover:bg-[hsl(var(--bg-user-block))] rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}>
+            <motion.button
+              whileHover={{ scale: 1.02, x: 2, backgroundColor: 'rgba(255, 255, 255, 0.05)' }}
+              whileTap={{ scale: 0.95 }}
+              onClick={toggleTheme}
+              className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}
+            >
               {theme === 'dark' ? <Sun size={14} /> : <Moon size={14} />}
               {!isCollapsed && <span className="font-bold">Modo {theme === 'dark' ? 'Claro' : 'Escuro'}</span>}
-            </button>
-            <button onClick={onLogout} className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-red-400 hover:bg-red-500/5 rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}>
+            </motion.button>
+            <motion.button
+              whileHover={{ scale: 1.02, x: 2, backgroundColor: 'rgba(239, 68, 68, 0.1)' }}
+              whileTap={{ scale: 0.95 }}
+              onClick={onLogout}
+              className={`flex items-center gap-2 text-[hsl(var(--text-muted))] hover:text-red-400 rounded-lg transition-all text-[11px] w-full ${isCollapsed ? 'justify-center p-2' : 'px-3 py-1.5'}`}
+            >
               <LogOut size={14} />
               {!isCollapsed && <span className="font-bold">Sair do App</span>}
-            </button>
+            </motion.button>
           </div>
         </motion.aside>
       )}

@@ -6,6 +6,7 @@ import { CustomSelector } from '../components/CustomSelector';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { studyRecordsQueries, questionsQueries } from '../services/queries';
+import { syncService } from '../services/offline/sync';
 import { ErrorAnalysis } from '../types';
 
 interface StudyFormProps {
@@ -311,8 +312,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             }).filter(Boolean) as any[]; // Remove nulos
 
             try {
-                await studyRecordsQueries.insert(payloads);
-                setMsg({ type: 'success', text: 'Simulado registrado com sucesso!' });
+                // Sincroniza em série ou paralelo (saveAttempt lida com local-first)
+                await Promise.all(payloads.map(p => syncService.saveAttempt(p)));
+                setMsg({ type: 'success', text: navigator.onLine ? 'Simulado registrado com sucesso!' : 'Simulado salvo localmente (modo offline)' });
                 onSaved();
                 // Reset
                 setComentarios('');
