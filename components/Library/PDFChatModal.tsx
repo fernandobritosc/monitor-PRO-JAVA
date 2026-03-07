@@ -76,7 +76,7 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
                     animate={{ x: 0 }}
                     exit={{ x: '100%' }}
                     transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                    className="fixed right-0 top-0 bottom-0 w-full max-w-md bg-slate-950 border-l border-white/10 z-[250] flex flex-col shadow-2xl"
+                    className="fixed right-0 top-0 bottom-0 w-full max-w-xl bg-slate-950 border-l border-white/10 z-[250] flex flex-col shadow-2xl"
                 >
                     {/* Header */}
                     <div className="p-4 border-b border-white/10 bg-slate-900/50 flex justify-between items-center">
@@ -85,7 +85,7 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
                                 <Bot size={20} />
                             </div>
                             <div>
-                                <h4 className="text-sm font-black text-white uppercase tracking-tight truncate w-48">Chat IA: {materialName}</h4>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight truncate w-80">Chat IA: {materialName}</h4>
                                 <div className="flex gap-2 mt-1">
                                     <button
                                         onClick={() => setProvider('gemini')}
