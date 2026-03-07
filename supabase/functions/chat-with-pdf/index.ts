@@ -1,6 +1,6 @@
 /**
  * Chat with PDF — Supabase Edge Function
- * Permite interagir com PDFs na biblioteca usando Gemini e Groq.
+ * Permite interagir com PDFs na biblioteca usando Gemini.
  */
 
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
@@ -19,6 +19,19 @@ interface ChatRequest {
     stream?: boolean;
 }
 
+function arrayBufferToBase64(buffer: ArrayBuffer): string {
+    let binary = '';
+    const bytes = new Uint8Array(buffer);
+    const len = bytes.byteLength;
+    const chunkSize = 8192; // Chunk seguro para não estourar a call stack
+    for (let i = 0; i < len; i += chunkSize) {
+        // Converte subarray para Array normal pois reduce/apply com subarray em browsers antigos pode dar erro, 
+        // mas no Deno Array.from garante compatibilidade.
+        binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunkSize)));
+    }
+    return btoa(binary);
+}
+
 serve(async (req: Request) => {
     // Handle CORS preflight
     if (req.method === "OPTIONS") {
@@ -26,28 +39,39 @@ serve(async (req: Request) => {
     }
 
     try {
+        if (req.method !== "POST") {
+            return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405, headers: corsHeaders });
+        }
+
         const authHeader = req.headers.get("Authorization");
         if (!authHeader) {
-            return new Response(JSON.stringify({ error: "Authorization header required" }), {
+            return new Response(JSON.stringify({ error: "Faltando header de Authorization" }), {
                 status: 401,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
-        const supabaseUrl = Deno.env.get("SUPABASE_URL")!;
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!;
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
+        // Inicializa com chave Root mas desativa coisas locais do Edge
+        const supabase = createClient(supabaseUrl, supabaseServiceKey, {
+            auth: { autoRefreshToken: false, persistSession: false }
+        });
+
+        // Pega o usuário logado com base no token que recebemos
         const token = authHeader.replace("Bearer ", "");
         const { data: { user }, error: authError } = await supabase.auth.getUser(token);
+
         if (authError || !user) {
-            return new Response(JSON.stringify({ error: "Unauthorized" }), {
+            return new Response(JSON.stringify({ error: "Unauthorized", details: authError }), {
                 status: 401,
                 headers: { ...corsHeaders, "Content-Type": "application/json" },
             });
         }
 
-        const { materialId, message, provider = "gemini", stream = false } = await req.json() as ChatRequest;
+        const bodyRaw = await req.text();
+        const { materialId, message, provider = "gemini", stream = false } = JSON.parse(bodyRaw) as ChatRequest;
 
         // 1. Buscar metadados do material
         const { data: material, error: matError } = await supabase
@@ -57,19 +81,37 @@ serve(async (req: Request) => {
             .eq("user_id", user.id)
             .single();
 
-        if (matError || !material) return new Response("Material not found", { status: 404, headers: corsHeaders });
+        if (matError || !material) {
+            return new Response(JSON.stringify({ error: "Material não encontrado ou acesso negado." }), {
+                status: 404,
+                headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+        }
 
         // 2. Obter o arquivo do Storage
         const { data: fileData, error: storageError } = await supabase.storage
             .from("study-materials")
             .download(material.storage_path);
 
-        if (storageError || !fileData) return new Response("Error downloading file", { status: 500, headers: corsHeaders });
+        if (storageError || !fileData) {
+            return new Response(JSON.stringify({ error: "Erro ao baixar arquivo do servidor.", details: storageError }), {
+                status: 500,
+                headers: { ...corsHeaders, "Content-Type": "application/json" }
+            });
+        }
 
         if (provider === "gemini") {
-            const apiKey = Deno.env.get("GEMINI_API_KEY")!;
+            const apiKey = Deno.env.get("GEMINI_API_KEY");
+            if (!apiKey) {
+                return new Response(JSON.stringify({ error: "Chave Gemini não configurada no Supabase." }), {
+                    status: 500,
+                    headers: { ...corsHeaders, "Content-Type": "application/json" }
+                });
+            }
+
+            // Conversão buffer seguro para PDFs grandes
             const arrayBuffer = await fileData.arrayBuffer();
-            const base64PDF = btoa(String.fromCharCode(...new Uint8Array(arrayBuffer)));
+            const base64PDF = arrayBufferToBase64(arrayBuffer);
 
             const geminiResponse = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
@@ -79,7 +121,7 @@ serve(async (req: Request) => {
                     body: JSON.stringify({
                         contents: [{
                             parts: [
-                                { text: `Você é um tutor de alto nível para concursos públicos. Baseado no PDF anexo, responda de forma técnica e didática à seguinte dúvida/solicitação do estudante: ${message}` },
+                                { text: `Você é um tutor de alto nível para concursos públicos. Baseado EXCLUSIVAMENTE no PDF anexo (analise as páginas, tabelas e gráficos), responda de forma técnica, focada e didática à seguinte dúvida/solicitação do estudante: ${message}. Se não encontrar no PDF, informe isso.` },
                                 {
                                     inline_data: {
                                         mime_type: "application/pdf",
@@ -95,7 +137,10 @@ serve(async (req: Request) => {
             const result = await geminiResponse.json();
 
             if (result.error) {
-                throw new Error(result.error.message || "Erro na API do Gemini");
+                return new Response(JSON.stringify({ error: result.error.message || "Erro na API do Gemini" }), {
+                    status: 502,
+                    headers: { ...corsHeaders, "Content-Type": "application/json" }
+                });
             }
 
             // Retorna o formato simplificado para o frontend
@@ -106,16 +151,16 @@ serve(async (req: Request) => {
             });
         }
 
-        // TODO: Implementar Groq com extração de texto (precisa de lib de PDF extra)
-        return new Response(JSON.stringify({ error: "Provider Groq ainda em desenvolvimento para PDF" }), {
+        // Caso tente usar groq sem texto puro
+        return new Response(JSON.stringify({ error: "Provider Groq suporta apenas extração de texto que ainda será ativada." }), {
             status: 501,
-            headers: corsHeaders
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
 
     } catch (err: any) {
-        return new Response(JSON.stringify({ error: err.message }), {
+        return new Response(JSON.stringify({ error: "Erro interno no processamento.", details: err.message }), {
             status: 500,
-            headers: corsHeaders
+            headers: { ...corsHeaders, "Content-Type": "application/json" }
         });
     }
 });
