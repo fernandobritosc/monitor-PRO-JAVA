@@ -150,8 +150,8 @@ const RecoveryMode: React.FC<{
         if (parts.length <= 1) return { statement: text, alternatives: [] };
 
         return {
-            statement: parts[0].trim(),
-            alternatives: parts.slice(1).map(a => a.trim()).filter(Boolean)
+            statement: (parts[0] || '').trim(),
+            alternatives: parts.slice(1).map(a => (a || '').trim()).filter(Boolean)
         };
     }, [currentError]);
 
@@ -160,7 +160,7 @@ const RecoveryMode: React.FC<{
     const handleAnswer = async () => {
         if (!userAnswer.trim() || isUpdating) return;
 
-        const isCorrect = userAnswer.trim().toLowerCase() === (currentError.gabarito as string).trim().toLowerCase();
+        const isCorrect = userAnswer.trim().toLowerCase() === (currentError.gabarito ? String(currentError.gabarito).trim().toLowerCase() : '');
         setIsUpdating(true);
 
         if (isCorrect) {
@@ -318,7 +318,8 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             .filter(r => r.concurso === missaoAtiva && r.analise_erros && r.analise_erros.length > 0)
             .forEach(r => {
                 r.analise_erros?.forEach(err => {
-                    const fallbackId = `${r.id}-${err.questao_preview.substring(0, 15).replace(/\s+/g, '')}`;
+                    const preview = err.questao_preview || '';
+                    const fallbackId = `${r.id}-${preview.substring(0, 15).replace(/\s+/g, '')}`;
                     errors.push({
                         ...err,
                         id: err.id || fallbackId,
@@ -412,9 +413,9 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             const matchAssunto = !filterAssunto || err.assunto === filterAssunto;
             const matchMeta = !filterMeta || String(err.meta) === filterMeta;
             const matchSearch = !searchTerm ||
-                err.questao_preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                err.gatilho.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                err.assunto.toLowerCase().includes(searchTerm.toLowerCase());
+                (err.questao_preview || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (err.gatilho || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (err.assunto || '').toLowerCase().includes(searchTerm.toLowerCase());
 
             return matchMateria && matchAssunto && matchMeta && matchSearch;
         });
@@ -568,31 +569,30 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
             doc.setTextColor(30, 41, 59);
 
             paragraphs.forEach(para => {
-                if (!para.trim()) {
+                if (para && para.trim()) {
+                    const isHeading = para.trim().startsWith('##');
+                    if (isHeading) {
+                        checkPageBreak(15);
+                        doc.setFont("helvetica", "bold");
+                        doc.setFontSize(11);
+                        doc.setTextColor(51, 65, 85);
+                        const headingText = cleanText(para.replace(/#/g, '').trim());
+                        doc.text(headingText, margin, y);
+                        y += 8;
+                        doc.setFont("helvetica", "normal");
+                        doc.setFontSize(10);
+                        doc.setTextColor(71, 85, 105);
+                    } else {
+                        const lines = doc.splitTextToSize(cleanText(para), contentWidth);
+                        lines.forEach((line: string) => {
+                            checkPageBreak(6);
+                            doc.text(line, margin, y);
+                            y += 5;
+                        });
+                        y += 2;
+                    }
+                } else if (para === "") {
                     y += 5;
-                    return;
-                }
-
-                const isHeading = para.trim().startsWith('##');
-                if (isHeading) {
-                    checkPageBreak(15);
-                    doc.setFont("helvetica", "bold");
-                    doc.setFontSize(11);
-                    doc.setTextColor(51, 65, 85);
-                    const headingText = cleanText(para.replace(/#/g, '').trim());
-                    doc.text(headingText, margin, y);
-                    y += 8;
-                    doc.setFont("helvetica", "normal");
-                    doc.setFontSize(10);
-                    doc.setTextColor(71, 85, 105);
-                } else {
-                    const lines = doc.splitTextToSize(cleanText(para), contentWidth);
-                    lines.forEach((line: string) => {
-                        checkPageBreak(6);
-                        doc.text(line, margin, y);
-                        y += 5;
-                    });
-                    y += 2;
                 }
             });
             y += 10;
@@ -806,8 +806,8 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                                     <div className="h-px flex-1 bg-gradient-to-r from-transparent via-cyan-500/30 to-transparent" />
                                 </div>
                                 <div className="prose prose-invert max-w-none text-slate-300 text-sm font-medium leading-relaxed space-y-6">
-                                    {macroDiagnosis.split('\n').map((line, i) => {
-                                        const trimmed = line.trim();
+                                    {macroDiagnosis && macroDiagnosis.split('\n').map((line, i) => {
+                                        const trimmed = (line || '').trim();
                                         if (trimmed.startsWith('##')) {
                                             return <h4 key={i} className="text-white font-black text-lg mt-10 mb-6 uppercase tracking-tight border-l-4 border-cyan-500 pl-4 bg-cyan-500/5 py-2 rounded-r-lg">{trimmed.replace(/#/g, '').trim()}</h4>;
                                         }
@@ -893,9 +893,9 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records, m
                             const matchAssunto = !filterAssunto || err.assunto === filterAssunto;
                             const matchMeta = !filterMeta || String(err.meta) === filterMeta;
                             const matchSearch = !searchTerm ||
-                                err.questao_preview.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                err.gatilho.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                                err.assunto.toLowerCase().includes(searchTerm.toLowerCase());
+                                (err.questao_preview || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (err.gatilho || '').toLowerCase().includes(searchTerm.toLowerCase()) ||
+                                (err.assunto || '').toLowerCase().includes(searchTerm.toLowerCase());
                             return matchMateria && matchAssunto && matchMeta && matchSearch;
                         })
                         .map((err) => (
