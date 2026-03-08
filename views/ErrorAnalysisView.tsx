@@ -261,17 +261,20 @@ const RecoveryMode: React.FC<{
 
                     <div className="space-y-6">
                         <div className="bg-white/5 rounded-3xl p-6 border border-white/5">
-                            <p className="text-sm font-medium text-slate-200 leading-relaxed italic">
-                                {parsedContent.statement}
-                            </p>
+                            <div
+                                className="text-sm font-medium text-slate-200 leading-relaxed italic prose prose-sm prose-invert max-w-none"
+                                dangerouslySetInnerHTML={{ __html: parsedContent.statement }}
+                            />
                         </div>
 
                         {parsedContent.alternatives.length > 0 && (
                             <div className="grid grid-cols-1 gap-3">
                                 {parsedContent.alternatives.map((alt, idx) => (
-                                    <div key={idx} className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs font-medium text-slate-400 leading-snug">
-                                        {alt}
-                                    </div>
+                                    <div
+                                        key={idx}
+                                        className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs font-medium text-slate-400 leading-snug prose prose-sm prose-invert max-w-none"
+                                        dangerouslySetInnerHTML={{ __html: alt }}
+                                    />
                                 ))}
                             </div>
                         )}

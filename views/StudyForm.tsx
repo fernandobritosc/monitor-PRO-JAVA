@@ -3,6 +3,12 @@ import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { CustomSelector } from '../components/CustomSelector';
+import { useEditor, EditorContent } from '@tiptap/react';
+import StarterKit from '@tiptap/starter-kit';
+import Underline from '@tiptap/extension-underline';
+import Image from '@tiptap/extension-image';
+import Placeholder from '@tiptap/extension-placeholder';
+import { EditorToolbar } from '../components/QuestionsBank/EditorToolbar';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { studyRecordsQueries, questionsQueries } from '../services/queries';
@@ -146,6 +152,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
 
             // Limpar campos para a próxima questão
             setErrorText('');
+            errorTextEditor?.commands.setContent('');
             setGabarito('');
             setMinha_resposta('');
             setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
@@ -156,6 +163,99 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
             setIsAnalyzing(false);
         }
     };
+
+    const handleImageUpload = async (file: File): Promise<string | null> => {
+        try {
+            const fileExt = file.name.split('.').pop();
+            const fileName = `${Date.now()}-${Math.random().toString(36).substring(2, 9)}.${fileExt}`;
+            const filePath = `images/${fileName}`;
+
+            const { error } = await supabase.storage.from('questions').upload(filePath, file);
+
+            if (error) {
+                if (error.message.includes('bucket not found')) {
+                    alert('Bucket "questions" não encontrado. Crie o bucket no Supabase Storage primeiro.');
+                }
+                throw error;
+            }
+
+            const { data: { publicUrl } } = supabase.storage.from('questions').getPublicUrl(filePath);
+            return publicUrl;
+        } catch (error) {
+            console.error('Error uploading image:', error);
+            return null;
+        }
+    };
+
+    const createEditorProps = (minHeight: string) => ({
+        attributes: {
+            class: `prose prose-invert prose-sm max-w-none focus:outline-none ${minHeight} p-5 text-xs text-[hsl(var(--text-bright))]`
+        },
+        handlePaste: (view: any, event: ClipboardEvent) => {
+            const items = Array.from(event.clipboardData?.items || []);
+            const imageItem = items.find(item => item.type.startsWith('image'));
+            if (imageItem) {
+                const file = imageItem.getAsFile();
+                if (file) {
+                    handleImageUpload(file).then(url => {
+                        if (url) {
+                            if (minHeight === 'min-h-[160px]') errorTextEditor?.chain().focus().setImage({ src: url }).run();
+                            else comentariosEditor?.chain().focus().setImage({ src: url }).run();
+                        }
+                    });
+                    return true;
+                }
+            }
+            return false;
+        },
+        handleDrop: (view: any, event: DragEvent) => {
+            const files = Array.from(event.dataTransfer?.files || []);
+            const imageFile = files.find(file => file.type.startsWith('image'));
+            if (imageFile) {
+                handleImageUpload(imageFile).then(url => {
+                    if (url) {
+                        if (minHeight === 'min-h-[160px]') errorTextEditor?.chain().focus().setImage({ src: url }).run();
+                        else comentariosEditor?.chain().focus().setImage({ src: url }).run();
+                    }
+                });
+                return true;
+            }
+            return false;
+        }
+    });
+
+    const errorTextEditor = useEditor({
+        extensions: [
+            StarterKit.configure({ underline: false }),
+            Underline,
+            Image,
+            Placeholder.configure({ placeholder: 'Cole aqui o texto da questão e seu erro (ou use a barra de ferramentas para inserir imagem)...' })
+        ],
+        content: errorText,
+        onUpdate: ({ editor }) => setErrorText(editor.getHTML()),
+        editorProps: createEditorProps('min-h-[160px]'),
+    });
+
+    const comentariosEditor = useEditor({
+        extensions: [
+            StarterKit.configure({ underline: false }),
+            Underline,
+            Image,
+            Placeholder.configure({ placeholder: 'Pontos chave, links, impressões...' })
+        ],
+        content: comentarios,
+        onUpdate: ({ editor }) => setComentarios(editor.getHTML()),
+        editorProps: createEditorProps('min-h-[120px]'),
+    });
+
+    // Resetar editor externo se o estado mudar externamente
+    useEffect(() => {
+        if (comentarios === '') comentariosEditor?.commands.setContent('');
+    }, [comentarios]);
+
+    useEffect(() => {
+        if (errorText === '') errorTextEditor?.commands.setContent('');
+    }, [errorText]);
 
     // Removal of handleFileUpload as per user request (removing upload .txt)
 
@@ -633,7 +733,16 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                         {/* PASSO 3: ANÁLISE */}
                         <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6">
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><FileText size={18} className="text-[hsl(var(--accent))]" /> Análise Qualitativa</h4>
-                            <div className="space-y-3"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações / Observações</label><textarea className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all h-32 text-sm text-[hsl(var(--text-main))] font-bold placeholder-[hsl(var(--text-muted)/0.5)] resize-none" placeholder="Pontos chave, links, impressões..." value={comentarios} onChange={(e) => setComentarios(e.target.value)} /></div>
+                            <div className="space-y-3">
+                                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações / Observações</label>
+                                <div className="bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
+                                    <EditorToolbar
+                                        editor={comentariosEditor}
+                                        onImageUpload={(file) => handleImageUpload(file).then(url => url && comentariosEditor?.chain().focus().setImage({ src: url }).run())}
+                                    />
+                                    <EditorContent editor={comentariosEditor} />
+                                </div>
+                            </div>
 
                             {/* NOVO: ALGORITMO DE ERROS IA */}
                             <div className="pt-6 border-t border-[hsl(var(--border))] space-y-6">
@@ -704,12 +813,13 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                     </div>
                                 </div>
 
-                                <textarea
-                                    className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all h-40 text-xs text-[hsl(var(--text-muted))] font-bold placeholder-[hsl(var(--text-muted)/0.3)] resize-none"
-                                    placeholder="Cole aqui o texto da questão e seu erro (ou use o upload ao lado)..."
-                                    value={errorText}
-                                    onChange={(e) => setErrorText(e.target.value)}
-                                />
+                                <div className="bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
+                                    <EditorToolbar
+                                        editor={errorTextEditor}
+                                        onImageUpload={(file) => handleImageUpload(file).then(url => url && errorTextEditor?.chain().focus().setImage({ src: url }).run())}
+                                    />
+                                    <EditorContent editor={errorTextEditor} />
+                                </div>
 
                                 {errorAnalysis.length > 0 && (
                                     <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
@@ -725,7 +835,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                                                         {err.tipo_erro}
                                                     </span>
                                                     <span className="text-[9px] text-[hsl(var(--text-muted))] font-bold italic truncate flex-1 ml-3">
-                                                        "{err.questao_preview}..."
+                                                        "{(err.questao_preview || '').replace(/<[^>]*>?/gm, '')}..."
                                                     </span>
                                                     {(err.gabarito || err.minha_resposta) && (
                                                         <div className="flex gap-2 ml-auto shrink-0">
@@ -756,12 +866,13 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
                     {isSimulado && (
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Anotações Gerais / Observações</label>
-                            <textarea
-                                className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-2.5 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all h-24 text-sm text-slate-300 placeholder-slate-600"
-                                placeholder="Pontos chave, links, impressões..."
-                                value={comentarios}
-                                onChange={(e) => setComentarios(e.target.value)}
-                            />
+                            <div className="w-full bg-slate-900/30 border border-white/5 rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
+                                <EditorToolbar
+                                    editor={comentariosEditor}
+                                    onImageUpload={(file) => handleImageUpload(file).then(url => url && comentariosEditor?.chain().focus().setImage({ src: url }).run())}
+                                />
+                                <EditorContent editor={comentariosEditor} />
+                            </div>
                         </div>
                     )}
                     {!isSimulado && (
