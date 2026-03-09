@@ -37,15 +37,77 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
   const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
+  const [showImportTxtModal, setShowImportTxtModal] = useState(false);
+  const [rawImportText, setRawImportText] = useState('');
+  const [txtPreviewCards, setTxtPreviewCards] = useState<any[]>([]);
+  const [importMateria, setImportMateria] = useState('');
+  const [importAssunto, setImportAssunto] = useState('');
+
+  const [showImportTopicsDropdown, setShowImportTopicsDropdown] = useState(false);
+  const importDropdownRef = useRef<HTMLDivElement>(null);
+
+  const availableImportTopics = useMemo(() => {
+    if (!importMateria || importMateria === 'Todas') return [];
+    const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === importMateria);
+    return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
+  }, [editais, missaoAtiva, importMateria]);
+
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowTopicsDropdown(false);
       }
+      if (importDropdownRef.current && !importDropdownRef.current.contains(event.target as Node)) {
+        setShowImportTopicsDropdown(false);
+      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
+
+  useEffect(() => {
+    if (!rawImportText) {
+      setTxtPreviewCards([]);
+      return;
+    }
+    const lines = rawImportText.split('\n').filter(line => line.trim().length > 0);
+    const parsedCards = lines.map((line, idx) => {
+      const parts = line.split(';');
+      if (parts.length >= 2) {
+        return {
+          id: `txt-temp-${idx}`,
+          front: parts[0].trim(),
+          back: parts.slice(1).join(';').trim()
+        };
+      }
+      return null;
+    }).filter(c => c !== null);
+    setTxtPreviewCards(parsedCards);
+  }, [rawImportText]);
+
+  const handleConfirmTxtImport = () => {
+    if (!importMateria) {
+      alert("Por favor, selecione ou digite a matéria.");
+      return;
+    }
+    if (txtPreviewCards.length === 0) {
+      alert("Nenhum flashcard válido detectado para importar.");
+      return;
+    }
+
+    const finalCards = txtPreviewCards.map(c => ({
+      ...c,
+      materia: importMateria,
+      assunto: importAssunto,
+    }));
+
+    importCards(finalCards, 'deck');
+    setShowImportTxtModal(false);
+    setTxtPreviewCards([]);
+    setRawImportText('');
+    setImportMateria('');
+    setImportAssunto('');
+  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -213,9 +275,9 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                   {/* Front Face */}
                   <div className={`absolute inset-0 backface-hidden glass-premium bg-gradient-to-br from-[hsl(var(--bg-card))] to-[hsl(var(--bg-main))] border-4 border-[hsl(var(--accent)/0.15)] rounded-[2.5rem] p-10 flex flex-col ${isFlipped ? 'opacity-0' : 'opacity-100'}`}>
                     <div className="flex justify-between items-start mb-10">
-                      <div className="bg-[hsl(var(--bg-user-block))] px-5 py-2.5 rounded-full border border-[hsl(var(--border))] flex items-center gap-3 shadow-inner">
-                        <BookOpen size={16} className="text-[hsl(var(--accent))]" />
-                        <span className="text-xs font-bold text-[hsl(var(--text-bright))] uppercase tracking-widest truncate max-w-[250px]">
+                      <div className="bg-[hsl(var(--bg-user-block))] px-4 py-2 md:px-5 md:py-2.5 rounded-full border border-[hsl(var(--border))] flex items-center gap-2 md:gap-3 shadow-inner">
+                        <BookOpen size={16} className="text-[hsl(var(--accent))] shrink-0" />
+                        <span className="text-[10px] md:text-xs font-bold text-[hsl(var(--text-bright))] uppercase tracking-widest truncate max-w-[150px] md:max-w-[250px]">
                           {currentCard.materia} {currentCard.assunto && <span className="text-[hsl(var(--text-muted))] mx-2">//</span>} {currentCard.assunto}
                         </span>
                       </div>
@@ -223,8 +285,8 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                         <Volume2 size={18} />
                       </button>
                     </div>
-                    <div className="flex-1 flex items-center justify-center px-6">
-                      <p className="text-2xl md:text-4xl font-black text-[hsl(var(--text-bright))] text-center leading-[1.4] tracking-tight uppercase">
+                    <div className="flex-1 flex flex-col items-center justify-center px-2 md:px-6 overflow-y-auto custom-scrollbar">
+                      <p className="text-lg md:text-4xl font-black text-[hsl(var(--text-bright))] text-center leading-[1.4] tracking-tight uppercase my-auto max-h-full py-4">
                         {currentCard.front}
                       </p>
                     </div>
@@ -246,8 +308,8 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                         <Volume2 size={18} />
                       </button>
                     </div>
-                    <div className="flex-1 flex items-center justify-center px-6">
-                      <p className="text-xl md:text-3xl font-bold text-[hsl(var(--text-bright))] text-center leading-relaxed">
+                    <div className="flex-1 flex flex-col items-center justify-center px-2 md:px-6 overflow-y-auto custom-scrollbar">
+                      <p className="text-base md:text-3xl font-bold text-[hsl(var(--text-bright))] text-center leading-relaxed my-auto max-h-full py-4">
                         {currentCard.back}
                       </p>
                     </div>
@@ -299,7 +361,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                   {/* Neural Laboratory Redesign */}
                   <div className="mt-12 glass-premium border border-[hsl(var(--accent)/0.2)] rounded-[2.5rem] overflow-hidden shadow-2xl animate-in slide-in-from-bottom-8 duration-1000">
                     {/* Lab Header */}
-                    <div className="bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/40 px-8 py-6 border-b border-white/10 flex justify-between items-center">
+                    <div className="bg-gradient-to-r from-indigo-900/40 via-purple-900/40 to-pink-900/40 px-4 md:px-8 py-4 md:py-6 border-b border-white/10 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
                       <div className="flex items-center gap-4">
                         <div className="w-10 h-10 rounded-xl bg-purple-500/20 flex items-center justify-center text-purple-400 border border-purple-500/30">
                           <Sparkles size={20} className={aiLoading || extraLoading || mnemonicLoading ? 'animate-pulse' : ''} />
@@ -311,7 +373,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                       </div>
 
                       {/* Podcast & Audio Controls */}
-                      <div className="flex items-center gap-3">
+                      <div className="flex items-center justify-between w-full md:w-auto md:justify-end gap-3">
                         {isGeneratingPodcast && (
                           <div className="hidden md:flex items-center gap-2 px-4 py-2 bg-pink-500/10 border border-pink-500/20 rounded-xl animate-in zoom-in">
                             <div className="w-2 h-2 bg-pink-500 rounded-full animate-pulse" />
@@ -371,7 +433,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                     </div>
 
                     {/* Lab Viewport */}
-                    <div className="p-8 min-h-[300px] relative bg-slate-900/20">
+                    <div className="p-4 md:p-8 min-h-[300px] relative bg-slate-900/20">
                       {/* Tool Viewport Content */}
                       <div className="animate-in fade-in zoom-in-95 duration-300">
                         {activeAiTool === 'explanation' && (
@@ -452,7 +514,7 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                     </div>
 
                     {/* Chat Integration */}
-                    <div className="p-8 border-t border-white/10 bg-black/20">
+                    <div className="p-4 md:p-8 border-t border-white/10 bg-black/20">
                       <label className="text-[9px] font-black text-slate-500 uppercase tracking-[0.2em] mb-3 flex items-center gap-2">
                         <MessageSquarePlus size={14} /> Dúvida Adicional ou Comando de Voz
                       </label>
@@ -510,6 +572,13 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
                 >
                   {isGeneratingPdf ? <Loader2 size={16} className="animate-spin" /> : <FileText size={16} />}
                   <span>Exportar PDF ({filteredCards.length})</span>
+                </button>
+                <button
+                  onClick={() => setShowImportTxtModal(true)}
+                  className="w-full sm:w-auto px-6 py-4 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[hsl(var(--text-bright))] hover:text-white hover:bg-white/5 flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg"
+                >
+                  <DownloadCloud size={16} className="text-cyan-400" />
+                  <span>Importar em Lote</span>
                 </button>
               </div>
             </div>
@@ -763,6 +832,128 @@ const Flashcards: React.FC<{ missaoAtiva: string; editais: EditalMateria[] }> = 
           </div>
         )
       }
+
+      {showImportTxtModal && (
+        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
+          <div className="glass-premium bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] w-full max-w-4xl rounded-2xl p-6 relative shadow-2xl flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center mb-6 border-b border-[hsl(var(--border))] pb-4">
+              <div>
+                <h3 className="text-xl font-black uppercase tracking-tight text-[hsl(var(--text-bright))] flex items-center gap-2">
+                  <DownloadCloud className="text-[hsl(var(--accent))]" /> Importar Flashcards em Lote
+                </h3>
+                <p className="text-[hsl(var(--text-muted))] text-[10px] font-bold uppercase tracking-widest mt-1">Cole o texto no formato: Pergunta;Resposta (uma por linha)</p>
+              </div>
+              <button onClick={() => { setShowImportTxtModal(false); setTxtPreviewCards([]); setRawImportText(''); }} className="p-2 bg-[hsl(var(--bg-user-block))] rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] border border-[hsl(var(--border))] transition-all">
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+              <div>
+                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Matéria (Obrigatório)</label>
+                <div className="bg-[hsl(var(--bg-main))] rounded-2xl border border-[hsl(var(--border))]">
+                  <CustomSelector
+                    label="Matéria"
+                    value={importMateria}
+                    options={materias.filter((m: string) => m !== 'Todas' && m !== 'Todos')}
+                    onChange={setImportMateria}
+                    placeholder="Selecione ou digite..."
+                  />
+                </div>
+              </div>
+              <div ref={importDropdownRef} className="relative">
+                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1 flex justify-between items-center">
+                  Assunto (Opcional)
+                  {importAssunto && <span className="text-[9px] text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 flex items-center gap-1.5 animate-pulse"><Lock size={10} /> Parâmetro Fixado</span>}
+                </label>
+                <div className="relative">
+                  <input
+                    type="text"
+                    value={importAssunto}
+                    onChange={(e) => setImportAssunto(e.target.value)}
+                    onClick={() => { if (availableImportTopics.length > 0) setShowImportTopicsDropdown(true); }}
+                    className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-4 py-3.5 text-sm text-[hsl(var(--text-bright))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] placeholder-[hsl(var(--text-muted)/0.5)]"
+                    placeholder="Ex: Lei 8.112/90"
+                  />
+                  {availableImportTopics.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setShowImportTopicsDropdown(!showImportTopicsDropdown)}
+                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] rounded-lg transition-colors"
+                    >
+                      {showImportTopicsDropdown ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
+                    </button>
+                  )}
+                  {showImportTopicsDropdown && availableImportTopics.length > 0 && (
+                    <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
+                      <div
+                        onClick={() => { setImportAssunto(''); setShowImportTopicsDropdown(false); }}
+                        className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--bg-user-block))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
+                      >
+                        Limpar Seleção
+                      </div>
+                      {availableImportTopics.map((t: string, idx: number) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setImportAssunto(t);
+                            setShowImportTopicsDropdown(false);
+                          }}
+                          className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--bg-user-block))] cursor-pointer flex items-center gap-3 ${importAssunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))]'}`}
+                        >
+                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${importAssunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
+                          <span className="flex-1 leading-relaxed truncate">{t}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="mb-6">
+              <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Conteúdo Em Lote (Pegue do Excel, Word ou TXT)</label>
+              <textarea
+                value={rawImportText}
+                onChange={(e) => setRawImportText(e.target.value)}
+                className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 text-sm text-[hsl(var(--text-bright))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] placeholder-[hsl(var(--text-muted)/0.5)] custom-scrollbar min-h-[120px] resize-y shadow-inner"
+                placeholder="Exemplo:&#10;Quem descobriu o Brasil?;Pedro Álvares Cabral&#10;O que é o Princípio da Legalidade?;Ninguém é obrigado a fazer ou deixar de fazer algo senão em virtude de lei."
+              />
+            </div>
+
+            {txtPreviewCards.length > 0 && (
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-[hsl(var(--bg-main))] rounded-xl border border-[hsl(var(--border))] p-4 grid grid-cols-1 gap-3">
+                <div className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-widest mb-2 px-2">Pré-visualização ({txtPreviewCards.length} cards detectados)</div>
+                {txtPreviewCards.map((card: any) => (
+                  <div key={card.id} className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] p-4 rounded-xl flex flex-col gap-2">
+                    <div className="flex gap-2">
+                      <span className="text-xs font-bold text-cyan-500">P:</span>
+                      <p className="text-sm text-[hsl(var(--text-bright))] font-medium">{card.front}</p>
+                    </div>
+                    <div className="h-px bg-[hsl(var(--border))] w-full my-1" />
+                    <div className="flex gap-2">
+                      <span className="text-xs font-bold text-purple-500">R:</span>
+                      <p className="text-xs text-[hsl(var(--text-muted))] whitespace-pre-wrap">{card.back}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-[hsl(var(--border))]">
+              <button onClick={() => { setShowImportTxtModal(false); setTxtPreviewCards([]); setRawImportText(''); }} className="px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))] border border-transparent hover:border-[hsl(var(--border))] transition-all">Cancelar</button>
+              <button
+                onClick={handleConfirmTxtImport}
+                disabled={txtPreviewCards.length === 0 || !importMateria || importingState.loading}
+                className="px-8 py-3 bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--bg-main))] rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all active:scale-95"
+              >
+                {importingState.loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
+                Importar {txtPreviewCards.length} Cards
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <style>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); }`}</style>
     </div >
   );

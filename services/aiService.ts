@@ -83,7 +83,7 @@ const streamWithGemini = async (
   let lastError: any = null;
 
   // Prompts sincronizados com o snippet do usuário
-  const flashcardPrompt = `Atue como um Especialista em Memorização. Forneça uma explicação técnica concisa, um exemplo prático curto e um mnemônico/música extremamente eficaz para o seguinte conteúdo:\n\n${prompt}.\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar negrito (**).\n2. PROIBIDAS saudações (Ex: "Ok", "Vamos lá", "Espero que ajude").\n3. Responda diretamente com o conteúdo técnico.`;
+  const flashcardPrompt = `Atue como um Especialista em Memorização para Concursos de Alto Nível. Analise e expanda o seguinte Flashcard (Pergunta e Resposta):\n\n${prompt}.\n\nESTRUTURA DE RESPOSTA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica mas de fácil compreensão em no máximo 3 parágrafos]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora costuma cobrar esse conceito ou um mini exemplo de pegadinha]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização de alta fixação: som, sigla absurda ou associação visual]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Tom dinâmico de professor de cursinho.`;
   const generalPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua resposta deve ser estritamente técnica, direta e estruturada em Markdown com os seguintes tópicos:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo técnico aqui]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário real aqui]\n\nREGRAS VISUAIS E DE TOM:\n1. PROIBIDO o uso de negrito (**).\n2. PROIBIDAS saudações, introduções ou conclusões (Ex: "Aqui está", "Olá", "Espero que isso ajude").\n3. Use apenas cabeçalhos (#) e listas simples (-).\n4. Tom clínico, seco e puramente técnico.`;
   const finalPrompt = context === 'flashcard' ? flashcardPrompt : `${generalPrompt}\n\nConteúdo: ${prompt}`;
 
@@ -133,7 +133,9 @@ const streamWithGroq = async (
   try {
     logger.info('AI', 'Iniciando streaming com Groq');
 
-    const systemPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua comunicação deve ser técnica, profissional e direta.\nESTRUTURA OBRIGATÓRIA:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário]\n\nREGRAS CRÍTICAS:\n1. PROIBIDO o uso de asteriscos para negrito (**).\n2. PROIBIDAS saudações, "ok", introduções ou conclusões (Ex: "Espero que ajude", "Vamos lá").\n3. Use apenas títulos (#) para separar seções.\n4. Texto puramente técnico e clínico.`;
+    const systemPrompt = prompt.toLowerCase().includes('pergunta:') || prompt.toLowerCase().includes('resposta:')
+      ? `Atue como um Especialista em Memorização para Concursos de Alto Nível.\n\nESTRUTURA DE RESPOSTA OBRIGATÓRIA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica e didática]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora cobra isso / exemplos de pegadinhas]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Responda apenas com a estrutura solicitada.`
+      : `Atue como um Especialista Sênior em Concursos Públicos. Sua comunicação deve ser técnica, profissional e direta.\nESTRUTURA OBRIGATÓRIA:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário]\n\nREGRAS CRÍTICAS:\n1. PROIBIDO o uso de asteriscos para negrito (**).\n2. PROIBIDAS saudações, "ok", introduções ou conclusões (Ex: "Espero que ajude", "Vamos lá").\n3. Use apenas títulos (#) para separar seções.\n4. Texto puramente técnico e clínico.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
       method: 'POST',
@@ -386,7 +388,7 @@ export const generateAIContent = async (
   // Define o finalPrompt for all providers
   let finalPrompt = "";
   if (context === 'flashcard') {
-    finalPrompt = `Você é um tutor de concursos. Explique o conceito, dê um exemplo, e crie um mnemônico/música curta para o flashcard a seguir:\n\n${contentToAnalyze}`;
+    finalPrompt = `Atue como um Especialista em Memorização para Concursos de Alto Nível. Analise e expanda o seguinte Flashcard:\n\n${contentToAnalyze}\n\nESTRUTURA DE RESPOSTA OBRIGATÓRIA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica e didática]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora cobra isso / exemplos de pegadinhas]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Responda apenas com a estrutura solicitada.`;
   } else if (context === 'mapa') {
     finalPrompt = `Atue como um Arquiteto de Informação Pedagógica. Crie um MAPA MENTAL ESTRUTURADO sobre: ${contentToAnalyze}.
     Sintaxe Markdown estrita:
