@@ -48,6 +48,9 @@ CREATE POLICY "Authenticated Upload Audio" ON storage.objects FOR INSERT WITH CH
 DROP POLICY IF EXISTS "Authenticated Delete Audio" ON storage.objects;
 CREATE POLICY "Authenticated Delete Audio" ON storage.objects FOR DELETE USING ( bucket_id = 'audio-revisions' AND auth.role() = 'authenticated' );
 
+DROP POLICY IF EXISTS "Authenticated Update Audio" ON storage.objects;
+CREATE POLICY "Authenticated Update Audio" ON storage.objects FOR UPDATE USING ( bucket_id = 'audio-revisions' AND auth.role() = 'authenticated' );
+
 -- 3. POLÍTICAS DE SEGURANÇA DA TABELA (RLS)
 ALTER TABLE flashcards ENABLE ROW LEVEL SECURITY;
 

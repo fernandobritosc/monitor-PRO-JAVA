@@ -391,14 +391,30 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                 <div className="w-2 h-2 rounded-full bg-indigo-500 animate-pulse" />
                                 <span className="text-xs font-black uppercase text-indigo-400 tracking-[0.3em]">Modo Leitura MonitorPro</span>
                             </div>
-                            <button
-                                onClick={() => setSelectedPDF(null)}
-                                className="bg-white/10 hover:bg-red-500 text-white p-2 rounded-full transition-all"
-                            >
-                                <X size={20} />
-                            </button>
+                            <div className="flex items-center gap-2">
+                                <a
+                                    href={selectedPDF}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="bg-white/5 hover:bg-white/10 text-slate-300 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all flex items-center gap-2"
+                                >
+                                    <ExternalLink size={14} /> Abrir em Nova Aba
+                                </a>
+                                <button
+                                    onClick={() => setSelectedPDF(null)}
+                                    className="bg-white/10 hover:bg-red-500 text-white p-2 rounded-full transition-all ml-2"
+                                >
+                                    <X size={20} />
+                                </button>
+                            </div>
                         </div>
-                        <div className="flex-1 w-full bg-slate-800 relative">
+                        <div className="flex-1 w-full bg-slate-800 relative flex flex-col items-center justify-center">
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none">
+                                <FileText size={48} className="text-slate-700 mb-4" />
+                                <p className="text-slate-500 text-sm max-w-xs">
+                                    Se o PDF não carregar abaixo, clique em <b>"Abrir em Nova Aba"</b> acima.
+                                </p>
+                            </div>
                             <iframe
                                 src={`${selectedPDF}#toolbar=0`}
                                 className="w-full h-full border-none bg-white"

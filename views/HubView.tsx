@@ -12,7 +12,8 @@ import {
     Search,
     Filter,
     Zap,
-    Loader2
+    Loader2,
+    RefreshCw
 } from 'lucide-react';
 import { ViewType } from '../types';
 import { supabase } from '../services/supabase';
@@ -47,6 +48,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
     const navigate = useNavigate();
     const [news, setNews] = useState<NewsItem[]>([]);
     const [isLoading, setIsLoading] = useState(false);
+    const [isRefreshingNews, setIsRefreshingNews] = useState(false);
     const [rankers, setRankers] = useState<RankerItem[]>([]);
     const [loadingRank, setLoadingRank] = useState(true);
 
@@ -91,6 +93,28 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
         }
     };
 
+    const handleRefreshNews = async () => {
+        if (isRefreshingNews) return;
+
+        setIsRefreshingNews(true);
+        try {
+            logger.info('AI', 'Disparando atualização manual de notícias...');
+            const { data, error } = await supabase.functions.invoke('fetch-concurso-news');
+
+            if (error) throw error;
+
+            logger.info('AI', 'Notícias atualizadas com sucesso:', data);
+            // O realtime já vai atualizar a lista, mas forçamos um fetch por garantia
+            fetchNews();
+            alert("Radar atualizado! Buscando editais novos...");
+        } catch (err: any) {
+            logger.error('AI', 'Erro ao atualizar notícias:', err);
+            alert("Falha na atualização: " + (err.message || "Erro na Edge Function"));
+        } finally {
+            setIsRefreshingNews(false);
+        }
+    };
+
     const fetchRanking = async () => {
         try {
             const { data: { user } } = await supabase.auth.getUser();
@@ -121,7 +145,6 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
 
     useEffect(() => {
-        fetchNews();
         fetchRanking();
     }, []);
 
@@ -168,6 +191,20 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                                 className="bg-[hsl(var(--bg-user-block)/0.5)] border border-[hsl(var(--border))] rounded-full pl-9 pr-4 py-2 text-xs font-medium focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all w-[180px] md:w-[220px]"
                             />
                         </div>
+                        <button
+                            onClick={handleRefreshNews}
+                            disabled={isRefreshingNews}
+                            className={`flex items-center gap-2 px-4 py-2 rounded-full border transition-all text-[10px] font-black uppercase tracking-widest ${isRefreshingNews
+                                ? 'bg-amber-500/20 border-amber-500/40 text-amber-400 cursor-wait'
+                                : 'bg-[hsl(var(--accent)/0.1)] border-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.2)]'
+                                }`}
+                        >
+                            {isRefreshingNews ? (
+                                <><Loader2 size={12} className="animate-spin" /> Atualizando...</>
+                            ) : (
+                                <><RefreshCw size={12} /> Atualizar Radar</>
+                            )}
+                        </button>
                         <button className="p-2 rounded-full bg-[hsl(var(--bg-user-block)/0.5)] border border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] transition-colors">
                             <Filter size={14} />
                         </button>

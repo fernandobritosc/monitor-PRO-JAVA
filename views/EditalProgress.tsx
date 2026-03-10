@@ -186,7 +186,7 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
     const forecast = useMemo(() => {
         const missionRecords = records
             .filter(r => r.concurso === missaoAtiva)
-            .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(a.data_estudo).getTime());
+            .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
 
         if (missionRecords.length === 0) return null;
 
@@ -194,11 +194,13 @@ const EditalProgress: React.FC<EditalProgressProps> = ({ records, missaoAtiva, e
         const today = new Date();
         const daysPassed = Math.max(1, Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)));
 
-        const uniqueTopicsStudied = performanceAnalysis.global.studied;
-        const velocity = uniqueTopicsStudied / daysPassed;
+        const totalDirectlyStudied = (Object.values(performanceAnalysis.bySubject) as SubjectStat[])
+            .reduce((acc, subj) => acc + subj.topics.filter(t => t.sessionCount > 0).length, 0);
 
-        const remainingTopics = performanceAnalysis.global.total - uniqueTopicsStudied;
-        const daysToFinish = velocity > 0.01 ? Math.ceil(remainingTopics / velocity) : 999;
+        const velocity = totalDirectlyStudied / daysPassed;
+
+        const remainingTopics = performanceAnalysis.global.total - performanceAnalysis.global.studied;
+        const daysToFinish = velocity > 0.005 ? Math.ceil(remainingTopics / velocity) : 9999;
 
         const projectedDate = new Date();
         projectedDate.setDate(today.getDate() + daysToFinish);

@@ -83,7 +83,25 @@ const streamWithGemini = async (
   let lastError: any = null;
 
   // Prompts sincronizados com o snippet do usuário
-  const flashcardPrompt = `Atue como um Especialista em Memorização para Concursos de Alto Nível. Analise e expanda o seguinte Flashcard (Pergunta e Resposta):\n\n${prompt}.\n\nESTRUTURA DE RESPOSTA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica mas de fácil compreensão em no máximo 3 parágrafos]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora costuma cobrar esse conceito ou um mini exemplo de pegadinha]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização de alta fixação: som, sigla absurda ou associação visual]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Tom dinâmico de professor de cursinho.`;
+  const flashcardPrompt = `Atue como um Especialista em Memorização para Concursos de Elite. Analise o Flashcard e gere uma resposta pedagógica de alto impacto.
+
+ESTRUTURA DE RESPOSTA (Markdown limpo):
+# EXPLICAÇÃO DIRETA
+[Explicação técnica e didática em no máximo 3 parágrafos]
+
+# APLICAÇÃO EM PROVA
+[Como a banca costuma cobrar / pegadinha comum]
+
+# MNEMÔNICO MUSICAL (PRIORIDADE)
+[Crie algo REALMENTE MEMORÁVEL e AUDIO-FOCADO usando OBRIGATORIAMENTE uma destas técnicas:
+1. RIMA OU FRASE CHICLETE (Crie uma rima curta ou paródia de música conhecida: Ex: Anitta, Xuxa, Mamonas, Hino Nacional)
+2. RITMO DE CURSINHO (Uma frase com cadência forte que "gruda" na cabeça quando falada em voz alta)
+3. ASSOCIAÇÃO ABSURDA VISUAL (Se não der rima, crie uma imagem mental tão bizarra ou engraçada que seja impossível esquecer)]
+
+REGRAS CRÍTICAS:
+1. Fuja de siglas secas (Ex: ABC-D) a menos que sejam geniais.
+2. Mantenha o texto limpo, SEM asteriscos para negrito (**).
+3. Tom de "Professor Showman" de cursinho pré-edital.`;
   const generalPrompt = `Atue como um Especialista Sênior em Concursos Públicos. Sua resposta deve ser estritamente técnica, direta e estruturada em Markdown com os seguintes tópicos:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo técnico aqui]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário real aqui]\n\nREGRAS VISUAIS E DE TOM:\n1. PROIBIDO o uso de negrito (**).\n2. PROIBIDAS saudações, introduções ou conclusões (Ex: "Aqui está", "Olá", "Espero que isso ajude").\n3. Use apenas cabeçalhos (#) e listas simples (-).\n4. Tom clínico, seco e puramente técnico.`;
   const finalPrompt = context === 'flashcard' ? flashcardPrompt : `${generalPrompt}\n\nConteúdo: ${prompt}`;
 
@@ -134,7 +152,18 @@ const streamWithGroq = async (
     logger.info('AI', 'Iniciando streaming com Groq');
 
     const systemPrompt = prompt.toLowerCase().includes('pergunta:') || prompt.toLowerCase().includes('resposta:')
-      ? `Atue como um Especialista em Memorização para Concursos de Alto Nível.\n\nESTRUTURA DE RESPOSTA OBRIGATÓRIA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica e didática]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora cobra isso / exemplos de pegadinhas]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Responda apenas com a estrutura solicitada.`
+      ? `Atue como um Especialista em Memorização para Concursos de Elite. 
+      ESTRUTURA OBRIGATÓRIA:
+      # EXPLICAÇÃO DIRETA
+      [Técnica e didática]
+      
+      # APLICAÇÃO EM PROVA
+      [Pegadinhas e cobrança de banca]
+      
+      # MNEMÔNICO MUSICAL
+      [PRIORIDADE: Rimas, Paródias Curtas ou Frases Rítmicas de "chiclete". Só use sigla se for muito boa. Seja criativo, engraçado e memorável.]
+      
+      REGRAS: 1. SEM negrito (**). 2. Sem saudações. 3. Responda apenas a estrutura.`
       : `Atue como um Especialista Sênior em Concursos Públicos. Sua comunicação deve ser técnica, profissional e direta.\nESTRUTURA OBRIGATÓRIA:\n# EXPLICAÇÃO DETALHADA\n[Conteúdo]\n\n# EXEMPLO PRÁTICO APROFUNDADO\n[Cenário]\n\nREGRAS CRÍTICAS:\n1. PROIBIDO o uso de asteriscos para negrito (**).\n2. PROIBIDAS saudações, "ok", introduções ou conclusões (Ex: "Espero que ajude", "Vamos lá").\n3. Use apenas títulos (#) para separar seções.\n4. Texto puramente técnico e clínico.`;
 
     const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
@@ -388,7 +417,21 @@ export const generateAIContent = async (
   // Define o finalPrompt for all providers
   let finalPrompt = "";
   if (context === 'flashcard') {
-    finalPrompt = `Atue como um Especialista em Memorização para Concursos de Alto Nível. Analise e expanda o seguinte Flashcard:\n\n${contentToAnalyze}\n\nESTRUTURA DE RESPOSTA OBRIGATÓRIA (Use Markdown limpo):\n# EXPLICAÇÃO DIRETA\n[Explicação técnica e didática]\n\n# APLICAÇÃO EM PROVA\n[Como a banca examinadora cobra isso / exemplos de pegadinhas]\n\n# MNEMÔNICO OU ASSOCIAÇÃO\n[Uma dica mental de memorização]\n\nREGRAS CRÍTICAS:\n1. Mantenha o texto limpo, SEM usar asteriscos para negrito (**).\n2. PROIBIDAS saudações, introduções ou "conclusões genéricas". Vá direto ao ponto.\n3. Responda apenas com a estrutura solicitada.`;
+    finalPrompt = `Atue como um Especialista em Memorização para Concursos de Elite. 
+    Analise o Flashcard:
+    ${contentToAnalyze}
+    
+    ESTRUTURA OBRIGATÓRIA:
+    # EXPLICAÇÃO DIRETA
+    [Conteúdo técnico e didático]
+    
+    # APLICAÇÃO EM PROVA
+    [Cenário de pegadinhas]
+    
+    # MNEMÔNICO MUSICAL
+    [FOCO TOTAL em Rimas, Ritmos Musicais ou Frases de impacto que "grudem". Fuja do óbvio.]
+    
+    REGRAS: 1. Sem negrito (**). 2. Tom dinâmico.`;
   } else if (context === 'mapa') {
     finalPrompt = `Atue como um Arquiteto de Informação Pedagógica. Crie um MAPA MENTAL ESTRUTURADO sobre: ${contentToAnalyze}.
     Sintaxe Markdown estrita:
@@ -690,12 +733,20 @@ export const handlePlayRevisionAudio = async (
     onStart();
     source.start();
 
-    // Cache em background
+    // Cache em background com tratamento de erro
     (async () => {
       try {
         const wavBlob = createWavFile(new Int16Array(audioBytes.buffer), 24000);
-        await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
-      } catch (e) { }
+        const { error: uploadError } = await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
+
+        if (uploadError) {
+          logger.error('AI', 'Falha no salvamento do áudio no Supabase', { error: uploadError, file: fileName });
+        } else {
+          logger.info('AI', `Áudio sincronizado com o servidor: ${fileName}`);
+        }
+      } catch (e) {
+        logger.error('AI', 'Erro na tarefa de background do áudio', { error: e });
+      }
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
@@ -784,12 +835,20 @@ export const generatePodcastAudio = async (
     onStartAudio();
     source.start();
 
-    // Cache background
+    // Cache background com tratamento de erro
     (async () => {
       try {
         const wavBlob = createWavFile(new Int16Array(audioBytes.buffer), 24000);
-        await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
-      } catch (e) { }
+        const { error: uploadError } = await supabase.storage.from(bucketName).upload(fileName, wavBlob, { contentType: 'audio/wav', upsert: true });
+
+        if (uploadError) {
+          logger.error('AI', 'Falha no salvamento do podcast no Supabase', { error: uploadError, file: fileName });
+        } else {
+          logger.info('AI', `Podcast sincronizado com o servidor: ${fileName}`);
+        }
+      } catch (e) {
+        logger.error('AI', 'Erro na tarefa de background do podcast', { error: e });
+      }
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
