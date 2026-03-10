@@ -2,9 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { EditalMateria } from '../types';
 import { logger } from '../utils/logger';
-import { Book, Upload, FileText, Search, Plus, X, Loader2, Download, Trash2, CheckCircle, ExternalLink, Bot } from 'lucide-react';
+import { Book, Upload, FileText, Search, Plus, X, Loader2, Download, Trash2, CheckCircle, ExternalLink, Bot, Headphones, Play, Pause, Music, Settings2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import PDFChatModal from '../components/Library/PDFChatModal';
+import { AudioConverter } from '../utils/AudioConverter';
 
 interface StudyMaterial {
     id: string;
@@ -13,6 +14,8 @@ interface StudyMaterial {
     assunto: string;
     storage_path: string;
     file_size: number;
+    podcast_path?: string;
+    podcast_file_size?: number;
     created_at: string;
 }
 
@@ -37,9 +40,22 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
 
     // Form para upload
     const [uploading, setUploading] = useState(false);
+    const [isConverting, setIsConverting] = useState(false);
+    const [uploadProgress, setUploadProgress] = useState(0);
     const [files, setFiles] = useState<File[]>([]);
+    const [podcastFile, setPodcastFile] = useState<File | null>(null);
     const [formMateria, setFormMateria] = useState('');
     const [formAssunto, setFormAssunto] = useState('');
+
+    // Attach podcast to existing material
+    const [isAttachOpen, setIsAttachOpen] = useState(false);
+    const [targetMaterial, setTargetMaterial] = useState<StudyMaterial | null>(null);
+
+    // Audio Player State
+    const [playingMaterialId, setPlayingMaterialId] = useState<string | null>(null);
+    const [isAudioPlaying, setIsAudioPlaying] = useState(false);
+    const [audioUrl, setAudioUrl] = useState<string | null>(null);
+    const audioRef = React.useRef<HTMLAudioElement | null>(null);
 
     // Filtra matérias baseadas na missão ativa
     const materiasDaMissao = editais
@@ -131,6 +147,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
         e.preventDefault();
         if (files.length === 0 || !formMateria) return;
 
+        // Validação de tamanho (ex: 100MB para podcast)
+        if (podcastFile && podcastFile.size > 100 * 1024 * 1024) {
+            alert("O arquivo de áudio é muito grande. O limite recomendado é de 100MB.");
+            return;
+        }
+
         setUploading(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
@@ -157,6 +179,58 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                     continue; // Pula para o próximo se este falhar
                 }
 
+                let podcastPath = null;
+                let podcastSize = null;
+
+                if (podcastFile && files.length === 1) {
+                    let fileToUpload = podcastFile;
+
+                    // Converte se for M4A ou se for maior que 20MB
+                    if (podcastFile.name.toLowerCase().endsWith('.m4a') || podcastFile.size > 20 * 1024 * 1024) {
+                        setIsConverting(true);
+                        try {
+                            console.log("Comprimindo áudio para economizar espaço...");
+                            fileToUpload = await AudioConverter.convertToMp3(podcastFile, 64);
+                            console.log("Conversão concluída!", {
+                                de: (podcastFile.size / 1024 / 1024).toFixed(1) + "MB",
+                                para: (fileToUpload.size / 1024 / 1024).toFixed(1) + "MB"
+                            });
+                        } catch (convErr) {
+                            console.error("Erro na compressão (continuando com original):", convErr);
+                        } finally {
+                            setIsConverting(false);
+                        }
+                    }
+
+                    const podcastName = `podcast-${Date.now()}-${sanitizePath(fileToUpload.name)}`;
+                    const pPath = `${user.id}/${podcastName}`;
+
+                    setUploadProgress(10);
+
+                    console.log("Iniciando upload de podcast:", {
+                        name: fileToUpload.name,
+                        type: fileToUpload.type,
+                        size: fileToUpload.size
+                    });
+
+                    const { data: pUploadData, error: pError } = await supabase.storage
+                        .from('study-materials')
+                        .upload(pPath, fileToUpload, {
+                            contentType: fileToUpload.type || 'audio/mp3',
+                            upsert: true
+                        });
+
+                    if (pError) {
+                        console.error("Erro no upload do podcast (handleUpload):", pError);
+                    } else {
+                        podcastPath = pPath;
+                        podcastSize = fileToUpload.size;
+                        setUploadProgress(90);
+                    }
+                }
+
+                setUploadProgress(95);
+
                 const { data, error: dbError } = await supabase
                     .from('study_materials')
                     .insert({
@@ -165,7 +239,9 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                         materia: formMateria,
                         assunto: formAssunto,
                         storage_path: filePath,
-                        file_size: file.size
+                        file_size: file.size,
+                        podcast_path: podcastPath,
+                        podcast_file_size: podcastSize
                     })
                     .select()
                     .single();
@@ -180,6 +256,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
 
             setIsUploadOpen(false);
             setFiles([]);
+            setPodcastFile(null);
             setFormAssunto('');
             fetchMaterials();
 
@@ -188,6 +265,89 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
             alert("Erro ao processar uploads: " + e.message);
         } finally {
             setUploading(false);
+            setUploadProgress(0);
+        }
+    };
+
+    const handleAttachPodcast = async (e: React.FormEvent) => {
+        e.preventDefault();
+        if (!podcastFile || !targetMaterial) return;
+
+        let fileToUpload = podcastFile;
+        if (podcastFile.name.toLowerCase().endsWith('.m4a') || podcastFile.size > 20 * 1024 * 1024) {
+            setIsConverting(true);
+            try {
+                fileToUpload = await AudioConverter.convertToMp3(podcastFile, 64);
+            } catch (convErr) {
+                console.error("Erro na compressão:", convErr);
+            } finally {
+                setIsConverting(false);
+            }
+        }
+
+        setUploading(true);
+        try {
+            const { data: { user } } = await supabase.auth.getUser();
+            if (!user) throw new Error("Usuário não logado");
+
+            const sanitizePath = (name: string) => {
+                return name
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .replace(/[^a-zA-Z0-9.-]/g, '_');
+            };
+
+            const podcastName = `podcast-${Date.now()}-${sanitizePath(podcastFile.name)}`;
+            const pPath = `${user.id}/${podcastName}`;
+
+            setUploadProgress(20);
+
+            console.log("Anexando podcast final:", {
+                name: fileToUpload.name,
+                type: fileToUpload.type,
+                size: fileToUpload.size
+            });
+
+            const { data: uploadData, error: uploadError } = await supabase.storage
+                .from('study-materials')
+                .upload(pPath, fileToUpload, {
+                    contentType: fileToUpload.type || 'audio/mp3',
+                    upsert: true
+                });
+
+            if (uploadError) {
+                console.error("Supabase Storage Error Details:", {
+                    message: uploadError.message,
+                    name: uploadError.name,
+                    error: uploadError
+                });
+                throw uploadError;
+            }
+
+            setUploadProgress(80);
+
+            const { error: dbError } = await supabase
+                .from('study_materials')
+                .update({
+                    podcast_path: pPath,
+                    podcast_file_size: fileToUpload.size
+                })
+                .eq('id', targetMaterial.id);
+
+            if (dbError) throw dbError;
+
+            setUploadProgress(100);
+            setIsAttachOpen(false);
+            setPodcastFile(null);
+            setTargetMaterial(null);
+            fetchMaterials();
+
+        } catch (e: any) {
+            logger.error('LIBRARY', 'Erro ao anexar podcast', e);
+            alert("Erro ao anexar: " + e.message);
+        } finally {
+            setUploading(false);
+            setUploadProgress(0);
         }
     };
 
@@ -195,7 +355,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
         if (!window.confirm("Deseja excluir este material?")) return;
 
         try {
-            await supabase.storage.from('study-materials').remove([material.storage_path]);
+            const filesToRemove = [material.storage_path];
+            if (material.podcast_path) {
+                filesToRemove.push(material.podcast_path);
+            }
+
+            await supabase.storage.from('study-materials').remove(filesToRemove);
             await supabase.from('study_materials').delete().eq('id', material.id);
             await removeCache(material.id);
             setMaterials(prev => prev.filter(m => m.id !== material.id));
@@ -224,6 +389,45 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
         } catch (e) {
             alert("Erro ao abrir PDF");
         }
+    };
+
+    const playPodcast = async (material: StudyMaterial) => {
+        if (playingMaterialId === material.id) {
+            if (audioRef.current?.paused) {
+                audioRef.current.play();
+                setIsAudioPlaying(true);
+            } else {
+                audioRef.current?.pause();
+                setIsAudioPlaying(false);
+            }
+            return;
+        }
+
+        try {
+            if (!material.podcast_path) return;
+
+            const { data, error } = await supabase.storage
+                .from('study-materials')
+                .createSignedUrl(material.podcast_path, 3600);
+
+            if (error) throw error;
+
+            setAudioUrl(data.signedUrl);
+            setPlayingMaterialId(material.id);
+            setIsAudioPlaying(true);
+        } catch (e) {
+            alert("Erro ao carregar podcast");
+        }
+    };
+
+    const stopAudio = () => {
+        if (audioRef.current) {
+            audioRef.current.pause();
+            audioRef.current.currentTime = 0;
+        }
+        setPlayingMaterialId(null);
+        setAudioUrl(null);
+        setIsAudioPlaying(false);
     };
 
     const openChat = (material: StudyMaterial) => {
@@ -363,6 +567,23 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                     >
                                         <Bot size={18} />
                                     </button>
+                                    {material.podcast_path ? (
+                                        <button
+                                            onClick={() => playPodcast(material)}
+                                            className={`p-2 rounded-xl transition-all shadow-lg ${playingMaterialId === material.id ? 'bg-green-500 text-white' : 'bg-indigo-500/10 text-indigo-400 hover:bg-indigo-500 hover:text-white'}`}
+                                            title={playingMaterialId === material.id ? (isAudioPlaying ? "Pausar" : "Continuar") : "Ouvir Podcast"}
+                                        >
+                                            {playingMaterialId === material.id && isAudioPlaying ? <Pause size={18} /> : <Headphones size={18} />}
+                                        </button>
+                                    ) : (
+                                        <button
+                                            onClick={() => { setTargetMaterial(material); setIsAttachOpen(true); }}
+                                            className="p-2 bg-white/5 text-slate-500 rounded-xl hover:bg-indigo-500/20 hover:text-indigo-400 transition-all shadow-lg"
+                                            title="Anexar Podcast"
+                                        >
+                                            <Plus size={18} />
+                                        </button>
+                                    )}
                                     <button
                                         onClick={() => openPDF(material)}
                                         className="p-2 bg-indigo-500/10 text-indigo-400 rounded-xl hover:bg-indigo-500 hover:text-white transition-all shadow-lg"
@@ -372,6 +593,56 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                     </button>
                                 </div>
                             </div>
+                            {playingMaterialId === material.id && audioUrl && (
+                                <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
+                                    <div className="flex items-center justify-between">
+                                        <div className="flex items-center gap-2">
+                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
+                                            <span className="text-[10px] font-black text-green-400 tracking-wider">PODCAST ATIVO</span>
+                                        </div>
+                                        <button
+                                            onClick={stopAudio}
+                                            className="text-slate-500 hover:text-red-400 transition-colors"
+                                            title="Sair do Áudio"
+                                        >
+                                            <X size={14} />
+                                        </button>
+                                    </div>
+
+                                    <div className="flex items-center gap-3 bg-white/5 p-2 rounded-2xl">
+                                        <button
+                                            onClick={() => playPodcast(material)}
+                                            className="w-10 h-10 flex items-center justify-center bg-indigo-500 text-white rounded-xl hover:bg-indigo-400 transition-all shadow-lg"
+                                        >
+                                            {isAudioPlaying ? <Pause size={20} /> : <Play size={20} />}
+                                        </button>
+
+                                        <div className="flex-1 flex flex-col gap-1">
+                                            <audio
+                                                ref={audioRef}
+                                                src={audioUrl}
+                                                autoPlay
+                                                onPlay={() => setIsAudioPlaying(true)}
+                                                onPause={() => setIsAudioPlaying(false)}
+                                                onEnded={() => { setPlayingMaterialId(null); setIsAudioPlaying(false); }}
+                                                className="hidden"
+                                            />
+                                            <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
+                                                <motion.div
+                                                    initial={{ width: 0 }}
+                                                    animate={{ width: isAudioPlaying ? "100%" : "auto" }}
+                                                    transition={{ duration: 300, ease: "linear" }}
+                                                    className="h-full bg-indigo-500"
+                                                />
+                                            </div>
+                                            <div className="flex justify-between text-[8px] font-bold text-slate-500">
+                                                <span>{isAudioPlaying ? 'Tocando...' : 'Pausado'}</span>
+                                                <span onClick={stopAudio} className="cursor-pointer hover:text-white transition-colors">PARAR</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            )}
                         </motion.div>
                     ))}
                 </div>
@@ -479,6 +750,32 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                 </div>
 
                                 <div className="space-y-2">
+                                    <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Podcast AI (Opcional - NotebookLM MP3)</label>
+                                    <div className="relative group">
+                                        <input
+                                            type="file"
+                                            accept="audio/*"
+                                            onChange={e => setPodcastFile(e.target.files ? e.target.files[0] : null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                        />
+                                        <div className="w-full bg-slate-900/50 border border-white/10 rounded-2xl p-4 text-center group-hover:border-indigo-500/50 transition-all flex items-center justify-center gap-3">
+                                            {podcastFile ? (
+                                                <>
+                                                    <Music className="text-green-400" size={18} />
+                                                    <span className="text-xs font-bold text-white truncate max-w-[200px]">{podcastFile.name}</span>
+                                                    <button type="button" onClick={(e) => { e.preventDefault(); setPodcastFile(null); }} className="text-slate-500 hover:text-red-400 ml-2"><X size={14} /></button>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Headphones className="text-slate-500" size={18} />
+                                                    <span className="text-xs font-bold text-slate-500">Adicionar podcast de áudio</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <div className="space-y-2">
                                     <label className="text-[10px] font-black text-slate-500 uppercase tracking-widest ml-1">Matéria Relacionada</label>
                                     <select
                                         className="w-full bg-slate-900 border border-white/10 rounded-xl px-4 py-3 text-white focus:ring-2 focus:ring-indigo-500/50 outline-none"
@@ -512,16 +809,99 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                 <button
                                     type="submit"
                                     disabled={uploading || files.length === 0 || !formMateria}
-                                    className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-extrabold py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex items-center justify-center gap-3 transition-all disabled:opacity-50"
+                                    className="w-full bg-gradient-to-r from-indigo-600 to-blue-600 hover:from-indigo-500 hover:to-blue-500 text-white font-extrabold py-4 rounded-2xl shadow-xl shadow-indigo-500/20 flex flex-col items-center justify-center gap-1 transition-all disabled:opacity-50 overflow-hidden relative"
                                 >
-                                    {uploading ? <Loader2 className="animate-spin" /> : <Plus />}
-                                    {uploading ? `Enviando ${files.length} arquivos...` : 'Adicionar à Biblioteca'}
+                                    {uploading && (
+                                        <div
+                                            className="absolute left-0 top-0 bottom-0 bg-white/10 transition-all duration-500"
+                                            style={{ width: `${uploadProgress}%` }}
+                                        />
+                                    )}
+                                    <div className="flex items-center gap-3">
+                                        {uploading ? <Loader2 className="animate-spin" /> : (isConverting ? <Settings2 className="animate-spin text-yellow-400" /> : <Plus />)}
+                                        {isConverting ? 'Comprimindo Áudio...' : (uploading ? `Enviando...` : 'Adicionar à Biblioteca')}
+                                    </div>
+                                    {uploading && uploadProgress > 0 && (
+                                        <span className="text-[10px] opacity-70">
+                                            {uploadProgress}% concluído
+                                        </span>
+                                    )}
+                                </button>
+                                {podcastFile && podcastFile.size > 20 * 1024 * 1024 && (
+                                    <p className="text-[10px] text-yellow-500 font-bold text-center mt-2">
+                                        ⚠️ Arquivo grande detectado ({(podcastFile.size / 1024 / 1024).toFixed(1)}MB). O upload pode demorar um pouco.
+                                    </p>
+                                )}
+                            </form>
+                        </motion.div>
+                    </div>
+                )}
+            </AnimatePresence>
+            {/* Modal de Anexar Podcast */}
+            <AnimatePresence>
+                {isAttachOpen && (
+                    <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[100] flex items-center justify-center p-4">
+                        <motion.div
+                            initial={{ opacity: 0, scale: 0.95 }}
+                            animate={{ opacity: 1, scale: 1 }}
+                            exit={{ opacity: 0, scale: 0.95 }}
+                            className="bg-slate-950 border border-white/10 w-full max-w-md rounded-3xl p-6 relative shadow-2xl"
+                        >
+                            <button onClick={() => setIsAttachOpen(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={20} /></button>
+
+                            <h3 className="text-xl font-black text-white mb-2 flex items-center gap-2">
+                                <Headphones className="text-indigo-400" /> Anexar Podcast
+                            </h3>
+                            <p className="text-slate-500 text-xs mb-6">PDF: <span className="text-indigo-300">{targetMaterial?.name}</span></p>
+
+                            <form onSubmit={handleAttachPodcast} className="space-y-6">
+                                <div className="space-y-2">
+                                    <div className="relative group">
+                                        <input
+                                            type="file"
+                                            accept="audio/*,.m4a"
+                                            onChange={e => setPodcastFile(e.target.files ? e.target.files[0] : null)}
+                                            className="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                                            required
+                                        />
+                                        <div className="w-full bg-slate-900/50 border-2 border-dashed border-white/10 rounded-2xl p-8 text-center group-hover:border-indigo-500/50 transition-all flex flex-col items-center gap-3">
+                                            {podcastFile ? (
+                                                <>
+                                                    <Music className="text-green-400" size={32} />
+                                                    <span className="text-sm font-bold text-white truncate max-w-full">{podcastFile.name}</span>
+                                                </>
+                                            ) : (
+                                                <>
+                                                    <Upload className="text-slate-500" size={32} />
+                                                    <span className="text-xs font-bold text-slate-500">Selecione o arquivo .m4a ou .mp3</span>
+                                                </>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={uploading || isConverting || !podcastFile}
+                                    className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-bold py-4 rounded-2xl flex flex-col items-center justify-center relative overflow-hidden transition-all disabled:opacity-50"
+                                >
+                                    {uploading && (
+                                        <div
+                                            className="absolute left-0 top-0 bottom-0 bg-white/10 transition-all duration-500"
+                                            style={{ width: `${uploadProgress}%` }}
+                                        />
+                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {isConverting ? <Settings2 className="animate-spin text-yellow-400" size={18} /> : (uploading ? <Loader2 className="animate-spin" size={18} /> : <CheckCircle size={18} />)}
+                                        <span>{isConverting ? 'Otimizando Áudio...' : (uploading ? 'Enviando...' : 'Confirmar Anexo')}</span>
+                                    </div>
                                 </button>
                             </form>
                         </motion.div>
                     </div>
                 )}
             </AnimatePresence>
+
             {/* Modal de Chat IA */}
             <PDFChatModal
                 isOpen={isChatOpen}
