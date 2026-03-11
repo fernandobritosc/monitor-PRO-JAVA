@@ -355,8 +355,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais, missaoAtiva, onSa
         }
 
         setLoading(true);
-        // Fix: Cast supabase.auth to any to resolve TypeScript error regarding missing 'getUser' property.
-        const { data: { user } } = await supabase.auth.getUser();
+        // Otimização de Delay: Usar o getSession (frequentemente em cache) em vez do getUser (requisição HTTP obrigatória)
+        const { data: { session } } = await (supabase.auth as any).getSession();
+        const user = session?.user;
 
         if (isSimulado) {
             // --- MODO SIMULADO (MÚLTIPLOS REGISTROS) ---

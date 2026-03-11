@@ -78,14 +78,12 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
         checkCache();
     }, []);
 
-    // BUG FIX: Força o redimensionamento do navegador ao abrir um PDF.
-    // Isso resolve o problema da 'tela preta' na Biblioteca que só sumia ao clicar na sidebar.
     useEffect(() => {
         if (selectedPDF) {
             const timer = setTimeout(() => {
                 window.dispatchEvent(new Event('resize'));
-                logger.debug('LIBRARY', 'Resize disparado para corrigir renderização do PDF');
-            }, 300); // Aguarda o fim da animação do Framer Motion
+                logger.debug('LIBRARY', 'Resize disparado (timer)');
+            }, 500); // Mais tempo para animação concluir
             return () => clearTimeout(timer);
         }
     }, [selectedPDF]);
@@ -427,6 +425,14 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
 
             // Seta id imediatamente para feedback visual
             setPlayingMaterialId(material.id);
+            setIsAudioPlaying(true); // Otimismo para UI Loading
+
+            // BUG FIX MOBILE: Desbloqueia o elemento de áudio imediatamente com o gesto do usuário
+            if (audioRef.current) {
+                // Toca um áudio silencioso invisível super curto (base64 wav)
+                audioRef.current.src = "data:audio/wav;base64,UklGRigAAABXQVZFZm10IBIAAAABAAEARKwAAIhYAQACABAAAABkYXRhAgAAAAEA";
+                audioRef.current.play().catch(() => { });
+            }
 
             const { data, error } = await supabase.storage
                 .from('study-materials')
@@ -434,16 +440,22 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
 
             if (error) throw error;
 
-            // BUG FIX MOBILE: Seta a URL e força o load
             setAudioUrl(data.signedUrl);
 
-            // O componente audio vai reagir ao audioUrl mudar
-            // No mobile, precisamos que o elemento audio 'exista' visualmente (não hidden total) 
-            // e que o carregamento ocorra logo após o gesto do usuário.
+            if (audioRef.current) {
+                audioRef.current.src = data.signedUrl;
+                audioRef.current.play()
+                    .then(() => setIsAudioPlaying(true))
+                    .catch(e => {
+                        console.error("Audio playback failed", e);
+                        setIsAudioPlaying(false);
+                    });
+            }
         } catch (e) {
             logger.error('LIBRARY', 'Erro ao carregar podcast', e);
             alert("Erro ao carregar podcast");
             setPlayingMaterialId(null);
+            setIsAudioPlaying(false);
         }
     };
 
@@ -530,7 +542,6 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                 <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
                     {filteredMaterials.map((material) => (
                         <motion.div
-                            layout
                             initial={{ opacity: 0, scale: 0.9 }}
                             animate={{ opacity: 1, scale: 1 }}
                             key={material.id}
@@ -620,12 +631,18 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                     </button>
                                 </div>
                             </div>
-                            {playingMaterialId === material.id && audioUrl && (
+                            {playingMaterialId === material.id && (
                                 <div className="mt-4 pt-4 border-t border-white/5 flex flex-col gap-3">
                                     <div className="flex items-center justify-between">
                                         <div className="flex items-center gap-2">
-                                            <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
-                                            <span className="text-[10px] font-black text-green-400 tracking-wider">PODCAST ATIVO</span>
+                                            {isAudioPlaying ? (
+                                                <div className="w-1.5 h-1.5 rounded-full bg-green-500 animate-ping" />
+                                            ) : (
+                                                <Loader2 size={12} className="text-slate-400 animate-spin" />
+                                            )}
+                                            <span className="text-[10px] font-black text-green-400 tracking-wider">
+                                                {isAudioPlaying ? 'PODCAST ATIVO' : 'CARREGANDO...'}
+                                            </span>
                                         </div>
                                         <button
                                             onClick={stopAudio}
@@ -645,18 +662,6 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                         </button>
 
                                         <div className="flex-1 flex flex-col gap-1">
-                                            {/* BUG FIX MOBILE: Elemento audio visível mas com 0px para garantir foco do navegador */}
-                                            <audio
-                                                ref={audioRef}
-                                                src={audioUrl || ''}
-                                                autoPlay
-                                                controls={false}
-                                                preload="auto"
-                                                onPlay={() => setIsAudioPlaying(true)}
-                                                onPause={() => setIsAudioPlaying(false)}
-                                                onEnded={() => { setPlayingMaterialId(null); setIsAudioPlaying(false); }}
-                                                className="w-0 h-0 absolute pointer-events-none opacity-0"
-                                            />
                                             <div className="h-1.5 w-full bg-white/10 rounded-full overflow-hidden">
                                                 <motion.div
                                                     initial={{ width: 0 }}
@@ -666,7 +671,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                                 />
                                             </div>
                                             <div className="flex justify-between text-[8px] font-bold text-slate-500">
-                                                <span>{isAudioPlaying ? 'Tocando...' : 'Pausado'}</span>
+                                                <span>{isAudioPlaying ? 'Tocando...' : 'Pausado / Carregando'}</span>
                                                 <div className="flex gap-4">
                                                     <span onClick={stopAudio} className="cursor-pointer hover:text-white transition-colors">PARAR</span>
                                                 </div>
@@ -719,14 +724,31 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais, missaoAtiva }) => {
                                 </p>
                             </div>
                             <iframe
+                                key={selectedPDF}
                                 src={`${selectedPDF}#toolbar=0`}
-                                className="w-full h-full border-none bg-white"
+                                className="w-full h-full border-none bg-white relative z-10"
                                 title="PDF Viewer"
+                                onLoad={() => {
+                                    // Força o resize quando o iframe efetivamente carregar o HTML interno
+                                    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
+                                }}
                             />
                         </div>
                     </motion.div>
                 )}
             </AnimatePresence>
+
+            {/* Elemento de áudio global para garantir autoplay no mobile */}
+            <audio
+                ref={audioRef}
+                id="global-podcast-audio"
+                controls={false}
+                preload="auto"
+                onPlay={() => setIsAudioPlaying(true)}
+                onPause={() => setIsAudioPlaying(false)}
+                onEnded={() => { setPlayingMaterialId(null); setIsAudioPlaying(false); }}
+                className="w-0 h-0 absolute pointer-events-none opacity-0"
+            />
 
             {/* Modal de Upload */}
             <AnimatePresence>
