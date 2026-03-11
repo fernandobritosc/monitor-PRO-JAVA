@@ -21,8 +21,13 @@ export const getMissaoKey = (userId?: string): string => {
  * @returns Nome da missão ativa ou null
  */
 export const getMissaoAtiva = (userId?: string): string | null => {
-    const key = getMissaoKey(userId);
-    return localStorage.getItem(key);
+    // Tenta primeiro a chave específica do usuário
+    if (userId) {
+        const userValue = localStorage.getItem(getMissaoKey(userId));
+        if (userValue) return userValue;
+    }
+    // Fallback para a chave global
+    return localStorage.getItem(getMissaoKey());
 };
 
 /**

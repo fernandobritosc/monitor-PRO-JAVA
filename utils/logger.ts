@@ -9,7 +9,7 @@ const IS_DEV = import.meta.env.DEV;
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 type LogCategory =
     | 'MISSAO' | 'AUTH' | 'CACHE' | 'MIGRATION' | 'LOGOUT'
-    | 'AI' | 'DATA' | 'UI' | 'SYNC' | 'PDF' | 'STORAGE' | 'NAV' | 'LIBRARY';
+    | 'AI' | 'DATA' | 'UI' | 'SYNC' | 'PDF' | 'STORAGE' | 'NAV' | 'LIBRARY' | 'AUDIO';
 
 interface LogEntry {
     timestamp: string;

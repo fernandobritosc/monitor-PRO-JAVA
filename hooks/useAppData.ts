@@ -46,9 +46,11 @@ export const useAppData = (session: Session | null) => {
           setEditais(parsedEditais);
           setStudyRecords(parsedRecords);
 
-          // Usa função utilitária para obter missão (sem userId no modo offline)
-          const cachedMissao = getMissaoAtiva();
-          if (cachedMissao) {
+          // Busca missão em cache: tenta chave do usuário primeiro, depois global
+          const userId = session?.user?.id;
+          const cachedMissao = getMissaoAtiva(userId);
+
+          if (cachedMissao && parsedEditais.some((e: any) => e.concurso === cachedMissao)) {
             setMissaoAtivaInternal(cachedMissao);
           } else {
             const principal = parsedEditais.find((e: any) => e.is_principal);
@@ -101,12 +103,13 @@ export const useAppData = (session: Session | null) => {
 
         setMissaoAtiva(prev => {
           // 1º: Se há cache E existe nos editais, usa o cache (prioridade máxima)
+          // Isso resolve o problema de reset no Android/F5
           if (cachedMissao && finalEditais.some((e: any) => e.concurso === cachedMissao)) {
             logger.missaoLoaded(cachedMissao, 'cache', userId);
             return cachedMissao;
           }
-          // 2º: Se prev existe nos editais, mantém prev
-          if (prev && finalEditais.some((e: any) => e.concurso === prev)) {
+          // 2º: Se prev existe nos editais E não é vazio, mantém prev
+          if (prev && prev !== '' && finalEditais.some((e: any) => e.concurso === prev)) {
             logger.missaoLoaded(prev, 'state', userId);
             return prev;
           }

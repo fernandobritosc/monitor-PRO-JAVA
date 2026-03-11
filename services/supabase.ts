@@ -46,6 +46,12 @@ export const supabase = createClient(
       storageKey: 'monitorpro-auth-token',
       storage: typeof window !== 'undefined' ? window.localStorage : undefined,
     },
+    realtime: {
+      params: {
+        eventsPerSecond: 10,
+      },
+      heartbeatIntervalMs: 30000, // Aumenta intervalo para evitar desconexões agressivas
+    }
   }
 );
 

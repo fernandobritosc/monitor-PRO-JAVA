@@ -1,5 +1,5 @@
 
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect } from 'react';
 import { StudyRecord } from '../types';
 import { FileText, Download, Calendar, Filter, PieChart, CheckSquare, Printer, Target } from 'lucide-react';
 
@@ -37,6 +37,18 @@ const Reports: React.FC<ReportsProps> = ({ records, missaoAtiva }) => {
     const [endDate, setEndDate] = useState(getLocalToday());
     const [filterMeta, setFilterMeta] = useState('');
     const [generating, setGenerating] = useState(false);
+    const [showPDF, setShowPDF] = useState(false); // Novo estado para controle de visualização
+
+    // BUG FIX: Força o redimensionamento do navegador para garantir que o PDF carregue visualmente.
+    // Resolve o bug de 'tela preta' que só sumia ao interagir com a sidebar.
+    useEffect(() => {
+        if (generating || showPDF) {
+            const timer = setTimeout(() => {
+                window.dispatchEvent(new Event('resize'));
+            }, 300);
+            return () => clearTimeout(timer);
+        }
+    }, [generating, showPDF]);
 
     // Filtragem dos dados
     const filteredRecords = useMemo(() => {
