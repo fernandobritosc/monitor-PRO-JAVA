@@ -123,3 +123,5 @@ dist
 
 # Snapshots & Backups
 .backups/
+.audit/
+*.resolved
