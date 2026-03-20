@@ -17,6 +17,7 @@ import { ErrorAnalysis } from '../types';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
+import { ESTUDO_LIVRE } from '../constants';
 
 interface StudyFormProps {
     editais?: EditalMateria[];
@@ -37,11 +38,12 @@ const getLocalToday = () => {
 
 export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, missaoAtiva: missaoAtivaProps, onSaved: onSavedProps, isSimulado = false, onCancel }) => {
     const { userId } = useSession();
-    const { editais: editaisQuery } = useEditais(userId);
+    const { editais: editaisQuery, addTopicoToMateria } = useEditais(userId);
     const missaoAtivaStore = useAppStore(state => state.missaoAtiva);
     const editais = editaisProps ?? editaisQuery;
     const missaoAtiva = missaoAtivaProps ?? missaoAtivaStore;
     const onSaved = onSavedProps ?? (() => {});
+    const isEstudoLivre = missaoAtiva === ESTUDO_LIVRE;
     // Form States
     const [dataEstudo, setDataEstudo] = useState(getLocalToday());
     const [tempoHHMM, setTempoHHMM] = useState('');
@@ -476,6 +478,19 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             };
 
             try {
+                // Adicionar tópico automaticamente no Estudo Livre (se não existir)
+                if (isEstudoLivre && assunto && assunto.trim()) {
+                    try {
+                        await addTopicoToMateria({
+                            concurso: missaoAtiva,
+                            materia,
+                            topico: assunto.trim()
+                        });
+                    } catch (topicoError) {
+                        console.warn('Estudo Livre: Erro ao adicionar tópico automaticamente', topicoError);
+                    }
+                }
+
                 await studyRecordsQueries.insert(payload);
 
                 // Opcional: Banco de Questões

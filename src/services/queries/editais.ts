@@ -75,4 +75,33 @@ export const editaisQueries = {
         if (error) throw error;
         return (data ?? []).map(i => i.id);
     },
+
+    /** Adiciona um tópico a uma matéria existente (merge no array) */
+    async addTopicoToMateria(userId: string, concurso: string, materia: string, novoTopico: string) {
+        const { data: existing, error: fetchError } = await supabase
+            .from('editais_materias')
+            .select('id, topicos')
+            .eq('user_id', userId)
+            .eq('concurso', concurso)
+            .eq('materia', materia)
+            .single();
+        
+        if (fetchError) throw fetchError;
+        if (!existing) throw new Error('Matéria não encontrada');
+
+        const currentTopicos = existing.topicos || [];
+        const normalizedNew = novoTopico.trim();
+        
+        if (currentTopicos.includes(normalizedNew)) {
+            return false;
+        }
+
+        const { error: updateError } = await supabase
+            .from('editais_materias')
+            .update({ topicos: [...currentTopicos, normalizedNew] })
+            .eq('id', existing.id);
+        
+        if (updateError) throw updateError;
+        return true;
+    },
 };

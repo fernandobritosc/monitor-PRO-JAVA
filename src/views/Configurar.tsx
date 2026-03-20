@@ -9,6 +9,7 @@ import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useAppStore } from '../stores/useAppStore';
+import { ESTUDO_LIVRE } from '../constants';
 
 interface ConfigurarProps {
   editais?: EditalMateria[];
@@ -164,6 +165,37 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     setSysAiKey(localStorage.getItem('monitorpro_ai_key') || '');
     setSysGroqKey(localStorage.getItem('monitorpro_groq_key') || ''); // NOVO
   }, []);
+
+  // Auto-criar "Estudo Livre" se não existir
+  useEffect(() => {
+    const createEstudoLivreIfNeeded = async () => {
+      if (!userId || !editaisQuery.length) return;
+      
+      const exists = editais.some(e => e.concurso === ESTUDO_LIVRE);
+      if (exists) return;
+
+      try {
+        const { data: { user } } = await (supabase.auth as any).getUser();
+        if (!user) return;
+
+        await editaisQueries.insert([{
+          user_id: user.id,
+          concurso: ESTUDO_LIVRE,
+          cargo: 'Estudo Livre',
+          materia: 'Geral',
+          topicos: [],
+          is_principal: true,
+          peso: 1
+        }]);
+        
+        await onUpdated();
+      } catch (e) {
+        console.error('Erro ao criar Estudo Livre', e);
+      }
+    };
+
+    createEstudoLivreIfNeeded();
+  }, [userId, editaisQuery]);
 
   // --- LÓGICA DE METAS (MIGRADA DO WEEKLY GUIDE) ---
   const [metaHoras, setMetaHoras] = useState(22);

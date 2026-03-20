@@ -9,3 +9,5 @@ export const THEME_COLORS = {
   secondary: '#1e293b',
   accent: '#22d3ee',
 };
+
+export const ESTUDO_LIVRE = '🎒 Estudo Livre';

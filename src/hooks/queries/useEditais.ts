@@ -9,7 +9,7 @@ export const useEditais = (userId: string | undefined) => {
     queryKey: ['editais', userId],
     queryFn: () => editaisQueries.getByUser(userId!),
     enabled: !!userId,
-    staleTime: 1000 * 60 * 10, // 10 minutes
+    staleTime: 1000 * 60 * 10,
   });
 
   const upsertMutation = useMutation({
@@ -26,12 +26,22 @@ export const useEditais = (userId: string | undefined) => {
     },
   });
 
+  const addTopicoMutation = useMutation({
+    mutationFn: ({ concurso, materia, topico }: { concurso: string; materia: string; topico: string }) =>
+      editaisQueries.addTopicoToMateria(userId!, concurso, materia, topico),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['editais', userId] });
+    },
+  });
+
   return {
     ...query,
     editais: query.data || [],
     upsertEditais: upsertMutation.mutateAsync,
     deleteEditais: deleteMutation.mutateAsync,
+    addTopicoToMateria: addTopicoMutation.mutateAsync,
     isUpserting: upsertMutation.isPending,
     isDeleting: deleteMutation.isPending,
+    isAddingTopico: addTopicoMutation.isPending,
   };
 };
