@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { supabase, getAiKey } from '../services/supabase';
+import { supabase, getGeminiKey } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Loader2, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 
@@ -48,7 +48,7 @@ const Login: React.FC<LoginProps> = () => {
     }
 
     // Check AI Key
-    const key = getAiKey();
+    const key = getGeminiKey();
     if (key && key.length > 10) {
       setAiKeyStatus('LOADED');
       setAiKeyPrefix(key.substring(0, 4) + '...');

@@ -368,7 +368,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
         records
             .filter(r => r.concurso === missaoAtiva && r.analise_erros && r.analise_erros.length > 0)
             .forEach(r => {
-                r.analise_erros?.forEach((err, errIdx) => {
+                r.analise_erros?.forEach((err: ErrorAnalysis, errIdx: number) => {
                     const preview = err.questao_preview || '';
                     // Inclui o índice para evitar keys duplicadas quando dois erros têm o mesmo preview
                     const fallbackId = `${r.id}-${errIdx}-${preview.substring(0, 10).replace(/\s+/g, '')}`;
@@ -422,7 +422,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
             const record = records.find(r => r.id === recordId);
             if (!record || !record.analise_erros) return;
 
-            const updatedAnalise = record.analise_erros.map((err, errIdx) => {
+            const updatedAnalise = record.analise_erros.map((err: ErrorAnalysis, errIdx: number) => {
                 const preview = err.questao_preview || '';
                 const currentId = err.id || `${recordId}-${errIdx}-${preview.substring(0, 10).replace(/\s+/g, '')}`;
                 if (currentId === errorId) {
