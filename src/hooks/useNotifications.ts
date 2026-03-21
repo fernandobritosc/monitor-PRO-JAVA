@@ -1,4 +1,3 @@
-
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/auth-js';
@@ -16,6 +15,9 @@ export const useNotifications = (session: Session | null) => {
       .eq('user_id', session.user.id)
       .order('created_at', { ascending: false });
 
+    // Ignora silenciosamente se a tabela não existir (404)
+    if (error?.code === 'PGRST116' || (error as any)?.status === 404) return;
+
     if (!error && data) {
       setNotifications(data);
       setUnreadCount(data.filter(n => !n.read).length);
@@ -25,20 +27,19 @@ export const useNotifications = (session: Session | null) => {
   useEffect(() => {
     fetchData();
 
-    // Setup realtime subscription if needed
     if (session?.user?.id) {
-       const channel = supabase
+      const channel = supabase
         .channel('public:notifications')
-        .on('postgres_changes', { 
-          event: '*', 
-          schema: 'public', 
+        .on('postgres_changes', {
+          event: '*',
+          schema: 'public',
           table: 'notifications',
           filter: `user_id=eq.${session.user.id}`
         }, () => {
           fetchData();
         })
         .subscribe();
-        
+
       return () => {
         supabase.removeChannel(channel);
       };
@@ -49,15 +50,9 @@ export const useNotifications = (session: Session | null) => {
     if (!session?.user?.id) return;
 
     if (id) {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('id', id);
+      await supabase.from('notifications').update({ read: true }).eq('id', id);
     } else {
-      await supabase
-        .from('notifications')
-        .update({ read: true })
-        .eq('user_id', session.user.id);
+      await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
     }
     fetchData();
   };
