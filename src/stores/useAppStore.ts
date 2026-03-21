@@ -25,7 +25,7 @@ interface AppState {
 export const useAppStore = create<AppState>()(
   persist(
     (set, get) => ({
-      missaoAtiva: 'TSE Unificado 2024',
+      missaoAtiva: 'Escolha a sua missão',
       showOnboarding: false,
       backgroundSyncing: false,
       isOfflineMode: false,
@@ -50,7 +50,7 @@ export const useAppStore = create<AppState>()(
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
 
       reset: () => set({
-        missaoAtiva: 'TSE Unificado 2024',
+        missaoAtiva: 'Escolha a sua missão',
         showOnboarding: false,
         backgroundSyncing: false,
         isOfflineMode: false,

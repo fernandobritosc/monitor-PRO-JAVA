@@ -1,5 +1,6 @@
 import React from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
+import HubView from '../../views/HubView';
 import HomeView from '../../views/HomeView';
 import EditalView from '../../views/EditalProgress';
 import RegistrarEstudoView from '../../views/StudyForm';
@@ -19,13 +20,15 @@ import RankingView from '../../views/RankingView';
 
 interface AppRouterProps {
   userEmail: string | null;
-  session: any; // O tipo exato viria do Supabase, usando any por simplicidade aqui conforme AGENTS.md para flexibilidade rápida se necessário, mas idealmente seria Session.
+  session: any;
 }
 
 const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
   return (
     <Routes>
-      <Route path="/" element={<HomeView />} />
+      <Route path="/" element={<HubView userEmail={userEmail || ''} />} />
+
+      <Route path="/dashboard" element={<HomeView />} />
 
       <Route path="/edital" element={<EditalView />} />
       <Route path="/registrar" element={<RegistrarEstudoView />} />

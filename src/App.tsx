@@ -1,5 +1,4 @@
-
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useNavigate, useLocation } from 'react-router-dom';
 import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
@@ -39,13 +38,11 @@ const AppContent: React.FC = () => {
     isError: editaisError
   } = useEditais(session?.user?.id);
 
-  // Initialize Sentry with user context
   useSentry(session);
 
   const isLoading = authLoading || studyLoading || editaisLoading;
   const isError = studyError || editaisError;
 
-  // Reset store when session is cleared
   useEffect(() => {
     if (!session) {
       reset();

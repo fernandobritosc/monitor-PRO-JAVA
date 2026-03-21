@@ -93,7 +93,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
   const records = recordsProps ?? recordsQuery ?? [];
   const missaoAtiva = missaoAtivaProps ?? missaoAtivaStore ?? '';
   const setMissaoAtiva = setMissaoAtivaProps ?? setMissaoAtivaStore;
-  // onUpdated não precisa ser obrigatório pois apenas invalida o cache localmente via React Query
   const onUpdated = onUpdatedProps ?? (async () => {});
 
   const { isInstallable, installApp } = usePWAInstall();
@@ -106,22 +105,18 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
   const [userSearch, setUserSearch] = useState('');
   const [approvalMsg, setApprovalMsg] = useState<string | null>(null);
 
-  // States do Sistema (API Keys)
   const [sysUrl, setSysUrl] = useState('');
   const [sysKey, setSysKey] = useState('');
   const [sysAiKey, setSysAiKey] = useState('');
-  const [sysGroqKey, setSysGroqKey] = useState(''); // NOVO
+  const [sysGroqKey, setSysGroqKey] = useState('');
   const [sysLoading, setSysLoading] = useState(false);
 
-  // Estado para Erro de RLS e Modal SQL
   const [permissionError, setPermissionError] = useState<boolean>(false);
   const [showSqlModal, setShowSqlModal] = useState(false);
 
-  // Estados de Diagnóstico
   const [diagLog, setDiagLog] = useState<string[]>([]);
   const [diagLoading, setLoadingDiag] = useState(false);
 
-  // Estados da Comunidade / Importação
   const [communityTemplates, setCommunityTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [importSearch, setImportSearch] = useState('');
@@ -132,13 +127,11 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
   const [refreshing, setRefreshing] = useState(false);
   const [editingOldName, setEditingOldName] = useState<string | null>(null);
 
-  // Form States
   const [formConcurso, setFormConcurso] = useState('');
   const [formCargo, setFormCargo] = useState('');
   const [formDataProva, setFormDataProva] = useState('');
   const [formSubjects, setFormSubjects] = useState<SubjectDraft[]>([]);
 
-  // Subject Input States
   const [newSubjectName, setNewSubjectName] = useState('');
   const [newSubjectTopics, setNewSubjectTopics] = useState('');
   const [newSubjectWeight, setNewSubjectWeight] = useState(1);
@@ -159,24 +152,24 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     };
     checkAdmin();
 
-    // Carregar configurações atuais
     setSysUrl(localStorage.getItem('monitorpro_supabase_url') || '');
     setSysKey(localStorage.getItem('monitorpro_supabase_key') || '');
     setSysAiKey(localStorage.getItem('monitorpro_ai_key') || '');
-    setSysGroqKey(localStorage.getItem('monitorpro_groq_key') || ''); // NOVO
+    setSysGroqKey(localStorage.getItem('monitorpro_groq_key') || '');
   }, []);
 
-  // Auto-criar "Estudo Livre" se não existir
   useEffect(() => {
+    let mounted = true;
+    
     const createEstudoLivreIfNeeded = async () => {
-      if (!userId || !editaisQuery.length) return;
+      if (!userId || !editais?.length) return;
       
       const exists = editais.some(e => e.concurso === ESTUDO_LIVRE);
       if (exists) return;
 
       try {
         const { data: { user } } = await (supabase.auth as any).getUser();
-        if (!user) return;
+        if (!user || !mounted) return;
 
         await editaisQueries.insert([{
           user_id: user.id,
@@ -188,16 +181,17 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
           peso: 1
         }]);
         
-        await onUpdated();
+        if (mounted) await onUpdated();
       } catch (e) {
         console.error('Erro ao criar Estudo Livre', e);
       }
     };
 
     createEstudoLivreIfNeeded();
-  }, [userId, editaisQuery]);
+    
+    return () => { mounted = false; };
+  }, [userId]);
 
-  // --- LÓGICA DE METAS (MIGRADA DO WEEKLY GUIDE) ---
   const [metaHoras, setMetaHoras] = useState(22);
   const [metaQuestoes, setMetaQuestoes] = useState(350);
 
@@ -220,7 +214,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
   const statsSemana = useMemo(() => {
     const hoje = new Date();
     const inicioSemana = new Date(hoje);
-    inicioSemana.setDate(hoje.getDate() - hoje.getDay() + (hoje.getDay() === 0 ? -6 : 1)); // Segunda-feira
+    inicioSemana.setDate(hoje.getDate() - hoje.getDay() + (hoje.getDay() === 0 ? -6 : 1));
     inicioSemana.setHours(0, 0, 0, 0);
 
     const registrosSemana = activeRecords.filter(r => new Date(r.data_estudo) >= inicioSemana);
@@ -232,7 +226,6 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
 
     return { horas, questoes, projecao };
   }, [activeRecords]);
-  // ------------------------------------------------
 
   const fetchCommunityTemplates = async () => {
     setLoadingTemplates(true);
@@ -394,11 +387,12 @@ NOTIFY pgrst, 'reload schema';
       const dateToSave = formDataProva && formDataProva.trim() !== '' ? formDataProva : null;
       const idsToDelete: string[] = [];
       if (editingOldName) { const originalIds = editais.filter(e => e.concurso === editingOldName).map(e => e.id); const currentIds = formSubjects.map(s => s.id).filter(Boolean) as string[]; originalIds.forEach(id => { if (!currentIds.includes(id)) idsToDelete.push(id); }); }
+      const isRenamingMission = !!(editingOldName && editingOldName !== formConcurso.trim());
       const toUpdate: any[] = []; const toInsert: any[] = []; const seenMaterias = new Set<string>();
-      for (const sub of formSubjects) { const matName = sub.materia.trim(); const key = matName.toLowerCase(); if (seenMaterias.has(key)) continue; seenMaterias.add(key); const payload = { user_id: user.id, concurso: formConcurso.trim(), cargo: formCargo.trim(), materia: matName, topicos: sub.topicos, data_prova: dateToSave, is_principal: isPrincipal, peso: sub.peso || 1 }; if (sub.id) { toUpdate.push({ ...payload, id: sub.id }); } else { toInsert.push(payload); } }
+      for (const sub of formSubjects) { const matName = sub.materia.trim(); const key = matName.toLowerCase(); if (seenMaterias.has(key)) continue; seenMaterias.add(key); const payload = { user_id: user.id, concurso: formConcurso.trim(), cargo: formCargo.trim(), materia: matName, topicos: sub.topicos, data_prova: dateToSave, is_principal: isPrincipal, peso: sub.peso || 1 }; if (sub.id && !isRenamingMission) { toUpdate.push({ ...payload, id: sub.id }); } else { toInsert.push(payload); } }
       if (idsToDelete.length > 0) { await editaisQueries.deleteMany(idsToDelete); }
       if (toUpdate.length > 0) { await editaisQueries.update(toUpdate); }
-      if (toInsert.length > 0) { await editaisQueries.insert(toInsert); }
+      if (toInsert.length > 0) { await editaisQueries.upsert(toInsert, true); }
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) { setMissaoAtiva(formConcurso); } else if (!missaoAtiva) { setMissaoAtiva(formConcurso); }
       await onUpdated(); setIsModalOpen(false);
     } catch (err: any) { logger.error('DATA', 'Erro salvando form de edição', err); if (err.message.includes('duplicate key') || err.message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (err.message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + err.message); } } finally { setLoadingMission(false); }
@@ -413,7 +407,6 @@ NOTIFY pgrst, 'reload schema';
   const filteredUsers = usersList.filter(u => u.email?.toLowerCase().includes(userSearch.toLowerCase()));
   const filteredTemplates = communityTemplates.filter(t => t.title.toLowerCase().includes(importSearch.toLowerCase()));
 
-  // HANDLE PARA SALVAR CONFIGURAÇÕES DO SISTEMA
   const handleSaveSystemConfig = async () => {
     setSysLoading(true);
     try {
@@ -426,7 +419,6 @@ NOTIFY pgrst, 'reload schema';
   return (
     <div className="space-y-8 pb-20 animate-in fade-in duration-500">
 
-      {/* TABS HEADER */}
       <div className="flex gap-4 border-b border-white/10 pb-4 overflow-x-auto">
         <button onClick={() => setActiveTab('mission')} className={`px-4 py-2 rounded-xl text-sm font-bold transition-all whitespace-nowrap ${activeTab === 'mission' ? 'bg-cyan-500 text-white shadow-lg shadow-cyan-500/20' : 'text-slate-400 hover:text-white'}`}>
           🎯 Missões & Editais
@@ -450,7 +442,6 @@ NOTIFY pgrst, 'reload schema';
         )}
       </div>
 
-      {/* CONTEÚDO TAB: SISTEMA (CONFIGURAÇÃO) */}
       {activeTab === 'system' && (
         <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 max-w-2xl mx-auto space-y-8">
           <div>
@@ -524,7 +515,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* CONTEÚDO TAB: METAS & PROJEÇÃO */}
       {activeTab === 'goals' && (
         <div className="space-y-8 animate-in slide-in-from-right-2">
           <div className="glass p-8 rounded-3xl border border-white/5">
@@ -617,7 +607,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* OUTRAS TABS (Missão, Import, Admin, Diagnostics) - Mantidas iguais, apenas renderizando condicionalmente */}
       {activeTab === 'mission' && (
         <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2">
           <div className="flex justify-between items-center mb-8">
@@ -632,7 +621,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* CONTEÚDO TAB: IMPORTAR */}
       {activeTab === 'import' && (
         <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 space-y-6">
           <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -643,7 +631,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* CONTEÚDO TAB: DIAGNÓSTICO */}
       {activeTab === 'diagnostics' && (
         <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 space-y-6">
           <div className="flex justify-between items-start">
@@ -655,7 +642,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* CONTEÚDO TAB: ADMIN */}
       {activeTab === 'admin' && isAdmin && (
         <div className="glass rounded-2xl p-6 border border-purple-500/30 relative overflow-hidden animate-in slide-in-from-right-2">
           {approvalMsg && (<div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top-4 z-50">{approvalMsg}</div>)}
@@ -667,7 +653,6 @@ NOTIFY pgrst, 'reload schema';
         </div>
       )}
 
-      {/* MODAIS (SQL & CRIAÇÃO) - Mantidos iguais */}
       {(permissionError || showSqlModal) && (
         <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4">
           <div className="bg-slate-950 border border-slate-700 w-full max-w-3xl rounded-2xl p-8 relative shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
