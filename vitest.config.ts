@@ -6,7 +6,7 @@ export default defineConfig({
         globals: true,
         setupFiles: ['./src/test/setup.ts'],
         // Inclui apenas testes do projeto, exclui e2e (Playwright) e diretórios externos
-        include: ['src/__tests__/**/*.{test,spec}.{ts,tsx}'],
+        include: ['src/**/*.{test,spec}.{ts,tsx}'],
         exclude: [
             'node_modules/**',
             'dist/**',

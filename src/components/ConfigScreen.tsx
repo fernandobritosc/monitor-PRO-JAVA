@@ -94,7 +94,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
   const isErrorRecovery = !!initialError || !!error;
 
   return (
-    <div className="min-h-screen bg-[#0E1117] flex items-center justify-center p-6 relative overflow-hidden font-['Montserrat']">
+    <div className="min-h-screen bg-slate-50 dark:bg-[#0E1117] flex items-center justify-center p-6 relative overflow-hidden font-['Montserrat']">
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-purple-600/10 blur-[120px] rounded-full" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-cyan-600/10 blur-[120px] rounded-full" />
 
@@ -112,34 +112,34 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
             )}
           </div>
           <h1 className="text-4xl font-extrabold tracking-tight mb-2">
-            <span className={`bg-gradient-to-r bg-clip-text text-transparent ${isErrorRecovery || testStatus === 'error' ? 'from-red-400 to-orange-400' : 'from-purple-400 to-cyan-400'}`}>
+            <span className={`bg-gradient-to-r bg-clip-text text-transparent ${isErrorRecovery || testStatus === 'error' ? 'from-red-600 to-orange-600 dark:from-red-400 dark:to-orange-400' : 'from-purple-600 to-cyan-600 dark:from-purple-400 dark:to-cyan-400'}`}>
               {testStatus === 'success' ? 'Sucesso!' : isErrorRecovery ? 'Verifique a Conexão' : 'Configurar Acesso'}
             </span>
           </h1>
-          <p className="text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">
+          <p className="text-slate-500 dark:text-slate-400 text-sm font-medium uppercase tracking-[0.2em]">
             {testStatus === 'success' ? 'Salvando no navegador...' : 'Conecte seu banco de dados'}
           </p>
         </div>
 
-        <form onSubmit={handleSave} className="glass rounded-3xl p-8 space-y-6 shadow-2xl border-white/5 relative">
+        <form onSubmit={handleSave} className="bg-white/80 dark:bg-white/5 backdrop-blur-md rounded-3xl p-8 space-y-6 shadow-2xl border border-slate-200 dark:border-white/5 relative">
           
           {error && (
-            <div className="bg-red-500/10 border border-red-500/20 text-red-300 text-xs p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
+            <div className="bg-red-50 dark:bg-red-500/10 border border-red-200 dark:border-red-500/20 text-red-600 dark:text-red-300 text-xs p-4 rounded-xl flex items-start gap-3 animate-in fade-in slide-in-from-top-2">
               <AlertTriangle size={24} className="shrink-0 mt-0.5" />
               <div className="flex-1 font-medium">{error}</div>
             </div>
           )}
           
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
               <Link size={12} /> URL do Projeto
             </label>
             <div className="relative">
-              <Link size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none" />
+              <Link size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
               <input
                 type="url"
                 required
-                className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600"
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600"
                 placeholder="https://exemplo.supabase.co"
                 value={url}
                 onChange={(e) => setUrl(e.target.value)}
@@ -149,15 +149,15 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
           </div>
 
           <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
               <Key size={12} /> Supabase API Key (anon/public)
             </label>
             <div className="relative flex items-center">
-              <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-500 pointer-events-none z-10" />
+              <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none z-10" />
               <input
                 type="text"
                 required
-                className="w-full bg-slate-900/50 border border-white/10 rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white placeholder-slate-600 font-mono text-xs"
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 font-mono text-xs"
                 placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
                 value={key}
                 onChange={(e) => setKey(e.target.value)}
@@ -166,7 +166,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
               <button 
                 type="button" 
                 onClick={handlePasteKey} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-500 hover:text-cyan-400 transition-colors" 
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors" 
                 title="Colar"
                 disabled={loading}
               >
@@ -175,14 +175,14 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
             </div>
           </div>
 
-          <div className="pt-4 border-t border-white/5 grid grid-cols-1 gap-4">
+          <div className="pt-4 border-t border-slate-200 dark:border-white/5 grid grid-cols-1 gap-4">
             <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                <Sparkles size={12} className="text-yellow-400" /> Google Gemini API Key
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <Sparkles size={12} className="text-yellow-500 dark:text-yellow-400" /> Google Gemini API Key
                 </label>
                 <input
                 type="password"
-                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all text-white placeholder-slate-600 font-mono text-xs"
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-yellow-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 font-mono text-xs"
                 placeholder="AIza..."
                 value={aiKey}
                 onChange={(e) => setAiKey(e.target.value)}
@@ -190,12 +190,12 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
                 />
             </div>
             <div className="space-y-2">
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-                <Zap size={12} className="text-orange-400" /> Groq API Key
+                <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
+                <Zap size={12} className="text-orange-500 dark:text-orange-400" /> Groq API Key
                 </label>
                 <input
                 type="password"
-                className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all text-white placeholder-slate-600 font-mono text-xs"
+                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-orange-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 font-mono text-xs"
                 placeholder="gsk_..."
                 value={groqKey}
                 onChange={(e) => setGroqKey(e.target.value)}
@@ -205,9 +205,9 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
             <p className="text-[10px] text-slate-500 px-1">Chaves de IA são opcionais, mas recomendadas para explicações automáticas.</p>
           </div>
           
-          <div className="text-xs text-slate-500 bg-slate-900/30 p-3 rounded-lg border border-white/5">
+          <div className="text-xs text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-slate-900/30 p-3 rounded-lg border border-slate-200 dark:border-white/5">
              <p>Seus dados ficarão salvos apenas neste navegador.</p>
-             <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-cyan-400 font-bold mt-2 inline-flex items-center gap-1 hover:underline">
+             <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-cyan-600 dark:text-cyan-400 font-bold mt-2 inline-flex items-center gap-1 hover:underline">
                 Pegar chaves no Supabase <ExternalLink size={12} />
              </a>
           </div>
@@ -238,7 +238,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
         </form>
 
         <div className="text-center mt-8">
-            <button onClick={resetAppConfig} className="text-xs text-slate-600 hover:text-red-400 transition-colors font-bold uppercase tracking-widest">
+            <button onClick={resetAppConfig} className="text-xs text-slate-500 hover:text-red-500 dark:text-slate-600 dark:hover:text-red-400 transition-colors font-bold uppercase tracking-widest">
                 Limpar Dados e Reiniciar
             </button>
         </div>

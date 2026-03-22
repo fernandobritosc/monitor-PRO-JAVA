@@ -12,12 +12,19 @@ import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useSentry } from './hooks/useSentry';
 import { APP_VERSION } from './constants';
+import { useThemeStore } from './stores/themeStore';
 
 const AppContent: React.FC = () => {
   const { session, userEmail, loading: authLoading, signOut } = useAuth();
   const { notifications, unreadCount, markAsRead } = useNotifications(session);
   const location = useLocation();
   const navigate = useNavigate();
+
+  const { theme } = useThemeStore();
+
+  React.useEffect(() => {
+    document.documentElement.classList.toggle('dark', theme === 'dark');
+  }, [theme]);
 
   const { 
     missaoAtiva,

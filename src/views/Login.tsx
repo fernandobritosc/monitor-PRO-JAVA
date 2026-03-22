@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase, getGeminiKey } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Loader2, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
+import { ThemeToggle } from '../components/ThemeToggle';
 
 interface LoginProps { }
 
@@ -112,6 +113,10 @@ const Login: React.FC<LoginProps> = () => {
       {/* Ambient background glows */}
       <div className="absolute top-[-10%] left-[-10%] w-[40%] h-[40%] bg-accent/10 blur-[120px] rounded-full pointer-events-none" />
       <div className="absolute bottom-[-10%] right-[-10%] w-[40%] h-[40%] bg-accent-secondary/10 blur-[120px] rounded-full pointer-events-none" />
+
+      <div className="absolute top-4 right-4 z-50">
+        <ThemeToggle />
+      </div>
 
       <div className="w-full max-w-[420px] z-10 flex flex-col items-center animate-in fade-in slide-in-from-bottom-8 duration-700">
 

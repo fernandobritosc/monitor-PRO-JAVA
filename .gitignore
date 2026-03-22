@@ -125,3 +125,4 @@ dist
 .backups/
 .audit/
 *.resolved
+.vercel

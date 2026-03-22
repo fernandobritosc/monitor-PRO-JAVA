@@ -28,6 +28,7 @@ import { supabase } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { ViewType } from '../types';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
+import { useThemeStore } from '../stores/themeStore';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -52,10 +53,11 @@ const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
   })
   : '17/02/2026 23:30';
 
-const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, theme, toggleTheme, userEmail: propEmail, onLogout: propLogout }) => {
+const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propEmail, onLogout: propLogout }) => {
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState('');
+  const { theme, toggleTheme } = useThemeStore();
 
   const location = useLocation();
   const navigate = useNavigate();
