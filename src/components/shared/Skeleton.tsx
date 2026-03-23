@@ -1,11 +1,13 @@
 import React from 'react';
 
 export const Skeleton: React.FC<{ className?: string; style?: React.CSSProperties }> = ({ className, style }) => (
-    <div className={`animate-pulse bg-white/5 rounded-2xl ${className}`} style={style} />
+    // Corrigido: bg-white/5 -> variável de tema
+    <div className={`animate-pulse bg-[hsl(var(--bg-user-block))] rounded-2xl ${className}`} style={style} />
 );
 
 export const KPISkeleton = () => (
-    <div className="bg-white/5 border border-white/10 rounded-[2rem] p-6 space-y-4">
+    // Corrigido: bg-white/5 border-white/10 -> variáveis de tema
+    <div className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-[2rem] p-6 space-y-4">
         <div className="flex justify-between items-start">
             <Skeleton className="w-10 h-10 rounded-xl" />
             <Skeleton className="w-16 h-4" />
@@ -16,7 +18,7 @@ export const KPISkeleton = () => (
 );
 
 export const ChartSkeleton = () => (
-    <div className="bg-white/5 border border-white/10 rounded-[2.5rem] p-8 space-y-6 min-h-[400px]">
+    <div className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-[2.5rem] p-8 space-y-6 min-h-[400px]">
         <div className="flex justify-between items-center">
             <div className="space-y-2">
                 <Skeleton className="w-48 h-6" />
@@ -55,7 +57,7 @@ export const DashboardSkeleton = () => (
 export const FlashcardSkeleton = () => (
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {[1, 2, 3, 4, 5, 6].map(i => (
-            <div key={i} className="bg-white/5 border border-white/10 rounded-[2rem] p-6 h-64 space-y-4">
+            <div key={i} className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-[2rem] p-6 h-64 space-y-4">
                 <div className="flex justify-between">
                     <Skeleton className="w-20 h-4" />
                     <Skeleton className="w-6 h-6 rounded-full" />

@@ -1,4 +1,3 @@
-
 import React from 'react';
 
 interface CircularProgressProps {
@@ -56,10 +55,12 @@ const CircularProgress: React.FC<CircularProgressProps> = ({
         </svg>
         <div className="absolute inset-0 flex flex-col items-center justify-center text-center">
           <span className="text-lg leading-none">{icon}</span>
-          <span className="text-base font-bold text-white mt-1">{value}</span> {/* Reduzido de text-lg font-extrabold */}
+          {/* Corrigido: text-white -> variável de tema */}
+          <span className="text-base font-bold text-[hsl(var(--text-bright))] mt-1">{value}</span>
         </div>
       </div>
-      <div className="text-[9px] text-slate-500 uppercase tracking-widest font-bold text-center"> {/* Reduzido de text-[10px] text-slate-400 */}
+      {/* Corrigido: text-slate-500 -> variável de tema */}
+      <div className="text-[9px] text-[hsl(var(--text-muted))] uppercase tracking-widest font-bold text-center">
         {label}
       </div>
     </div>

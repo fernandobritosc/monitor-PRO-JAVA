@@ -9,57 +9,62 @@ export const useNotifications = (session: Session | null) => {
   const fetchData = async () => {
     if (!session?.user?.id) return;
 
-    const { data, error } = await supabase
-      .from('notifications')
-      .select('*')
-      .eq('user_id', session.user.id)
-      .order('created_at', { ascending: false });
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .order('created_at', { ascending: false });
 
-    // Ignora silenciosamente se a tabela não existir (404)
-    if (error?.code === 'PGRST116' || (error as any)?.status === 404) return;
+      // Ignora silenciosamente se a tabela não existir (404 / PGRST116)
+      if (error) {
+        const status = (error as any)?.status ?? (error as any)?.code;
+        if (status === 404 || status === 'PGRST116' || error.message?.includes('does not exist')) return;
+        return; // ignora qualquer outro erro de notificação silenciosamente
+      }
 
-    if (!error && data) {
-      setNotifications(data);
-      setUnreadCount(data.filter(n => !n.read).length);
+      if (data) {
+        setNotifications(data);
+        setUnreadCount(data.filter(n => !n.read).length);
+      }
+    } catch {
+      // tabela não existe — ignora silenciosamente
     }
   };
 
   useEffect(() => {
     fetchData();
 
-    if (session?.user?.id) {
-      const channel = supabase
-        .channel('public:notifications')
-        .on('postgres_changes', {
-          event: '*',
-          schema: 'public',
-          table: 'notifications',
-          filter: `user_id=eq.${session.user.id}`
-        }, () => {
-          fetchData();
-        })
-        .subscribe();
+    if (!session?.user?.id) return;
 
-      return () => {
-        supabase.removeChannel(channel);
-      };
-    }
+    const channel = supabase
+      .channel('public:notifications')
+      .on('postgres_changes', {
+        event: '*',
+        schema: 'public',
+        table: 'notifications',
+        filter: `user_id=eq.${session.user.id}`
+      }, () => fetchData())
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
   }, [session?.user?.id]);
 
   const markAsRead = async (id?: string) => {
     if (!session?.user?.id) return;
-
-    if (id) {
-      await supabase.from('notifications').update({ read: true }).eq('id', id);
-    } else {
-      await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
+    try {
+      if (id) {
+        await supabase.from('notifications').update({ read: true }).eq('id', id);
+      } else {
+        await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
+      }
+      fetchData();
+    } catch {
+      // ignora silenciosamente
     }
-    fetchData();
   };
 
-  return {
-    notifications,
-    unreadCount,
-    markAsRead
-  };
+  return { notifications, unreadCount, markAsRead };
 };
