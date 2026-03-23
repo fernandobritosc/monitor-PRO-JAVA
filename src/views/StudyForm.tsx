@@ -100,8 +100,13 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
         return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
     }, [editais, missaoAtiva, materia]);
 
-    // Reseta o formulário quando a missão ativa muda
+    // Reseta o formulário quando a missão ativa muda (ignora o mount inicial)
+    const isFirstMount = useRef(true);
     useEffect(() => {
+        if (isFirstMount.current) {
+            isFirstMount.current = false;
+            return; // não reseta no mount inicial
+        }
         setMateria('');
         setAssunto('');
         setAcertos('');
@@ -586,7 +591,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                             </div>
 
                             {/* Header Desktop - Oculto em Mobile */}
-                            <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-slate-500 uppercase tracking-widest border-b border-white/5">
+                            <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest border-b border-[hsl(var(--border))]">
                                 <div className="col-span-6">Matéria / Peso</div>
                                 <div className="col-span-3 text-center">Acertos</div>
                                 <div className="col-span-3 text-center">Total</div>
@@ -603,8 +608,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                         <div key={mat.materia} className="grid grid-cols-2 md:grid-cols-12 gap-2 md:gap-4 items-center p-3 md:p-2 hover:bg-white/5 rounded-lg transition-colors border-b border-white/5 md:border-0 last:border-0">
                                             {/* Matéria (Ocupa linha inteira no mobile, ou 6 cols no desktop) */}
                                             <div className="col-span-2 md:col-span-6 flex justify-between md:block items-center mb-1 md:mb-0">
-                                                <div className="font-bold text-sm text-slate-300 truncate" title={mat.materia}>{mat.materia}</div>
-                                                <div className="text-[10px] text-slate-500 font-bold uppercase bg-slate-800 px-2 py-0.5 rounded md:bg-transparent md:px-0">Peso {mat.peso || 1}</div>
+                                                <div className="font-bold text-sm text-[hsl(var(--text-main))] truncate" title={mat.materia}>{mat.materia}</div>
+                                                <div className="text-[10px] text-[hsl(var(--text-muted))] font-bold uppercase bg-[hsl(var(--bg-user-block))] px-2 py-0.5 rounded md:bg-transparent md:px-0">Peso {mat.peso || 1}</div>
                                             </div>
 
                                             {/* Inputs (Lado a lado no mobile) */}
@@ -613,7 +618,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                                 <input
                                                     type="number"
                                                     placeholder="0"
-                                                    className={`w-full bg-slate-950/30 border ${isInvalid ? 'border-red-500 text-red-400' : 'border-white/10 text-green-400'} rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
+                                                    className={`w-full bg-[hsl(var(--bg-user-block))] border ${isInvalid ? 'border-red-500 text-red-400' : 'border-[hsl(var(--border))] text-green-500 dark:text-green-400'} rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
                                                     value={score.acertos}
                                                     onChange={e => handleSimuladoScoreChange(mat.materia, 'acertos', e.target.value)}
                                                 />
@@ -623,7 +628,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                                 <input
                                                     type="number"
                                                     placeholder="0"
-                                                    className="w-full bg-slate-950/30 border border-white/10 rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold text-white focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                                                    className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold text-[hsl(var(--text-bright))] focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
                                                     value={score.total}
                                                     onChange={e => handleSimuladoScoreChange(mat.materia, 'total', e.target.value)}
                                                 />
@@ -717,10 +722,10 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                         </button>
                                     )}
                                     {showTopicsDropdown && materia && topicosDisponiveis.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
+                                        <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
                                             <div
                                                 onClick={() => { setAssunto(''); setShowTopicsDropdown(false); }}
-                                                className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
+                                                className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--accent-glow))] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
                                             >
                                                 Limpar Seleção
                                             </div>
@@ -731,9 +736,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                                         setAssunto(t);
                                                         setShowTopicsDropdown(false);
                                                     }}
-                                                    className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
+                                                    className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 cursor-pointer flex items-center gap-3 ${assunto === t ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--bg-user-block))] hover:text-[hsl(var(--text-bright))]'}`}
                                                 >
-                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-slate-700'}`} />
+                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
                                                     <span className="flex-1 leading-relaxed truncate">{t}</span>
                                                 </div>
                                             ))}
@@ -890,8 +895,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 <div className="space-y-4">
                     {isSimulado && (
                         <div className="space-y-2">
-                            <label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Anotações Gerais / Observações</label>
-                            <div className="w-full bg-slate-900/30 border border-white/5 rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
+                            <label className="text-xs font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações Gerais / Observações</label>
+                            <div className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
                                 <EditorToolbar
                                     editor={comentariosEditor}
                                     onImageUpload={(file) => handleImageUpload(file).then(url => url && comentariosEditor?.chain().focus().setImage({ src: url }).run())}
