@@ -28,7 +28,7 @@ import { supabase } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { ViewType } from '../types';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
-import { useThemeStore } from '../stores/themeStore';
+import { useAppStore } from '../stores/useAppStore';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -57,7 +57,8 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
   const [isCollapsed, setIsCollapsed] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userEmail, setUserEmail] = useState('');
-  const { theme, toggleTheme } = useThemeStore();
+  const { isDarkMode: themeDark, toggleDarkMode: toggleTheme } = useAppStore();
+  const theme = themeDark ? 'dark' : 'light';
 
   const location = useLocation();
   const navigate = useNavigate();
