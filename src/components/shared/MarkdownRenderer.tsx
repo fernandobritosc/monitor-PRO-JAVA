@@ -1,6 +1,5 @@
 import React, { useMemo } from 'react';
 
-// Componente para renderizar Markdown técnico com visual premium
 export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean }> = ({ content, visualMode = false }) => {
     const parts = useMemo(() => {
         if (!content) return [];
@@ -51,7 +50,6 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
 
                 const headerRow = rows[0];
                 const hasSeparator = rows[1]?.includes('---');
-
                 const header = headerRow.split('|').map((h: string) => h.trim()).filter(Boolean);
                 const dataRows = (hasSeparator ? rows.slice(2) : rows.slice(1))
                     .map((r: string) => r.split('|').map((c: string) => c.trim()).filter(Boolean));
@@ -60,22 +58,21 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
                     return (
                         <div key={`table-grid-${index}`} className="grid gap-6 my-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
                             {dataRows.map((row: string[], i: number) => (
-                                <div key={i} className="group relative overflow-hidden bg-white/5 border border-white/10 rounded-[2rem] p-6 hover:bg-white/10 hover:border-cyan-500/30 transition-all duration-500 shadow-xl">
+                                <div key={i} className="group relative overflow-hidden bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-[2rem] p-6 hover:border-[hsl(var(--accent)/0.3)] transition-all duration-500 shadow-xl">
                                     <div className="flex items-center gap-3 mb-4">
-                                        <div className="w-2 h-2 rounded-full bg-cyan-500 shadow-[0_0_8px_rgba(6,182,212,0.6)] group-hover:scale-125 transition-transform" />
-                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-cyan-400/80">{row[0] || 'Critério'}</span>
+                                        <div className="w-2 h-2 rounded-full bg-[hsl(var(--accent))] group-hover:scale-125 transition-transform" />
+                                        <span className="text-[10px] font-black uppercase tracking-[0.2em] text-[hsl(var(--accent))]">{row[0] || 'Critério'}</span>
                                     </div>
                                     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                                        <div className="flex flex-col gap-2 p-4 bg-slate-900/40 rounded-2xl border border-white/5 group-hover:bg-slate-900/60 transition-colors">
-                                            <span className="text-[9px] font-bold text-slate-500 uppercase tracking-wider">{header[1] || 'Conceito'}</span>
-                                            <span className="text-sm font-semibold text-slate-100 leading-relaxed">{row[1]}</span>
+                                        <div className="flex flex-col gap-2 p-4 bg-[hsl(var(--bg-main))] rounded-2xl border border-[hsl(var(--border))] transition-colors">
+                                            <span className="text-[9px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-wider">{header[1] || 'Conceito'}</span>
+                                            <span className="text-sm font-semibold text-[hsl(var(--text-bright))] leading-relaxed">{row[1]}</span>
                                         </div>
-                                        <div className="flex flex-col gap-2 p-4 bg-indigo-500/5 rounded-2xl border border-indigo-500/10 group-hover:bg-indigo-500/10 transition-colors">
-                                            <span className="text-[9px] font-bold text-indigo-400/60 uppercase tracking-wider">{header[2] || 'Comparativo'}</span>
-                                            <span className="text-sm font-semibold text-slate-200 leading-relaxed">{row[2]}</span>
+                                        <div className="flex flex-col gap-2 p-4 bg-[hsl(var(--accent-glow))] rounded-2xl border border-[hsl(var(--border))] transition-colors">
+                                            <span className="text-[9px] font-bold text-[hsl(var(--accent-secondary))] uppercase tracking-wider">{header[2] || 'Comparativo'}</span>
+                                            <span className="text-sm font-semibold text-[hsl(var(--text-main))] leading-relaxed">{row[2]}</span>
                                         </div>
                                     </div>
-                                    <div className="absolute -right-4 -bottom-4 w-24 h-24 bg-cyan-500/5 blur-3xl rounded-full group-hover:bg-cyan-500/10 transition-colors" />
                                 </div>
                             ))}
                         </div>
@@ -83,17 +80,21 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
                 }
 
                 return (
-                    <div key={`table-${index}`} className={`overflow-x-auto my-6 bg-slate-950/30 rounded-2xl border border-slate-700`}>
+                    <div key={`table-${index}`} className="overflow-x-auto my-6 bg-[hsl(var(--bg-main))] rounded-2xl border border-[hsl(var(--border))]">
                         <table className="w-full text-left border-collapse">
                             <thead>
-                                <tr className="bg-white/5 border-b border-white/10">
-                                    {header.map((h: string, i: number) => <th key={i} className="p-4 text-[10px] font-black uppercase text-cyan-400 tracking-widest">{h}</th>)}
+                                <tr className="bg-[hsl(var(--bg-user-block))] border-b border-[hsl(var(--border))]">
+                                    {header.map((h: string, i: number) => (
+                                        <th key={i} className="p-4 text-[10px] font-black uppercase text-[hsl(var(--accent))] tracking-widest">{h}</th>
+                                    ))}
                                 </tr>
                             </thead>
                             <tbody>
                                 {dataRows.map((row: string[], i: number) => (
-                                    <tr key={i} className="border-b border-white/5 last:border-0 hover:bg-white/10 transition-colors">
-                                        {row.map((cell: string, j: number) => <td key={j} className="p-4 text-xs text-slate-200 font-medium">{cell}</td>)}
+                                    <tr key={i} className="border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--bg-user-block))] transition-colors">
+                                        {row.map((cell: string, j: number) => (
+                                            <td key={j} className="p-4 text-xs text-[hsl(var(--text-main))] font-medium">{cell}</td>
+                                        ))}
                                     </tr>
                                 ))}
                             </tbody>
@@ -111,28 +112,28 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
                     if (flowMatch) {
                         const [, num, tag, text] = flowMatch;
                         const tagColors: Record<string, string> = {
-                            'INÍCIO': 'bg-emerald-500/20 text-emerald-400 border-emerald-500/40',
-                            'AÇÃO': 'bg-blue-500/20 text-blue-400 border-blue-500/40',
-                            'DECISÃO': 'bg-orange-500/20 text-orange-400 border-orange-500/40',
-                            'RESULTADO': 'bg-indigo-500/20 text-indigo-400 border-indigo-500/40',
-                            'FIM': 'bg-rose-500/20 text-rose-400 border-rose-500/40',
+                            'INÍCIO': 'bg-emerald-500/20 text-emerald-600 dark:text-emerald-400 border-emerald-500/40',
+                            'AÇÃO': 'bg-blue-500/20 text-blue-600 dark:text-blue-400 border-blue-500/40',
+                            'DECISÃO': 'bg-orange-500/20 text-orange-600 dark:text-orange-400 border-orange-500/40',
+                            'RESULTADO': 'bg-indigo-500/20 text-indigo-600 dark:text-indigo-400 border-indigo-500/40',
+                            'FIM': 'bg-rose-500/20 text-rose-600 dark:text-rose-400 border-rose-500/40',
                         };
-                        const colorClass = tagColors[tag.toUpperCase()] || 'bg-slate-500/20 text-slate-400 border-slate-500/40';
+                        const colorClass = tagColors[tag.toUpperCase()] || 'bg-[hsl(var(--bg-user-block))] text-[hsl(var(--text-muted))] border-[hsl(var(--border))]';
 
                         return (
                             <div key={`${index}-${lineIndex}`} className="relative flex flex-col items-center group">
                                 {num !== '1' && (
-                                    <div className="w-0.5 h-8 bg-gradient-to-b from-white/10 to-indigo-500/50 mb-2" />
+                                    <div className="w-0.5 h-8 bg-gradient-to-b from-[hsl(var(--border))] to-[hsl(var(--accent-secondary)/0.5)] mb-2" />
                                 )}
-                                <div className="flex items-center gap-4 w-full p-5 bg-white/5 border border-white/10 rounded-3xl hover:border-indigo-500/50 hover:bg-white/10 transition-all duration-300">
-                                    <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-indigo-500/20 border border-indigo-500/40 flex items-center justify-center text-xs font-black text-indigo-400">
+                                <div className="flex items-center gap-4 w-full p-5 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-3xl hover:border-[hsl(var(--accent)/0.5)] hover:bg-[hsl(var(--bg-card))] transition-all duration-300">
+                                    <div className="flex-shrink-0 w-10 h-10 rounded-2xl bg-[hsl(var(--accent-glow))] border border-[hsl(var(--accent)/0.2)] flex items-center justify-center text-xs font-black text-[hsl(var(--accent))]">
                                         {num}
                                     </div>
                                     <div className="flex flex-col gap-1.5 flex-grow">
                                         <span className={`w-fit px-2 py-0.5 rounded-lg text-[8px] font-bold uppercase tracking-widest border ${colorClass}`}>
                                             {tag}
                                         </span>
-                                        <span className="text-sm font-semibold text-slate-100 leading-relaxed">{text}</span>
+                                        <span className="text-sm font-semibold text-[hsl(var(--text-bright))] leading-relaxed">{text}</span>
                                     </div>
                                 </div>
                             </div>
@@ -142,22 +143,22 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
                     if (trimmedLine.startsWith('#')) {
                         const level = (trimmedLine.match(/^#+/)?.[0].length || 1);
                         const text = trimmedLine.replace(/^#+\s/, '');
-                        if (level === 1) return <h1 key={`${index}-${lineIndex}`} className="text-2xl font-black uppercase tracking-tighter mt-10 mb-6 text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-indigo-400 border-b border-white/10 pb-4">{text}</h1>;
-                        if (level === 2) return <h2 key={`${index}-${lineIndex}`} className="text-lg font-black uppercase tracking-widest mt-8 mb-4 text-indigo-400 flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-indigo-500 shadow-[0_0_10px_rgba(99,102,241,0.5)]" />{text}</h2>;
-                        if (level === 3) return <h3 key={`${index}-${lineIndex}`} className="text-sm font-black uppercase tracking-wider mt-6 mb-3 text-cyan-400 border-l-4 border-cyan-500/30 pl-4">{text}</h3>;
-                        return <h4 key={`${index}-${lineIndex}`} className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-slate-400 pl-8">{text}</h4>;
+                        if (level === 1) return <h1 key={`${index}-${lineIndex}`} className="text-2xl font-black uppercase tracking-tighter mt-10 mb-6 text-[hsl(var(--accent))] border-b border-[hsl(var(--border))] pb-4">{text}</h1>;
+                        if (level === 2) return <h2 key={`${index}-${lineIndex}`} className="text-lg font-black uppercase tracking-widest mt-8 mb-4 text-[hsl(var(--accent-secondary))] flex items-center gap-3"><div className="w-3 h-3 rounded-full bg-[hsl(var(--accent-secondary))]" />{text}</h2>;
+                        if (level === 3) return <h3 key={`${index}-${lineIndex}`} className="text-sm font-black uppercase tracking-wider mt-6 mb-3 text-[hsl(var(--accent))] border-l-4 border-[hsl(var(--accent)/0.3)] pl-4">{text}</h3>;
+                        return <h4 key={`${index}-${lineIndex}`} className="text-xs font-bold uppercase tracking-widest mt-4 mb-2 text-[hsl(var(--text-muted))] pl-8">{text}</h4>;
                     }
 
                     if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
                         return (
                             <div key={`${index}-${lineIndex}`} className="flex items-start gap-3 my-2 group pl-8">
-                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-slate-600 group-hover:bg-purple-500 transition-colors" />
-                                <span className="text-sm text-slate-300 font-medium leading-relaxed">{cleanLine.replace(/[-*]\s/, '')}</span>
+                                <div className="mt-2 w-1.5 h-1.5 rounded-full bg-[hsl(var(--text-muted))] group-hover:bg-[hsl(var(--accent))] transition-colors" />
+                                <span className="text-sm text-[hsl(var(--text-main))] font-medium leading-relaxed">{cleanLine.replace(/[-*]\s/, '')}</span>
                             </div>
                         );
                     }
 
-                    return <p key={`${index}-${lineIndex}`} className="my-3 text-sm text-slate-300 font-medium leading-loose pl-1">{cleanLine}</p>;
+                    return <p key={`${index}-${lineIndex}`} className="my-3 text-sm text-[hsl(var(--text-main))] font-medium leading-loose pl-1">{cleanLine}</p>;
                 });
             }
         });

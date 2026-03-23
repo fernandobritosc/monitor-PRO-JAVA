@@ -20,11 +20,21 @@ export const PieChartComponent: React.FC<PieChartComponentProps> = ({ data, colo
                 </PieChart>
             </ResponsiveContainer>
             <div className="absolute inset-0 flex flex-col items-center justify-center pointer-events-none">
-                <span className="text-3xl font-black text-white">{percentage.toFixed(0)}%</span>
+                {/* Corrigido: text-white -> variável de tema */}
+                <span className="text-3xl font-black text-[hsl(var(--text-bright))]">{percentage.toFixed(0)}%</span>
             </div>
             <div className="absolute bottom-0 flex items-center gap-4 text-xs">
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-green-500" /> <span className="text-slate-400">Acertos:</span> <span className="font-bold text-white">{score}</span></div>
-                <div className="flex items-center gap-1.5"><div className="w-2 h-2 rounded-full bg-red-500" /> <span className="text-slate-400">Erros:</span> <span className="font-bold text-white">{total - score}</span></div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-green-500" />
+                    {/* Corrigido: text-slate-400 / text-white -> variáveis de tema */}
+                    <span className="text-[hsl(var(--text-muted))]">Acertos:</span>
+                    <span className="font-bold text-[hsl(var(--text-bright))]">{score}</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                    <div className="w-2 h-2 rounded-full bg-red-500" />
+                    <span className="text-[hsl(var(--text-muted))]">Erros:</span>
+                    <span className="font-bold text-[hsl(var(--text-bright))]">{total - score}</span>
+                </div>
             </div>
         </div>
     );
