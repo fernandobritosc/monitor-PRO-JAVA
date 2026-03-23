@@ -50,11 +50,13 @@ const AppContent: React.FC = () => {
   const isLoading = authLoading || studyLoading || editaisLoading;
   const isError = studyError || editaisError;
 
+  // Só reseta quando o auth terminou de carregar e não há sessão (logout real)
+  // Evita reset prematuro durante o carregamento inicial do Supabase
   useEffect(() => {
-    if (!session) {
+    if (!authLoading && !session) {
       reset();
     }
-  }, [session, reset]);
+  }, [authLoading, session, reset]);
 
   if (authLoading) return <div className="min-h-screen bg-[hsl(var(--bg-main))] flex items-center justify-center text-[hsl(var(--accent))]">Carregando...</div>;
   if (!session) return <Login />;

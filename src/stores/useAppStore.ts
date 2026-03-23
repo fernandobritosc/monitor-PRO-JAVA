@@ -49,14 +49,14 @@ export const useAppStore = create<AppState>()(
       setUserEmail: (email) => set({ userEmail: email }),
       toggleDarkMode: () => set((state) => ({ isDarkMode: !state.isDarkMode })),
 
-      reset: () => set({
-        missaoAtiva: 'Escolha a sua missão',
+      reset: () => set((state) => ({
+        // missaoAtiva NÃO é resetada — preserva entre recarregamentos
         showOnboarding: false,
         backgroundSyncing: false,
         isOfflineMode: false,
         userEmail: null,
-        isDarkMode: true,
-      })
+        isDarkMode: state.isDarkMode, // preserva o tema também
+      }))
     }),
     {
       name: 'app-storage',
