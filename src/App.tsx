@@ -12,7 +12,6 @@ import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useSentry } from './hooks/useSentry';
 import { APP_VERSION } from './constants';
-import { useThemeStore } from './stores/themeStore';
 
 const AppContent: React.FC = () => {
   const { session, userEmail, loading: authLoading, signOut } = useAuth();
@@ -20,22 +19,23 @@ const AppContent: React.FC = () => {
   const location = useLocation();
   const navigate = useNavigate();
 
-  const { theme } = useThemeStore();
-
-  React.useEffect(() => {
-    document.documentElement.classList.toggle('dark', theme === 'dark');
-  }, [theme]);
-
-  const { 
+  const {
+    isDarkMode,
+    toggleDarkMode,
     missaoAtiva,
-    backgroundSyncing, 
-    isOfflineMode, 
+    backgroundSyncing,
+    isOfflineMode,
     reset
   } = useAppStore();
 
-  const { 
-    studyRecords, 
-    isLoading: studyLoading, 
+  // Aplica/remove a classe "dark" no <html> sempre que isDarkMode mudar
+  useEffect(() => {
+    document.documentElement.classList.toggle('dark', isDarkMode);
+  }, [isDarkMode]);
+
+  const {
+    studyRecords,
+    isLoading: studyLoading,
     isError: studyError,
     refetch: refetchStudies
   } = useStudyRecords(session?.user?.id);
@@ -60,12 +60,14 @@ const AppContent: React.FC = () => {
   if (!session) return <Login />;
 
   return (
-    <Layout 
-      userEmail={userEmail} 
+    <Layout
+      userEmail={userEmail}
       onLogout={signOut}
       missaoAtiva={missaoAtiva}
+      theme={isDarkMode ? 'dark' : 'light'}
+      toggleTheme={toggleDarkMode}
     >
-      <AppStatusIndicators 
+      <AppStatusIndicators
         isLoading={isLoading}
         backgroundSyncing={backgroundSyncing}
         isOfflineMode={isOfflineMode}
@@ -75,8 +77,8 @@ const AppContent: React.FC = () => {
         onFetchData={() => refetchStudies()}
         onLogout={signOut}
       />
-      
-      <AppRouter 
+
+      <AppRouter
         userEmail={userEmail}
         session={session}
       />
