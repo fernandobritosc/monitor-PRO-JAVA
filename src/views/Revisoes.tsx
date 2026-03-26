@@ -252,7 +252,8 @@ const Revisoes: React.FC = () => {
       alert('Erro: Acertos > Total!'); return;
     }
 
-    setLoading(true);
+    // Não precisamos bloquear a UI com loading aqui,
+    // pois useStudyRecords já faz atualizações otimistas
     try {
       const taxa = reviewQuestions > 0 ? (reviewCorrect / reviewQuestions) * 100 : 0;
       const isHighPerformance = taxa > 85;
@@ -269,30 +270,33 @@ const Revisoes: React.FC = () => {
       delete (recordWithUpdates as any).daysOverdue;
       delete (recordWithUpdates as any).reviewDate;
 
-      await updateRecord(recordWithUpdates as StudyRecord);
+      // Executa as mutações (elas são otimistas agora)
+      updateRecord(recordWithUpdates as StudyRecord);
 
       if (calculatedMinutes > 0 || reviewQuestions > 0) {
-        const { data: { user } } = await (supabase.auth as any).getUser();
         let dificuldadeCalc: any = '🟡 Médio';
         if (reviewQuestions > 0) {
           if (taxa >= 80) dificuldadeCalc = '🟢 Fácil'; else if (taxa < 60) dificuldadeCalc = '🔴 Difícil';
         }
         const statsRecord = {
-          user_id: user?.id, concurso: selectedReview.concurso, materia: selectedReview.materia,
+          user_id: userId, concurso: selectedReview.concurso, materia: selectedReview.materia,
           assunto: selectedReview.assunto, data_estudo: reviewDate, acertos: reviewCorrect,
           total: reviewQuestions, taxa: taxa, tempo: calculatedMinutes, dificuldade: dificuldadeCalc,
           relevancia: selectedReview.relevancia,
           comentarios: `Revisão (${selectedReview.reviewType}) realizada.${isHighPerformance ? ' Desempenho alto: avançou etapas.' : ''}`,
           rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true
         };
-        await insertRecord(statsRecord);
+        insertRecord(statsRecord);
       }
 
+      // Fecha o modal imediatamente
       setSelectedReview(null);
     } catch (error: any) {
-      alert('Erro ao concluir revisão: ' + error.message);
+      console.error('Erro ao processar revisão:', error);
+      alert('Erro ao concluir revisão. Tente novamente.');
     } finally {
-      setLoading(false);
+      // Opcionalmente podemos manter o state de loading se acharmos necessário
+      // mas para ser instantâneo, melhor fechar o modal.
     }
   };
 

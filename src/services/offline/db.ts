@@ -1,8 +1,7 @@
 import Dexie, { Table } from 'dexie';
 import { StudyRecord, EditalMateria } from '../../types';
 
-export interface OfflineAttempt extends Omit<Partial<StudyRecord>, 'id'> {
-    id?: number;
+export interface OfflineAttempt extends StudyRecord {
     syncStatus: 'pending' | 'synced' | 'error';
     lastModified: number;
 }
@@ -13,9 +12,9 @@ export class MonitorProDB extends Dexie {
 
     constructor() {
         super('MonitorProDB');
-        this.version(2).stores({
-            attempts: '++id, data_estudo, concurso, materia, syncStatus',
-            subjects: '++id, concurso, materia',
+        this.version(4).stores({
+            attempts: 'id, user_id, data_estudo, concurso, materia, syncStatus',
+            subjects: 'id, user_id, concurso, materia',
             materials_cache: 'id, name, materia, assunto, storage_path'
         });
     }

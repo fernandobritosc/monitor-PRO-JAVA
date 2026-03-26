@@ -19,8 +19,8 @@ export const useNotifications = (session: Session | null) => {
       // Ignora silenciosamente se a tabela não existir (404 / PGRST116)
       if (error) {
         const status = (error as any)?.status ?? (error as any)?.code;
-        if (status === 404 || status === 'PGRST116' || error.message?.includes('does not exist')) return;
-        return; // ignora qualquer outro erro de notificação silenciosamente
+        if (status === 404 || status === 'PGRST116' || error.message?.includes('does not exist') || (error as any)?.details?.includes('does not exist')) return;
+        return; 
       }
 
       if (data) {
