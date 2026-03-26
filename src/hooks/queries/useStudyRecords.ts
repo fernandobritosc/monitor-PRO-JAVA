@@ -18,27 +18,31 @@ export const useStudyRecords = (userId: string | undefined) => {
 
       // Se houver dados locais, retornamos imediatamente
       // O React Query fará o refetch em background se estiver stale
-      if (localData.length > 0) {
-        // Disparar atualização do cache local em background
-        studyRecordsQueries.getByUser(userId!).then(remoteData => {
-           db.attempts.bulkPut(remoteData.map(r => ({ ...r, syncStatus: 'synced', lastModified: Date.now() })));
-        });
-        return localData as StudyRecord[];
+      if (!userId) {
+        console.warn('useStudyRecords: userId is missing, skipping fetch');
+        return [];
       }
+      
+      console.log('🔍 useStudyRecords: Iniciando busca para', userId);
+      // 1. Tentar buscar do remoto
+      try {
+        const remoteData = await studyRecordsQueries.getByUser(userId);
+        console.log(`✅ useStudyRecords: Supabase retornou ${remoteData.length} registros`);
+        
+        // Atualiza o DB local com novos registros remotos
+        if (remoteData && remoteData.length > 0) {
+          await db.attempts.bulkPut(remoteData.map(r => ({ ...r, syncStatus: 'synced' })));
+          console.log('💾 useStudyRecords: Dexie atualizado com dados remotos');
+        }
 
-      // 2. Se não houver nada local, busca do Cloud
-      const remoteData = await studyRecordsQueries.getByUser(userId!);
-      
-      // Salva no local para as próximas sessões
-      if (remoteData.length > 0) {
-        await db.attempts.bulkPut(remoteData.map(r => ({ 
-          ...r, 
-          syncStatus: 'synced', 
-          lastModified: Date.now() 
-        })));
+        return remoteData || [];
+      } catch (error) {
+        console.error('❌ useStudyRecords: Falha ao buscar no Supabase:', error);
+        // Fallback para dados locais em caso de erro na rede
+        const localData = await db.attempts.where('user_id').equals(userId).toArray();
+        console.log(`🏠 useStudyRecords: Fallback para Dexie retornou ${localData.length} registros`);
+        return localData;
       }
-      
-      return remoteData;
     },
     enabled: !!userId,
     staleTime: 1000 * 60 * 30, // 30 minutos (já que temos sync local)

@@ -172,6 +172,10 @@ const Revisoes: React.FC = () => {
       r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
     );
 
+    if (records.length > 0 && activeRecords.length === 0) {
+      console.warn(`⚠️ Revisoes: ${records.length} registros totais encontrados, mas ZERO para a missão "${missaoAtiva}". Verifique se o nome do concurso bate.`);
+    }
+
     activeRecords.forEach(r => {
       // IMPORTANTE: Trata a string 'YYYY-MM-DD' como data local, não UTC
       const [year, month, day] = r.data_estudo.split('-').map(Number);

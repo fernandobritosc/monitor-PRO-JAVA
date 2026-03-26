@@ -11,6 +11,7 @@ interface AppStatusIndicatorsProps {
   appVersion: string;
   onFetchData: () => void;
   onLogout: () => void;
+  onResetCache?: () => void;
 }
 
 const AppStatusIndicators: React.FC<AppStatusIndicatorsProps> = ({
@@ -21,7 +22,8 @@ const AppStatusIndicators: React.FC<AppStatusIndicatorsProps> = ({
   session,
   appVersion,
   onFetchData,
-  onLogout
+  onLogout,
+  onResetCache
 }) => {
   return (
     <>
@@ -51,6 +53,27 @@ const AppStatusIndicators: React.FC<AppStatusIndicatorsProps> = ({
           )}
         </div>
       )}
+
+      {/* Botão Global de Sincronização e Debug */}
+      <div className="fixed bottom-4 left-4 flex gap-2 z-[100]">
+        <button 
+          onClick={onFetchData}
+          title="Sincronizar dados agora"
+          className="bg-slate-800/80 hover:bg-slate-700 text-slate-300 p-2 rounded-full shadow-lg border border-white/5 backdrop-blur-sm transition-all active:scale-95"
+        >
+          <RefreshCw size={16} className={isLoading ? 'animate-spin' : ''} />
+        </button>
+        
+        {onResetCache && (
+          <button 
+            onClick={onResetCache}
+            title="Limpar cache e forçar recarga"
+            className="bg-red-900/40 hover:bg-red-900/60 text-red-200 p-2 rounded-full shadow-lg border border-red-500/20 backdrop-blur-sm transition-all active:scale-95"
+          >
+            <Database size={16} />
+          </button>
+        )}
+      </div>
     </>
   );
 };
