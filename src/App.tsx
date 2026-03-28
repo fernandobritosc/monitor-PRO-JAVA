@@ -2,14 +2,15 @@ import React, { useEffect } from 'react';
 import { BrowserRouter as Router, useNavigate, useLocation } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import { db } from './services/offline/db';
-import { supabase } from './lib/supabase';
 import Layout from './components/Layout';
 import Login from './views/Login';
 import AppRouter from './components/features/AppRouter';
 import AppStatusIndicators from './components/ui/AppStatusIndicators';
+import { SyncStatus } from './components/ui/SyncStatus';
 import { useAppStore } from './stores/useAppStore';
 import { useStudyRecords } from './hooks/queries/useStudyRecords';
 import { useEditais } from './hooks/queries/useEditais';
+
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useSentry } from './hooks/useSentry';
@@ -64,8 +65,8 @@ const AppContent: React.FC = () => {
   const handleResetCache = async () => {
     if (window.confirm('Deseja limpar o cache local e forçar sincronização? Isso pode resolver dados zerados.')) {
       try {
-        await db.attempts.clear();
-        await db.subjects.clear();
+        await db.studyRecords.clear();
+        await db.editais.clear();
         queryClient.clear();
         window.location.reload();
       } catch (err) {
@@ -79,7 +80,7 @@ const AppContent: React.FC = () => {
 
   // Debugging logic for records, moved here to be syntactically correct
   // Note: 'records' is not defined in App.tsx. Assuming 'studyRecords' is intended.
-  const records = studyRecords; // Assuming studyRecords are the 'records' referred to in the instruction
+  const records = studyRecords || []; // Assuming studyRecords are the 'records' referred to in the instruction
   const activeRecords = records.filter(r =>
     r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
   );
@@ -96,12 +97,6 @@ const AppContent: React.FC = () => {
       theme={isDarkMode ? 'dark' : 'light'}
       toggleTheme={toggleDarkMode}
     >
-      {/* Banner de Depuração em Desenvolvimento */}
-      <div className="bg-blue-900/20 text-blue-400 p-1 text-[10px] text-center border-b border-blue-900/30 flex justify-center gap-4">
-        <span>Missão Ativa: <b>{missaoAtiva}</b></span>
-        <span>UID: <b>{session?.user?.id?.slice(0, 8)}</b></span>
-        <span>Total Records: <b>{studyRecords.length}</b></span>
-      </div>
 
       <AppStatusIndicators
         isLoading={isLoading}
@@ -119,6 +114,8 @@ const AppContent: React.FC = () => {
         userEmail={userEmail}
         session={session}
       />
+      <SyncStatus />
+
     </Layout>
   );
 };

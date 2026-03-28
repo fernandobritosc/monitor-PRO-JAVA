@@ -80,10 +80,10 @@ const EditalProgress: React.FC = () => {
             let materiaTopicsWithAccuracy = 0;
 
             // Passo 1: Calcular status direto (Match Exato/Semântico)
-            const initialTopicsStatus = materiaTopics.map(topic => {
+            const initialTopicsStatus = materiaTopics.map((topic: string) => {
                 const normalizedTopic = normalizeString(topic);
 
-                const matchingRecords = allMissionRecords.filter(r => {
+                const matchingRecords = allMissionRecords.filter((r: StudyRecord) => {
                     const normalizedAssunto = normalizeString(r.assunto);
                     if (!normalizedTopic || !normalizedAssunto) return false;
                     if (normalizedTopic === normalizedAssunto) return true;
@@ -94,9 +94,9 @@ const EditalProgress: React.FC = () => {
                 });
 
                 if (matchingRecords.length > 0) {
-                    const totalAcertos = matchingRecords.reduce((acc, r) => acc + r.acertos, 0);
-                    const totalQuestoes = matchingRecords.reduce((acc, r) => acc + r.total, 0);
-                    const totalTime = matchingRecords.reduce((acc, r) => acc + r.tempo, 0);
+                    const totalAcertos = matchingRecords.reduce((acc: number, r: StudyRecord) => acc + r.acertos, 0);
+                    const totalQuestoes = matchingRecords.reduce((acc: number, r: StudyRecord) => acc + r.total, 0);
+                    const totalTime = matchingRecords.reduce((acc: number, r: StudyRecord) => acc + r.tempo, 0);
                     const avgAccuracy = totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
 
                     // Contabiliza para a média da matéria apenas se foi estudado diretamente
@@ -113,18 +113,18 @@ const EditalProgress: React.FC = () => {
 
             // Passo 2: Propagação Hierárquica de Status (Bottom-Up)
             // Adicionamos índice original para restaurar a ordem depois
-            let workingTopics = initialTopicsStatus.map((t, i) => ({ ...t, originalIndex: i }));
+            let workingTopics = initialTopicsStatus.map((t: any, i: number) => ({ ...t, originalIndex: i }));
 
             // Ordena por comprimento do prefixo decrescente (filhos antes dos pais)
             // Ex: "1.1.1" (len 5) vem antes de "1.1" (len 3), que vem antes de "1." (len 2)
-            workingTopics.sort((a, b) => (b.prefix?.length || 0) - (a.prefix?.length || 0));
+            workingTopics.sort((a: any, b: any) => (b.prefix?.length || 0) - (a.prefix?.length || 0));
 
             // Itera para atualizar status baseado nos filhos já processados
             for (const topic of workingTopics) {
                 if (!topic.prefix) continue;
 
                 // Encontra descendentes diretos ou indiretos
-                const descendants = workingTopics.filter(t =>
+                const descendants = workingTopics.filter((t: any) =>
                     t !== topic &&
                     t.prefix &&
                     (t.name.startsWith(topic.prefix + '.') || t.name.startsWith(topic.prefix + ' '))
@@ -132,8 +132,8 @@ const EditalProgress: React.FC = () => {
 
                 if (descendants.length > 0) {
                     // Verifica se TODOS os descendentes estão marcados como estudados (direta ou indiretamente)
-                    const allStudied = descendants.every(d => d.studied);
-                    const someStudied = descendants.some(d => d.studied || d.partial);
+                    const allStudied = descendants.every((d: any) => d.studied);
+                    const someStudied = descendants.some((d: any) => d.studied || d.partial);
 
                     // Se o tópico pai não foi estudado diretamente, inferimos o status
                     if (!topic.studied) {
@@ -142,9 +142,9 @@ const EditalProgress: React.FC = () => {
                             topic.partial = false; // Promovido de parcial para concluído
 
                             // Agrega estatísticas dos filhos para o pai não ficar com nota zerada
-                            const kidsWithStats = descendants.filter(d => d.avgAccuracy > 0);
+                            const kidsWithStats = descendants.filter((d: any) => d.avgAccuracy > 0);
                             if (kidsWithStats.length > 0) {
-                                topic.avgAccuracy = kidsWithStats.reduce((acc, k) => acc + k.avgAccuracy, 0) / kidsWithStats.length;
+                                topic.avgAccuracy = kidsWithStats.reduce((acc: number, k: any) => acc + k.avgAccuracy, 0) / kidsWithStats.length;
                             }
                         } else if (someStudied) {
                             topic.partial = true;
@@ -154,10 +154,10 @@ const EditalProgress: React.FC = () => {
             }
 
             // Restaura ordem original do edital
-            const finalTopicsStatus = workingTopics.sort((a, b) => a.originalIndex - b.originalIndex);
+            const finalTopicsStatus = workingTopics.sort((a: any, b: any) => a.originalIndex - b.originalIndex);
 
             // Contagem final para os cards da matéria
-            const studiedCount = finalTopicsStatus.filter(t => t.studied || t.partial).length;
+            const studiedCount = finalTopicsStatus.filter((t: any) => t.studied || t.partial).length;
 
             // Recalcula média da matéria considerando inferidos? 
             // Não, a média global da matéria deve refletir estudos reais (Step 1), senão inflaciona.
@@ -188,8 +188,8 @@ const EditalProgress: React.FC = () => {
     // Algoritmo de Previsão (Forecasting)
     const forecast = useMemo(() => {
         const missionRecords = records
-            .filter(r => r.concurso === missaoAtiva)
-            .sort((a, b) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
+            .filter((r: StudyRecord) => r.concurso === missaoAtiva)
+            .sort((a: StudyRecord, b: StudyRecord) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
 
         if (missionRecords.length === 0) return null;
 
@@ -198,7 +198,7 @@ const EditalProgress: React.FC = () => {
         const daysPassed = Math.max(1, Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)));
 
         const totalDirectlyStudied = (Object.values(performanceAnalysis.bySubject) as SubjectStat[])
-            .reduce((acc, subj) => acc + subj.topics.filter(t => t.sessionCount > 0).length, 0);
+            .reduce((acc: number, subj: SubjectStat) => acc + subj.topics.filter((t: any) => t.sessionCount > 0).length, 0);
 
         const velocity = totalDirectlyStudied / daysPassed;
 

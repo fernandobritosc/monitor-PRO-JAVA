@@ -120,19 +120,35 @@ const HomeView: React.FC = () => {
   const dateInputRef = useRef<HTMLInputElement>(null);
 
   const activeRecords = useMemo(() => {
+    const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
+    
+    console.log('[HomeView] Debug Stats:', {
+      missaoAtiva,
+      totalRecords: records.length,
+      isGlobal,
+      concursosDisponiveis: Array.from(new Set(records.map(r => r.concurso)))
+    });
+
     const baseRecords = records
-      .filter((r: StudyRecord) => r.concurso === missaoAtiva)
+      .filter((r: StudyRecord) => {
+        const match = isGlobal ? true : r.concurso === missaoAtiva;
+        return match;
+      })
       .sort((a: StudyRecord, b: StudyRecord) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
+
+    console.log('[HomeView] Records after mission filter:', baseRecords.length);
 
     if (filterPeriod === 0) return baseRecords;
 
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - filterPeriod);
 
-    return baseRecords.filter((r: StudyRecord) => new Date(r.data_estudo + 'T00:00:00').getTime() >= limitDate.getTime());
+    const filtered = baseRecords.filter((r: StudyRecord) => new Date(r.data_estudo + 'T00:00:00').getTime() >= limitDate.getTime());
+    console.log('[HomeView] Records after period filter:', filtered.length);
+    return filtered;
   }, [records, missaoAtiva, filterPeriod]);
 
-  const summaryRecords = records.filter(r => r.concurso === missaoAtiva && r.data_estudo === summaryDate);
+  const summaryRecords = records.filter(r => (missaoAtiva === 'Escolha a sua missão' || !missaoAtiva ? true : r.concurso === missaoAtiva) && r.data_estudo === summaryDate);
 
   const summaryStatsByMateria = useMemo(() => {
     const stats: Record<string, { time: number; questions: number }> = {};
@@ -218,7 +234,8 @@ const HomeView: React.FC = () => {
   }, [activeRecords]);
 
   const heatmapData = useMemo(() => {
-    const allMissionRecords = records.filter(r => r.concurso === missaoAtiva);
+    const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
+    const allMissionRecords = records.filter(r => isGlobal ? true : r.concurso === missaoAtiva);
     const days: { date: string, minutes: number, intensity: number }[] = [];
     const studyMap = new Map<string, number>();
     allMissionRecords.forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
@@ -241,9 +258,10 @@ const HomeView: React.FC = () => {
   }, [records, missaoAtiva]);
 
   const inactiveStreak = useMemo(() => {
+    const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
     const studyMap = new Map<string, number>();
     records
-      .filter(r => r.concurso === missaoAtiva)
+      .filter(r => isGlobal ? true : r.concurso === missaoAtiva)
       .forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
 
     let streak = 0;
@@ -314,6 +332,33 @@ return (
       variants={containerVariants}
       className="space-y-10 pb-20"
     >
+      {/* BANNER DE MISSÃO NÃO SELECIONADA */}
+      {(missaoAtiva === 'Escolha a sua missão' || !missaoAtiva) && (
+        <motion.div 
+          variants={itemVariants} 
+          className="p-6 bg-yellow-500/10 border border-yellow-500/20 rounded-[2rem] flex flex-col md:flex-row items-center justify-between gap-6 overflow-hidden relative"
+        >
+          <div className="absolute top-0 right-0 w-64 h-64 bg-yellow-500/5 blur-3xl -mr-32 -mt-32" />
+          <div className="flex items-center gap-6 relative z-10">
+            <div className="p-4 bg-yellow-500/20 rounded-2xl">
+              <Sparkles className="text-yellow-500" size={28} />
+            </div>
+            <div>
+              <h3 className="text-lg font-black text-yellow-500 uppercase tracking-tighter">Radar Global Ativado</h3>
+              <p className="text-xs text-[hsl(var(--text-muted))] font-medium mt-1 leading-relaxed">
+                Você ainda não selecionou sua missão principal. Exibindo dados de <span className="text-yellow-500 font-bold italic underline">todos os seus estudos</span>.
+              </p>
+            </div>
+          </div>
+          <button 
+            onClick={() => window.location.hash = '#/missao'} // Ajustado baseado na rota (assumindo SPA com hash ou similar)
+            className="px-8 py-3 bg-yellow-500 text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-[0.2em] rounded-2xl hover:scale-105 active:scale-95 transition-all shadow-[0_10px_20px_-5px_rgba(234,179,8,0.4)] relative z-10"
+          >
+            Definir Missão
+          </button>
+        </motion.div>
+      )}
+
       {/* FILTROS DE PERÍODO */}
       <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-between items-center gap-6">
         <div className="flex items-center gap-3">

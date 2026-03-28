@@ -1,7 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studyRecordsQueries } from '../../services/queries/studyRecords';
 import { StudyRecord } from '../../types';
-import { db } from '../../services/offline/db';
+import { db, OfflineAttempt } from '../../services/offline/db';
 
 export const useStudyRecords = (userId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -10,141 +10,142 @@ export const useStudyRecords = (userId: string | undefined) => {
   const query = useQuery({
     queryKey,
     queryFn: async () => {
-      // 1. Tentar ler do Dexie primeiro (instantâneo)
-      const localData = await db.attempts
+      if (!userId) return [];
+      
+      // 1. Buscar dados locais (Dexie)
+      const localData = await db.studyRecords
         .where('user_id')
-        .equals(userId!)
+        .equals(userId)
         .toArray();
 
-      // Se houver dados locais, retornamos imediatamente
-      // O React Query fará o refetch em background se estiver stale
-      if (!userId) {
-        console.warn('useStudyRecords: userId is missing, skipping fetch');
-        return [];
-      }
-      
-      console.log('🔍 useStudyRecords: Iniciando busca para', userId);
-      // 1. Tentar buscar do remoto
+      // 2. Tentar buscar do remoto
       try {
-        const remoteData = await studyRecordsQueries.getByUser(userId);
-        console.log(`✅ useStudyRecords: Supabase retornou ${remoteData.length} registros`);
-        
-        // Atualiza o DB local com novos registros remotos
-        if (remoteData && remoteData.length > 0) {
-          await db.attempts.bulkPut(remoteData.map(r => ({ ...r, syncStatus: 'synced' })));
-          console.log('💾 useStudyRecords: Dexie atualizado com dados remotos');
-        }
+        if (navigator.onLine) {
+          const remoteData = await studyRecordsQueries.getByUser(userId);
+          
+          // 3. Atualizar o DB local com dados remotos (Merge)
+          if (remoteData && remoteData.length > 0) {
+            // Mantemos os locais que ainda estão pendentes de sincronização
+            const pendingIds = new Set(localData.filter((d: OfflineAttempt) => d.syncStatus === 'pending').map((d: OfflineAttempt) => d.id));
+            
+            const recordsToStore: OfflineAttempt[] = remoteData.map((r: StudyRecord) => ({
+              ...r,
+              syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced',
+              lastModified: (r as any).lastModified || Date.now() // Ensure lastModified exists
+            }));
 
-        return remoteData || [];
+            await db.studyRecords.bulkPut(recordsToStore);
+          }
+        }
+        
+        // Sempre retorna o que está no Dexie (que agora inclui o remoto mesclado)
+        // Isso garante que o usuário veja seus dados pendentes IMEDIATAMENTE no dashboard
+        return await db.studyRecords.where('user_id').equals(userId).toArray();
       } catch (error) {
-        console.error('❌ useStudyRecords: Falha ao buscar no Supabase:', error);
-        // Fallback para dados locais em caso de erro na rede
-        const localData = await db.attempts.where('user_id').equals(userId).toArray();
-        console.log(`🏠 useStudyRecords: Fallback para Dexie retornou ${localData.length} registros`);
-        return localData;
+        console.error('❌ useStudyRecords: Erro ao sincronizar:', error);
+        return localData; // Fallback total para o que temos no Dexie
       }
     },
     enabled: !!userId,
-    staleTime: 1000 * 60 * 30, // 30 minutos (já que temos sync local)
+    staleTime: 1000 * 60 * 5, // 5 minutos refresca
   });
 
   const insertMutation = useMutation({
-    mutationFn: (records: Partial<StudyRecord> | Partial<StudyRecord>[]) => 
-      studyRecordsQueries.insert(records),
-    onMutate: async (newRecord) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousRecords = queryClient.getQueryData<StudyRecord[]>(queryKey);
+    mutationFn: async (records: Partial<StudyRecord> | Partial<StudyRecord>[]) => {
+      const recordsArray = Array.isArray(records) ? records : [records];
       
-      const recordsToAdd = Array.isArray(newRecord) ? newRecord : [newRecord];
-      const items = recordsToAdd as StudyRecord[];
-
-      // Atualizar cache local do React Query
-      queryClient.setQueryData<StudyRecord[]>(queryKey, (old) => [
-        ...items,
-        ...(old || []),
-      ]);
-
-      // Atualizar Dexie instantaneamente
-      await db.attempts.bulkAdd(items.map(r => ({
+      // SEMPRE inserimos no Dexie primeiro
+      const recordsToInsert = recordsArray.map((r: Partial<StudyRecord>) => ({
         ...r,
+        id: r.id || crypto.randomUUID(),
+        user_id: userId,
         syncStatus: 'pending',
         lastModified: Date.now()
-      })));
+      })) as OfflineAttempt[];
 
-      return { previousRecords };
-    },
-    onError: (_err, _newRecord, context) => {
-      if (context?.previousRecords) {
-        queryClient.setQueryData(queryKey, context.previousRecords);
+      await db.studyRecords.bulkAdd(recordsToInsert);
+
+      // Tentar enviar para o Supabase se houver rede
+      if (navigator.onLine) {
+        try {
+          await studyRecordsQueries.insert(recordsToInsert as StudyRecord[]);
+          // Se deu certo, atualizamos o status no Dexie para 'synced'
+          await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'synced' })));
+        } catch (e) {
+          console.warn('⚠️ Falha no sync imediato, ficará pendente:', e);
+        }
       }
+      return recordsToInsert; // Retorna os registros locais para a UI
     },
     onSettled: () => {
-      // Opcional: invalidar apenas se houver falha crítica, 
-      // mas para performance pesada, evitamos o refetch total se possível.
-      // queryClient.invalidateQueries({ queryKey });
+      queryClient.invalidateQueries({ queryKey });
     },
   });
 
   const updateMutation = useMutation({
-    mutationFn: (record: StudyRecord) => studyRecordsQueries.update(record),
-    onMutate: async (updatedRecord) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousRecords = queryClient.getQueryData<StudyRecord[]>(queryKey);
+    mutationFn: async (record: StudyRecord) => {
+      const offlineRecord: OfflineAttempt = {
+        ...record,
+        syncStatus: 'pending',
+        lastModified: Date.now()
+      };
+      
+      // Atualiza no Dexie primeiro
+      await db.studyRecords.put(offlineRecord);
 
-      queryClient.setQueryData<StudyRecord[]>(queryKey, (old) =>
-        old?.map((r) => (r.id === updatedRecord.id ? { ...r, ...updatedRecord } : r))
-      );
-
-      return { previousRecords };
-    },
-    onError: (_err, _updatedRecord, context) => {
-      if (context?.previousRecords) {
-        queryClient.setQueryData(queryKey, context.previousRecords);
+      // Tenta sincronizar com o Supabase
+      if (navigator.onLine) {
+        try {
+          await studyRecordsQueries.update(record);
+          // Se deu certo, atualiza o status no Dexie para 'synced'
+          await db.studyRecords.put({ ...offlineRecord, syncStatus: 'synced' });
+        } catch (e) {
+          console.warn('⚠️ Update offline, marcado como pendente');
+        }
       }
+      return offlineRecord;
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const deleteMutation = useMutation({
-    mutationFn: (id: string) => studyRecordsQueries.delete(id),
-    onMutate: async (id) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousRecords = queryClient.getQueryData<StudyRecord[]>(queryKey);
-
-      queryClient.setQueryData<StudyRecord[]>(queryKey, (old) =>
-        old?.filter((r) => r.id !== id)
-      );
-
-      return { previousRecords };
-    },
-    onError: (_err, _id, context) => {
-      if (context?.previousRecords) {
-        queryClient.setQueryData(queryKey, context.previousRecords);
+    mutationFn: async (id: string) => {
+      // Deleta do Dexie primeiro
+      await db.studyRecords.delete(id);
+      
+      // Tenta sincronizar com o Supabase
+      if (navigator.onLine) {
+        try {
+          await studyRecordsQueries.delete(id);
+        } catch (e) {
+          console.error('❌ Erro ao deletar no remoto:', e);
+          // Opcional: registrar deleção pendente se o Supabase exigir
+        }
       }
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   const deleteManyMutation = useMutation({
-    mutationFn: (ids: string[]) => studyRecordsQueries.deleteMany(ids),
-    onMutate: async (ids) => {
-      await queryClient.cancelQueries({ queryKey });
-      const previousRecords = queryClient.getQueryData<StudyRecord[]>(queryKey);
-
-      queryClient.setQueryData<StudyRecord[]>(queryKey, (old) =>
-        old?.filter((r) => !ids.includes(r.id))
-      );
-
-      return { previousRecords };
-    },
-    onError: (_err, _ids, context) => {
-      if (context?.previousRecords) {
-        queryClient.setQueryData(queryKey, context.previousRecords);
+    mutationFn: async (ids: string[]) => {
+      // Deleta do Dexie primeiro
+      await db.studyRecords.bulkDelete(ids);
+      
+      // Tenta sincronizar com o Supabase
+      if (navigator.onLine) {
+        try {
+          await studyRecordsQueries.deleteMany(ids);
+        } catch (e) {
+          console.error('❌ Erro ao deletar múltiplos no remoto:', e);
+        }
       }
     },
+    onSettled: () => queryClient.invalidateQueries({ queryKey }),
   });
 
   return {
     ...query,
-    studyRecords: query.data || [],
+    studyRecords: (query.data || []) as StudyRecord[],
     insertRecord: insertMutation.mutateAsync,
     updateRecord: updateMutation.mutateAsync,
     deleteRecord: deleteMutation.mutateAsync,

@@ -1023,3 +1023,4 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
         </div>
     );
 };
+export default ErrorAnalysisView;

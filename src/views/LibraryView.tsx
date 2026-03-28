@@ -861,7 +861,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais: editaisProps, missao
                                         disabled={!formMateria}
                                     >
                                         <option value="">{formMateria ? 'Selecione o Assunto...' : 'Primeiro selecione a matéria'}</option>
-                                        {assuntosDisponiveis.map(a => (
+                                        {assuntosDisponiveis.map((a: string) => (
                                             <option key={a} value={a} className="bg-slate-900 text-white py-2">
                                                 {a.length > 50 ? a.substring(0, 50) + '...' : a}
                                             </option>

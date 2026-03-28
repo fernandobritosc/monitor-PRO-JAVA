@@ -11,9 +11,7 @@ const HistoricoView       = lazy(() => import('../../views/History'));
 const SimuladosView       = lazy(() => import('../../views/Simulados'));
 const ConfigurarView      = lazy(() => import('../../views/Configurar'));
 const RelatoriosView      = lazy(() => import('../../views/Reports'));
-const ErrorAnalysisView   = lazy(() =>
-  import('../../views/ErrorAnalysisView').then(m => ({ default: m.ErrorAnalysisView }))
-);
+const ErrorAnalysisView   = lazy(() => import('../../views/ErrorAnalysisView'));
 const PerformanceView     = lazy(() => import('../../views/Performance'));
 const BancoQuestoesView   = lazy(() => import('../../views/QuestionsBank'));
 const FlashcardsView      = lazy(() => import('../../views/Flashcards'));

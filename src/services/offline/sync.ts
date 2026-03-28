@@ -1,6 +1,6 @@
-import { db, OfflineAttempt } from './db';
+import { db } from './db';
 import { studyRecordsQueries } from '../queries/studyRecords';
-import { supabase } from '../supabase';
+import { OfflineAttempt } from './db';
 
 export const syncService = {
     /** 
@@ -11,24 +11,24 @@ export const syncService = {
         if (!navigator.onLine) return;
 
         try {
-            const pending = await db.attempts.where('syncStatus').equals('pending').toArray();
+            const pending = await db.studyRecords.where('syncStatus').equals('pending').toArray();
 
             for (const attempt of pending) {
                 try {
                     // No sync local, IDs numéricos são gerados pelo Dexie.
                     // Removemos o ID interno para o Supabase gerar o UUID.
-                    const { id, syncStatus, lastModified, ...payload } = attempt;
+                    const { syncStatus, lastModified, ...payload } = attempt;
 
                     await studyRecordsQueries.insert(payload);
 
                     // Marca como sincronizado localmente
-                    await db.attempts.update(attempt.id!, {
+                    await db.studyRecords.update(attempt.id, {
                         syncStatus: 'synced',
                         lastModified: Date.now()
                     });
                 } catch (err) {
                     console.error(`Falha ao sincronizar tentativa ${attempt.id}:`, err);
-                    await db.attempts.update(attempt.id!, { syncStatus: 'error' });
+                    await db.studyRecords.update(attempt.id, { syncStatus: 'error' });
                 }
             }
         } catch (err) {
@@ -44,8 +44,9 @@ export const syncService = {
         const isOnline = navigator.onLine;
 
         // Salva localmente primeiro (Always Local-First para rapidez)
-        const localId = await db.attempts.add({
+        const localId = await db.studyRecords.add({
             ...record,
+            id: record.id || crypto.randomUUID(),
             syncStatus: isOnline ? 'synced' : 'pending',
             lastModified: Date.now()
         });
@@ -55,7 +56,7 @@ export const syncService = {
                 await studyRecordsQueries.insert(record);
             } catch (err) {
                 console.warn('Falha ao salvar no cloud, retornando para pendente local:', err);
-                await db.attempts.update(localId, { syncStatus: 'pending' });
+                await db.studyRecords.update(localId, { syncStatus: 'pending' });
             }
         }
     }

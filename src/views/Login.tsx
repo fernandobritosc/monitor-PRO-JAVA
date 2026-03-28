@@ -3,11 +3,9 @@ import { supabase, getGeminiKey } from '../services/supabase';
 import { preserveMissaoOnClear } from '../utils/localStorage';
 import { Mail, Lock, CheckCircle, AlertOctagon, Trash2, Database, KeyRound, Loader2, Eye, EyeOff, ChevronDown, ChevronUp } from 'lucide-react';
 import { ThemeToggle } from '../components/ThemeToggle';
+import { APP_VERSION } from '../constants';
 
 interface LoginProps { }
-
-// Safe version check
-const APP_VERSION = typeof __APP_VERSION__ !== 'undefined' ? __APP_VERSION__ : '1.0.17';
 
 const Login: React.FC<LoginProps> = () => {
   const [email, setEmail] = useState('');
@@ -34,8 +32,7 @@ const Login: React.FC<LoginProps> = () => {
     }
 
     // Check Config Source
-    // @ts-ignore
-    const envUrl = typeof __SUPABASE_URL__ !== 'undefined' ? __SUPABASE_URL__ : import.meta.env?.VITE_SUPABASE_URL;
+    const envUrl = import.meta.env.VITE_SUPABASE_URL;
     const storedUrl = localStorage.getItem('monitorpro_supabase_url');
 
     if (envUrl && envUrl.length > 5) {
