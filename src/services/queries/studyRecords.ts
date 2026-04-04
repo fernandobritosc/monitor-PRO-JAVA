@@ -44,6 +44,7 @@ export const studyRecordsQueries = {
             rev_15d: record.rev_15d,
             rev_30d: record.rev_30d,
             meta: record.meta || null,
+            tipo: record.tipo || null,
             analise_erros: record.analise_erros && record.analise_erros.length > 0 ? record.analise_erros : null
         };
 

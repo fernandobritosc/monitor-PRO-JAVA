@@ -425,7 +425,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     rev_24h: false,
                     rev_07d: false,
                     rev_15d: false,
-                    rev_30d: false
+                    rev_30d: false,
+                    tipo: 'Estudo'
                 };
             }).filter(Boolean) as any[]; // Remove nulos
 
@@ -479,6 +480,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 rev_15d: false,
                 rev_30d: false,
                 meta: meta.trim() || null,
+                tipo: 'Estudo',
                 analise_erros: errorAnalysis.length > 0 ? errorAnalysis : null
             };
 

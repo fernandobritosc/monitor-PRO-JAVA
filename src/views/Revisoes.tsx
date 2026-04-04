@@ -288,7 +288,8 @@ const Revisoes: React.FC = () => {
           total: reviewQuestions, taxa: taxa, tempo: calculatedMinutes, dificuldade: dificuldadeCalc,
           relevancia: selectedReview.relevancia,
           comentarios: `Revisão (${selectedReview.reviewType}) realizada.${isHighPerformance ? ' Desempenho alto: avançou etapas.' : ''}`,
-          rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true
+          rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true,
+          tipo: 'Revisão'
         };
         insertRecord(statsRecord);
       }
@@ -325,7 +326,7 @@ const Revisoes: React.FC = () => {
           <div className="flex items-center gap-5">
             <div className="w-14 h-14 rounded-2xl bg-gradient-to-br from-orange-600 to-amber-500 text-[hsl(var(--bg-main))] flex items-center justify-center shadow-xl shadow-orange-500/20"><RefreshCcw size={28} /></div>
             <div>
-              <h3 className="text-3xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Curva de Esquecimento</h3>
+              <h3 className="text-3xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Revisão Ativa</h3>
               <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] mt-1">
                 {totalFiltered} temas críticos para retenção estratégica
               </p>

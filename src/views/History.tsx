@@ -63,6 +63,7 @@ const History: React.FC = () => {
       comentarios: string;
       dificuldade: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' | 'Simulado';
       meta: string;
+      tipo: string;
       analise_erros: ErrorAnalysis[];
       gabarito: string;
       minha_resposta: string;
@@ -77,6 +78,7 @@ const History: React.FC = () => {
       comentarios: '',
       dificuldade: '🟡 Médio',
       meta: '',
+      tipo: '',
       analise_erros: [],
       gabarito: '',
       minha_resposta: ''
@@ -271,6 +273,7 @@ const History: React.FC = () => {
          comentarios: r.comentarios || '',
          dificuldade: r.dificuldade,
          meta: String(r.meta || ''),
+         tipo: r.tipo || '',
          analise_erros: r.analise_erros || [],
          gabarito: r.gabarito || '',
          minha_resposta: r.minha_resposta || ''
@@ -307,6 +310,7 @@ const History: React.FC = () => {
          comentarios: editForm.comentarios,
          dificuldade: editForm.dificuldade,
          meta: (editForm.meta as string).trim() || null,
+         tipo: editForm.tipo || null,
          gabarito: editForm.gabarito,
          minha_resposta: editForm.minha_resposta,
          analise_erros: editForm.analise_erros.length > 0 ? editForm.analise_erros : undefined
@@ -434,6 +438,11 @@ const History: React.FC = () => {
                                           <span className="text-[9px] font-black text-[hsl(var(--text-muted))] bg-[hsl(var(--bg-user-block))] px-3 py-1 rounded-full border border-[hsl(var(--border))] uppercase tracking-widest">
                                              {formatDateDisplay(r.data_estudo)}
                                           </span>
+                                          {r.tipo && (
+                                             <span className={`text-[9px] font-black px-3 py-1 rounded-full border uppercase tracking-widest ${r.tipo === 'Revisão' ? 'bg-orange-500/10 text-orange-400 border-orange-500/20' : 'bg-blue-500/10 text-blue-400 border-blue-500/20'}`}>
+                                                {r.tipo}
+                                             </span>
+                                          )}
                                           <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm ${r.taxa >= 80 ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
                                              {r.taxa.toFixed(0)}%
                                           </span>
@@ -633,6 +642,15 @@ const History: React.FC = () => {
                            <div className="space-y-1">
                               <span className="text-[10px] text-slate-500 font-bold uppercase">Meta</span>
                               <input type="text" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all text-white font-bold text-lg text-center" value={editForm.meta} onChange={e => setEditForm({ ...editForm, meta: e.target.value })} placeholder="Ex: Meta 05" />
+                           </div>
+
+                           <div className="space-y-1">
+                              <span className="text-[10px] text-slate-500 font-bold uppercase">Tipo</span>
+                              <select className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500/50 transition-all text-white font-bold text-sm" value={editForm.tipo} onChange={e => setEditForm({ ...editForm, tipo: e.target.value })}>
+                                 <option value="">Nenhum/Padrão</option>
+                                 <option value="Estudo">Estudo</option>
+                                 <option value="Revisão">Revisão</option>
+                              </select>
                            </div>
 
                            <div className="flex flex-col items-center justify-center bg-slate-800/50 rounded-xl p-2 border border-white/5 h-full">
