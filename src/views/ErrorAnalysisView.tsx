@@ -1076,7 +1076,11 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
                             return matchMateria && matchAssunto && matchMeta && matchSearch;
                         })
                         .map((err) => (
-                            <div key={err.id} className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] group hover:border-[hsl(var(--accent)/0.3)] transition-all relative overflow-hidden">
+                            <div 
+                                key={err.id} 
+                                onClick={() => setSelectedRecovery({ materia: err.materia, assunto: err.assunto })}
+                                className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] group hover:border-[hsl(var(--accent)/0.3)] transition-all relative overflow-hidden cursor-pointer active:scale-[0.99]"
+                            >
                                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
                                     err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
                                     }`} />
