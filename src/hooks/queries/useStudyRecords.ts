@@ -99,8 +99,15 @@ export const useStudyRecords = (userId: string | undefined) => {
           await studyRecordsQueries.update(record);
           // Se deu certo, atualiza o status no Dexie para 'synced'
           await db.studyRecords.put({ ...offlineRecord, syncStatus: 'synced' });
-        } catch (e) {
-          console.warn('⚠️ Update offline, marcado como pendente');
+        } catch (e: any) {
+          // Se for erro de rede (offline), apenas avisamos e deixamos pendente no Dexie
+          if (!navigator.onLine || e.message === 'Failed to fetch') {
+            console.warn('⚠️ Update offline, marcado como pendente no Dexie');
+          } else {
+            // Se for erro de banco (400, RLS, etc), logamos e podemos propagar ou tratar
+            console.error('❌ Falha na sincronização remota (não é offline):', e);
+            throw e; // Propaga para o ErrorAnalysisView detectar a falha
+          }
         }
       }
       return offlineRecord;

@@ -28,8 +28,8 @@ export const studyRecordsQueries = {
     /** Atualiza um registro existente */
     async update(record: StudyRecord) {
         // Whitelist rigorosa: apenas colunas confirmadas que existem em registros_estudos
-        // Colunas removidas por não existirem no banco: dificuldade, relevancia, gabarito, minha_resposta
         const payload = {
+            user_id: record.user_id, // Essencial para RLS em algumas políticas
             concurso: record.concurso,
             materia: record.materia,
             assunto: record.assunto,
@@ -52,7 +52,11 @@ export const studyRecordsQueries = {
             .from('registros_estudos')
             .update(payload)
             .eq('id', record.id);
-        if (error) throw error;
+        
+        if (error) {
+            console.error('❌ Erro no Supabase (Update):', error.message, error.details, error.hint);
+            throw error;
+        }
     },
 
     /** Deleta um registro por ID */
