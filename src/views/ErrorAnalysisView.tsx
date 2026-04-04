@@ -940,22 +940,32 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
             />
 
             <AnimatePresence>
-                {selectedRecovery && (
-                    <RecoveryMode
-                        key={`${selectedRecovery.materia}-${selectedRecovery.assunto}`}
-                        errors={localErrors.filter(e => {
-                            const matchMateria = e.materia === selectedRecovery.materia;
-                            const matchAssunto = e.assunto === selectedRecovery.assunto;
-                            const isNotResolved = !e.resolved;
-                            return matchMateria && matchAssunto && isNotResolved;
-                        })}
-                        onClose={() => {
-                            console.log("[View] Fechando Recovery Mode");
-                            setSelectedRecovery(null);
-                        }}
-                        onUpdateError={handleUpdateError}
-                    />
-                )}
+                {selectedRecovery && (() => {
+                    const filteredItems = localErrors.filter(e => {
+                        return e.materia === selectedRecovery.materia && 
+                               e.assunto === selectedRecovery.assunto && 
+                               !e.resolved;
+                    });
+                    
+                    console.log(`[View] Abrindo tema: ${selectedRecovery.materia} - ${selectedRecovery.assunto}. Encontrados: ${filteredItems.length} erros.`);
+                    
+                    if (filteredItems.length === 0) {
+                        console.warn("[View] Abortando: Nenhuma questão não resolvida encontrada para este tema.");
+                        return null;
+                    }
+
+                    return (
+                        <RecoveryMode
+                            key={`${selectedRecovery.materia}-${selectedRecovery.assunto}`}
+                            errors={filteredItems}
+                            onClose={() => {
+                                console.log("[View] Fechando Recovery Mode");
+                                setSelectedRecovery(null);
+                            }}
+                            onUpdateError={handleUpdateError}
+                        />
+                    );
+                })()}
             </AnimatePresence>
 
             {transversalAnalysis && (
@@ -1087,7 +1097,10 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
                         .map((err) => (
                             <div 
                                 key={err.id} 
-                                onClick={() => setSelectedRecovery({ materia: err.materia, assunto: err.assunto })}
+                                onClick={() => {
+                                    console.log("[View] Clique detectado no card:", err.materia, "->", err.assunto);
+                                    setSelectedRecovery({ materia: err.materia, assunto: err.assunto });
+                                }}
                                 className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] group hover:border-[hsl(var(--accent)/0.3)] transition-all relative overflow-hidden cursor-pointer active:scale-[0.99]"
                             >
                                 <div className={`absolute left-0 top-0 bottom-0 w-1.5 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
