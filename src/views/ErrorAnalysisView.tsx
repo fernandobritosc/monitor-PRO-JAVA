@@ -1082,7 +1082,14 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
                                         </div>
 
                                         <h5 className="text-sm font-bold text-white leading-relaxed italic opacity-80 whitespace-pre-wrap">
-                                            {err.enunciado_completo ? err.enunciado_completo : `"${err.questao_preview}..."`}
+                                            {err.enunciado_completo
+                                                ? err.enunciado_completo
+                                                    .replace(/<li[^>]*>/gi, '\n')
+                                                    .replace(/<[^>]+>/g, '')
+                                                    .replace(/&amp;/g, '&').replace(/&lt;/g, '<').replace(/&gt;/g, '>').replace(/&nbsp;/g, ' ')
+                                                    .trim()
+                                                : `"${(err.questao_preview || '').replace(/<[^>]+>/g, '').trim()}..."`
+                                            }
                                         </h5>
 
                                         <div className="space-y-2">
