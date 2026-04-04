@@ -941,10 +941,17 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
 
             <AnimatePresence>
                 {selectedRecovery && (() => {
+                    const selMat = selectedRecovery.materia.trim().toLowerCase();
+                    const selAss = selectedRecovery.assunto.trim().toLowerCase();
+
                     const filteredItems = localErrors.filter(e => {
-                        return e.materia === selectedRecovery.materia && 
-                               e.assunto === selectedRecovery.assunto && 
-                               !e.resolved;
+                        const errMat = (e.materia || "").trim().toLowerCase();
+                        const errAss = (e.assunto || "").trim().toLowerCase();
+                        const isNotResolved = !e.resolved;
+                        
+                        return errMat === selMat && 
+                               errAss === selAss && 
+                               isNotResolved;
                     });
                     
                     console.log(`[View] Abrindo tema: ${selectedRecovery.materia} - ${selectedRecovery.assunto}. Encontrados: ${filteredItems.length} erros.`);
