@@ -166,60 +166,82 @@ const RecoveryMode: React.FC<{
     const currentError = queue[0];
 
     const parsedContent = useMemo(() => {
-        const raw = currentError?.enunciado_completo || currentError?.questao_preview || '';
+        const raw = currentError?.enunciado_completo || currentError?.questao_preview || "";
 
-        // PASSO 1: Normalizar HTML (converte <li> em nova linha, remove demais tags).
+        // PASSO 1: Normalizar HTML
         const normalized = raw
-            .replace(/<li[^>]*>/gi, '\n')
-            .replace(/<\/li>/gi, '')
-            .replace(/<ul[^>]*>|<\/ul>/gi, '')
-            .replace(/<br\s*\/?>/gi, '\n')
-            .replace(/<[^>]+>/g, '')
-            .replace(/&amp;/g, '&')
-            .replace(/&lt;/g, '<')
-            .replace(/&gt;/g, '>')
-            .replace(/&nbsp;/g, ' ');
+            .replace(/<li[^>]*>/gi, "\n")
+            .replace(/<\/li>/gi, "")
+            .replace(/<ul[^>]*>|<\/ul>/gi, "")
+            .replace(/<br\s*\/?>/gi, "\n")
+            .replace(/<[^>]+>/g, "")
+            .replace(/&amp;/g, "&")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/&nbsp;/g, " ");
 
-        // PASSO 2: Parsear linha a linha.
-        const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
-        const altAERegex = /^([A-E])[\.\-\)]\s+/i;
-        const altCERegex = /^(Certo|Errado)\s*[:.\-\)]?\s*/i;
-
-        const statementLines: string[] = [];
         const alternatives: { letter: string; text: string }[] = [];
+        let statement = "";
 
-        for (const line of lines) {
-            const matchAE = line.match(altAERegex);
-            const matchCE = line.match(altCERegex);
-            if (matchAE) {
-                alternatives.push({ letter: matchAE[1].toUpperCase(), text: line });
-            } else if (matchCE && alternatives.length === 0 && /\b(Certo|Errado)\b/i.test(line)) {
-                alternatives.push({ letter: matchCE[1].charAt(0).toUpperCase(), text: line });
+        // PASSO 2: Detectar via linhas (dados HTML convertidos em \n)
+        // Regex aceita: "A - texto", "A) texto", "A. texto", "A- texto"
+        const altLineRegex = /^([A-E])\s*[\.\-\)]\s*/i;
+        const rawLines = normalized.split("\n").map(l => l.trim()).filter(Boolean);
+        const statementLines: string[] = [];
+
+        for (const line of rawLines) {
+            const match = line.match(altLineRegex);
+            if (match) {
+                alternatives.push({ letter: match[1].toUpperCase(), text: line });
             } else if (alternatives.length === 0) {
                 statementLines.push(line);
             }
         }
 
-        // PASSO 3: Fallback para modo Certo/Errado
+        // PASSO 3: Deteccao inline — alternativas em texto continuo sem quebra de linha
+        // Ex: "...eficacia A - plena... B - contida e aplicabilidade imediata."
         if (alternatives.length === 0) {
-            const isBinaryStyle = /#GABARITO\s*[CE]/i.test(normalized) ||
+            const singleLine = normalized.replace(/\n+/g, " ").replace(/\s{2,}/g, " ");
+            // Encontra ocorrencias: espaco + letra A-E + espaco-opcional + separador + espaco
+            const inlineRegex = /(?<![A-Za-z])([A-E])\s*[\.\-\)]\s+(?=[A-Za-z])/g;
+            const found: { index: number; letter: string; endIdx: number }[] = [];
+            let m: RegExpExecArray | null;
+            while ((m = inlineRegex.exec(singleLine)) !== null) {
+                found.push({ index: m.index, letter: m[1].toUpperCase(), endIdx: m.index + m[0].length });
+            }
+            if (found.length >= 2) {
+                statement = singleLine.slice(0, found[0].index).trim();
+                for (let i = 0; i < found.length; i++) {
+                    const textEnd = i + 1 < found.length ? found[i + 1].index : singleLine.length;
+                    const altText = found[i].letter + "- " + singleLine.slice(found[i].endIdx, textEnd).trim();
+                    alternatives.push({ letter: found[i].letter, text: altText });
+                }
+            }
+        } else {
+            statement = statementLines.join(" ").trim();
+        }
+
+        // PASSO 4: Fallback para modo Certo/Errado
+        if (alternatives.length === 0) {
+            const isBinaryStyle =
+                /#GABARITO\s*[CE]/i.test(normalized) ||
                 /\b(Certo|Errado)\b/i.test(normalized) ||
-                (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
+                /julgue\s+o\s+item|julgue\s+os\s+itens/i.test(normalized) ||
+                (currentError.gabarito != null && /^[CE]$/i.test(String(currentError.gabarito)));
+            const stmt = statementLines.length > 0
+                ? statementLines.join(" ")
+                : normalized.replace(/\n+/g, " ").trim();
             return {
-                statement: statementLines.join(' ').replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(),
+                statement: stmt.replace(/#GABARITO\s*[A-Ea-eCEce]/i, "").trim(),
                 alternatives: isBinaryStyle ? [
-                    { letter: 'C', text: 'Certo' },
-                    { letter: 'E', text: 'Errado' }
+                    { letter: "C", text: "Certo" },
+                    { letter: "E", text: "Errado" }
                 ] : [],
                 isBinary: true
             };
         }
 
-        return {
-            statement: statementLines.join(' ').trim(),
-            alternatives,
-            isBinary: false
-        };
+        return { statement, alternatives, isBinary: false };
     }, [currentError]);
 
     if (!currentError) return null;
