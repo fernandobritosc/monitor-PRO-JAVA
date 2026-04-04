@@ -942,8 +942,17 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
             <AnimatePresence>
                 {selectedRecovery && (
                     <RecoveryMode
-                        errors={localErrors.filter(e => e.materia === selectedRecovery.materia && e.assunto === selectedRecovery.assunto && !e.resolved)}
-                        onClose={() => setSelectedRecovery(null)}
+                        key={`${selectedRecovery.materia}-${selectedRecovery.assunto}`}
+                        errors={localErrors.filter(e => {
+                            const matchMateria = e.materia === selectedRecovery.materia;
+                            const matchAssunto = e.assunto === selectedRecovery.assunto;
+                            const isNotResolved = !e.resolved;
+                            return matchMateria && matchAssunto && isNotResolved;
+                        })}
+                        onClose={() => {
+                            console.log("[View] Fechando Recovery Mode");
+                            setSelectedRecovery(null);
+                        }}
                         onUpdateError={handleUpdateError}
                     />
                 )}
