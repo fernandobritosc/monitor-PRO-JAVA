@@ -227,7 +227,7 @@ const RecoveryMode: React.FC<{
                 /#GABARITO\s*[CE]/i.test(normalized) ||
                 /\b(Certo|Errado)\b/i.test(normalized) ||
                 /julgue\s+o\s+item|julgue\s+os\s+itens/i.test(normalized) ||
-                (currentError.gabarito != null && /^[CE]$/i.test(String(currentError.gabarito)));
+                (currentError?.gabarito != null && /^[CE]$/i.test(String(currentError.gabarito)));
             const stmt = statementLines.length > 0
                 ? statementLines.join(" ")
                 : normalized.replace(/\n+/g, " ").trim();
