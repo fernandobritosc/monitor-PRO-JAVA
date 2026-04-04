@@ -166,49 +166,59 @@ const RecoveryMode: React.FC<{
     const currentError = queue[0];
 
     const parsedContent = useMemo(() => {
-        const text = currentError?.enunciado_completo || currentError?.questao_preview || '';
+        const raw = currentError?.enunciado_completo || currentError?.questao_preview || '';
 
-        // Detecção ultra-flexível: A-E, C/E ou Certo/Errado. Suporta marcadores (•, -, *), letras A-E com pontos, parênteses ou hífens.
-        const splitRegex = /(?=(?:^|\r?\n|\s+|[•\-\*]\s*)(?:[A-E][.\-\)]\s+|Certo:|Errado:|C[.\-\)]\s+|E[.\-\)]\s+))/gi;
-        const parts = text.split(splitRegex);
+        // PASSO 1: Normalizar HTML (converte <li> em nova linha, remove demais tags).
+        const normalized = raw
+            .replace(/<li[^>]*>/gi, '\n')
+            .replace(/<\/li>/gi, '')
+            .replace(/<ul[^>]*>|<\/ul>/gi, '')
+            .replace(/<br\s*\/?>/gi, '\n')
+            .replace(/<[^>]+>/g, '')
+            .replace(/&amp;/g, '&')
+            .replace(/&lt;/g, '<')
+            .replace(/&gt;/g, '>')
+            .replace(/&nbsp;/g, ' ');
 
-        // EXTRAÇÃO: Se encontrou partes, vamos mapear
-        const detectedAlternatives = parts.length > 1 ? parts.slice(1).map(a => {
-            const raw = (a || '').trim();
-            // Limpa marcadores iniciais (bullets, hifens, asteriscos) antes de buscar a letra
-            const cleanRaw = raw.replace(/^[•\-\*\s]+/, '');
-            const match = cleanRaw.match(/^([A-E]|Certo|Errado|C|E)[.\-\)]?\s*/i);
-            let letter = match ? match[1].charAt(0).toUpperCase() : '';
-            
-            if (letter === 'C' && cleanRaw.toLowerCase().startsWith('certo')) letter = 'C';
-            if (letter === 'E' && cleanRaw.toLowerCase().startsWith('errado')) letter = 'E';
+        // PASSO 2: Parsear linha a linha.
+        const lines = normalized.split('\n').map(l => l.trim()).filter(Boolean);
+        const altAERegex = /^([A-E])[\.\-\)]\s+/i;
+        const altCERegex = /^(Certo|Errado)\s*[:.\-\)]?\s*/i;
 
-            return { letter, text: cleanRaw };
-        }).filter(item => item.letter) : [];
+        const statementLines: string[] = [];
+        const alternatives: { letter: string; text: string }[] = [];
 
-        // LÓGICA DE DECISÃO:
-        // 1. Se detectou alternativas explícitas (A-E), use elas.
-        if (detectedAlternatives.length > 0) {
+        for (const line of lines) {
+            const matchAE = line.match(altAERegex);
+            const matchCE = line.match(altCERegex);
+            if (matchAE) {
+                alternatives.push({ letter: matchAE[1].toUpperCase(), text: line });
+            } else if (matchCE && alternatives.length === 0 && /\b(Certo|Errado)\b/i.test(line)) {
+                alternatives.push({ letter: matchCE[1].charAt(0).toUpperCase(), text: line });
+            } else if (alternatives.length === 0) {
+                statementLines.push(line);
+            }
+        }
+
+        // PASSO 3: Fallback para modo Certo/Errado
+        if (alternatives.length === 0) {
+            const isBinaryStyle = /#GABARITO\s*[CE]/i.test(normalized) ||
+                /\b(Certo|Errado)\b/i.test(normalized) ||
+                (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
             return {
-                statement: (parts[0] || '').trim(),
-                alternatives: detectedAlternatives,
-                isBinary: false
+                statement: statementLines.join(' ').replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(),
+                alternatives: isBinaryStyle ? [
+                    { letter: 'C', text: 'Certo' },
+                    { letter: 'E', text: 'Errado' }
+                ] : [],
+                isBinary: true
             };
         }
 
-        // 2. Se não detectou, mas o gabarito ou o estilo sugere binário (C/E)
-        // Usamos \b para evitar que "correto" ative o modo Certo/Errado
-        const isBinaryStyle = /#GABARITO\s*[CE]/i.test(text) || 
-                             /\b(Certo|Errado)\b/i.test(text) || 
-                             (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
-        
-        return { 
-            statement: text.replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(), 
-            alternatives: isBinaryStyle ? [
-                { letter: 'C', text: 'Certo' },
-                { letter: 'E', text: 'Errado' }
-            ] : [],
-            isBinary: true 
+        return {
+            statement: statementLines.join(' ').trim(),
+            alternatives,
+            isBinary: false
         };
     }, [currentError]);
 
