@@ -168,38 +168,47 @@ const RecoveryMode: React.FC<{
     const parsedContent = useMemo(() => {
         const text = currentError?.enunciado_completo || currentError?.questao_preview || '';
 
-        // Detecção ultra-flexível: A-E, C/E ou Certo/Errado
-        const splitRegex = /(?=(?:^|\r?\n|\s+)(?:[A-E][.\)]|Certo:|Errado:|C[.\)]|E[.\)]))/gi;
+        // Detecção ultra-flexível: A-E, C/E ou Certo/Errado. Suporta marcadores (•, -, *), letras A-E com pontos, parênteses ou hífens.
+        const splitRegex = /(?=(?:^|\r?\n|\s+|[•\-\*]\s*)(?:[A-E][.\-\)]\s+|Certo:|Errado:|C[.\-\)]\s+|E[.\-\)]\s+))/gi;
         const parts = text.split(splitRegex);
 
-        if (parts.length <= 1) {
-            // Verifica se o gabarito ou o estilo da questão sugere binário (C/E)
-            const isBinaryStyle = /#GABARITO\s*[CE]|(Certo|Errado)/i.test(text) || (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
+        // EXTRAÇÃO: Se encontrou partes, vamos mapear
+        const detectedAlternatives = parts.length > 1 ? parts.slice(1).map(a => {
+            const raw = (a || '').trim();
+            // Limpa marcadores iniciais (bullets, hifens, asteriscos) antes de buscar a letra
+            const cleanRaw = raw.replace(/^[•\-\*\s]+/, '');
+            const match = cleanRaw.match(/^([A-E]|Certo|Errado|C|E)[.\-\)]?\s*/i);
+            let letter = match ? match[1].charAt(0).toUpperCase() : '';
             
-            return { 
-                statement: text.replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(), 
-                alternatives: isBinaryStyle ? [
-                    { letter: 'C', text: 'Certo' },
-                    { letter: 'E', text: 'Errado' }
-                ] : [],
-                isBinary: true 
+            if (letter === 'C' && cleanRaw.toLowerCase().startsWith('certo')) letter = 'C';
+            if (letter === 'E' && cleanRaw.toLowerCase().startsWith('errado')) letter = 'E';
+
+            return { letter, text: cleanRaw };
+        }).filter(item => item.letter) : [];
+
+        // LÓGICA DE DECISÃO:
+        // 1. Se detectou alternativas explícitas (A-E), use elas.
+        if (detectedAlternatives.length > 0) {
+            return {
+                statement: (parts[0] || '').trim(),
+                alternatives: detectedAlternatives,
+                isBinary: false
             };
         }
 
-        return {
-            statement: (parts[0] || '').trim(),
-            alternatives: parts.slice(1).map(a => {
-                const raw = (a || '').trim();
-                const match = raw.match(/^([A-E]|Certo|Errado|C|E)[.\)]?\s*/i);
-                let letter = match ? match[1].charAt(0).toUpperCase() : '';
-                
-                // Normaliza Certo/Errado para C/E
-                if (letter === 'C' && raw.toLowerCase().startsWith('certo')) letter = 'C';
-                if (letter === 'E' && raw.toLowerCase().startsWith('errado')) letter = 'E';
-
-                return { letter, text: raw };
-            }).filter(item => item.letter),
-            isBinary: false
+        // 2. Se não detectou, mas o gabarito ou o estilo sugere binário (C/E)
+        // Usamos \b para evitar que "correto" ative o modo Certo/Errado
+        const isBinaryStyle = /#GABARITO\s*[CE]/i.test(text) || 
+                             /\b(Certo|Errado)\b/i.test(text) || 
+                             (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
+        
+        return { 
+            statement: text.replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(), 
+            alternatives: isBinaryStyle ? [
+                { letter: 'C', text: 'Certo' },
+                { letter: 'E', text: 'Errado' }
+            ] : [],
+            isBinary: true 
         };
     }, [currentError]);
 
@@ -269,13 +278,13 @@ const RecoveryMode: React.FC<{
             <div className="w-full max-w-3xl relative">
                 <button
                     onClick={onClose}
-                    className="absolute -top-12 right-0 p-2 text-slate-400 hover:text-white transition-colors"
+                    className="absolute -top-12 right-0 p-2 text-slate-400 hover:text-white transition-colors z-[110]"
                 >
                     <X size={24} />
                 </button>
 
-                <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6 shadow-2xl bg-black/40 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                    <div className="flex items-center justify-between sticky -top-8 bg-[#0a0c10]/95 backdrop-blur-md z-20 pb-4 pt-8 border-b border-white/5 -mx-8 px-8">
+                <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6 shadow-2xl bg-[#0a0c10]/98 max-h-[90vh] overflow-y-auto custom-scrollbar">
+                    <div className="flex items-center justify-between sticky -top-8 bg-[#0a0c10] z-30 pb-4 pt-8 border-b border-white/5 -mx-8 px-8">
                         <div className="space-y-1">
                             <h3 className="text-xs font-black text-[hsl(var(--accent))] uppercase tracking-widest">
                                 {currentError.materia}
@@ -362,18 +371,20 @@ const RecoveryMode: React.FC<{
 
                     {!showResult ? (
                         <div className="space-y-4">
-                            <div className="space-y-2">
-                                <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-4">Sua Resposta (Gabarito)</label>
-                                <input
-                                    autoFocus
-                                    type="text"
-                                    placeholder="Digite a alternativa ou resposta..."
-                                    className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] outline-none transition-all placeholder:opacity-20"
-                                    value={userAnswer}
-                                    onChange={e => setUserAnswer(e.target.value)}
-                                    onKeyDown={e => e.key === 'Enter' && handleAnswer()}
-                                />
-                            </div>
+                            {parsedContent.alternatives.length === 0 && (
+                                <div className="space-y-2">
+                                    <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-4">Sua Resposta (Gabarito)</label>
+                                    <input
+                                        autoFocus
+                                        type="text"
+                                        placeholder="Digite a alternativa ou resposta..."
+                                        className="w-full bg-black/40 border border-white/10 rounded-2xl px-6 py-4 text-sm font-bold text-white focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] outline-none transition-all placeholder:opacity-20"
+                                        value={userAnswer}
+                                        onChange={e => setUserAnswer(e.target.value)}
+                                        onKeyDown={e => e.key === 'Enter' && handleAnswer()}
+                                    />
+                                </div>
+                            )}
                             <div className="flex gap-3">
                                 <button
                                     onClick={() => handleAnswer()}
