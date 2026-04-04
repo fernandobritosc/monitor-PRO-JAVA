@@ -470,7 +470,7 @@ const RecoveryMode: React.FC<{
 
 export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: recordsProps, missaoAtiva: missaoAtivaProps }) => {
     const { userId } = useSession();
-    const { studyRecords: recordsQuery } = useStudyRecords(userId);
+    const { studyRecords: recordsQuery, updateRecord } = useStudyRecords(userId);
     const missaoAtivaStore = useAppStore(state => state.missaoAtiva);
     const records = recordsProps ?? recordsQuery ?? [];
     const missaoAtiva = missaoAtivaProps ?? missaoAtivaStore ?? '';
@@ -529,7 +529,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
     const handleUpdateError = async (recordId: string, errorId: string, resolved: boolean) => {
         console.log(`[Recovery] Atualizando Erro - ID: ${errorId}, Resolvido: ${resolved}`);
         try {
-            // Atualização Otimista via Overrides
+            // 1. Atualização Otimista Local (Zustand)
             const currentErr = localErrors.find(e => e.id === errorId);
             const currentAttempts = Number(currentErr?.failed_attempts || 0);
             const newAttempts = !resolved ? currentAttempts + 1 : currentAttempts;
@@ -539,35 +539,36 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
                 [errorId]: { resolved, failed_attempts: newAttempts }
             }));
 
-            console.log(`[Recovery] Override aplicado: ID ${errorId} -> Tentativas: ${newAttempts}`);
-
+            // 2. Localizar o registro original
             const record = records.find(r => r.id === recordId);
             if (!record || !record.analise_erros) return;
 
+            // 3. Gerar a nova lista de analise_erros garantindo IDs consistentes
             const updatedAnalise = record.analise_erros.map((err: ErrorAnalysis, errIdx: number) => {
                 const preview = err.questao_preview || '';
                 const currentId = err.id || `${recordId}-${errIdx}-${preview.substring(0, 10).replace(/\s+/g, '')}`;
+
                 if (currentId === errorId) {
-                    const newAttempts = !resolved ? (Number(err.failed_attempts) || 0) + 1 : Number(err.failed_attempts);
                     return {
                         ...err,
-                        id: currentId, // PERSISTE O ID NO BANCO
+                        id: currentId,
                         resolved: resolved,
-                        failed_attempts: newAttempts
+                        failed_attempts: !resolved ? (Number(err.failed_attempts) || 0) + 1 : Number(err.failed_attempts)
                     };
                 }
-                return err;
+                return { ...err, id: currentId };
             });
 
-            const { error } = await supabase
-                .from('registros_estudos')
-                .update({ analise_erros: updatedAnalise })
-                .eq('id', recordId);
+            // 4. Salvar via Hook Oficial (Dexie + Supabase + React-Query Invalidation)
+            await updateRecord({
+                ...record,
+                analise_erros: updatedAnalise
+            });
 
-            if (error) throw error;
-            console.log(`[Recovery] Banco de dados atualizado com sucesso para o ID ${errorId}`);
-        } catch (err) {
-            console.error("[Recovery] Erro ao atualizar status do erro:", err);
+            console.log(`[Recovery] Registro ${recordId} atualizado com sucesso via Hook.`);
+        } catch (err: any) {
+            console.error("[Recovery] Falha crítica ao salvar:", err);
+            // Reverter override em caso de erro real (opcional)
         }
     };
 
