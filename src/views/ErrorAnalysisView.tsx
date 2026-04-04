@@ -275,7 +275,7 @@ const RecoveryMode: React.FC<{
                 </button>
 
                 <div className="glass-premium p-8 rounded-[2.5rem] border border-[hsl(var(--border))] space-y-6 shadow-2xl bg-black/40 max-h-[90vh] overflow-y-auto custom-scrollbar">
-                    <div className="flex items-center justify-between sticky top-0 bg-transparent backdrop-blur-sm z-10 pb-4 border-b border-white/5">
+                    <div className="flex items-center justify-between sticky -top-8 bg-[#0a0c10]/95 backdrop-blur-md z-20 pb-4 pt-8 border-b border-white/5 -mx-8 px-8">
                         <div className="space-y-1">
                             <h3 className="text-xs font-black text-[hsl(var(--accent))] uppercase tracking-widest">
                                 {currentError.materia}
