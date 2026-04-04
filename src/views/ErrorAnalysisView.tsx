@@ -14,6 +14,8 @@ interface ErrorAnalysisViewProps {
     missaoAtiva?: string;
 }
 
+const normalizeText = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, ' ');
+
 const PerformanceHeatmap: React.FC<{
     records: StudyRecord[],
     localErrors?: any[],
@@ -34,19 +36,20 @@ const PerformanceHeatmap: React.FC<{
                 current.total += r.total;
                 current.hits += r.acertos;
 
-                // Lógica de contagem de erros infalível:
-                // O erro estrutural do assunto é o ERRO MATEMÁTICO DO DIA (total de questões - acertos)
-                // Se ele recuperou/acertou o erro com a IA (RecoveryMode), ele "redime" um erro daquele dia.
-                const mathErrors = r.total - r.acertos;
-                let resolvedCount = 0;
-
+                // Contagem de erros pendentes para o heatmap
+                let activeErrors = 0;
                 if (localErrors) {
-                    resolvedCount = localErrors.filter(e => e.recordId === r.id && e.resolved).length;
+                    activeErrors = localErrors.filter(e => 
+                        e.recordId === r.id && 
+                        !e.resolved &&
+                        normalizeText(e.materia) === normalizeText(r.materia) &&
+                        normalizeText(e.assunto) === normalizeText(r.assunto)
+                    ).length;
                 } else if (r.analise_erros) {
-                    resolvedCount = r.analise_erros.filter(e => e.resolved).length;
+                    activeErrors = r.analise_erros.filter(e => !e.resolved).length;
                 }
 
-                current.errors += Math.max(0, mathErrors - resolvedCount);
+                current.errors += activeErrors;
             });
 
         return heatmap;
@@ -582,9 +585,11 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
 
     const metaOptions = useMemo(() => Array.from(new Set(allErrors.map(e => String(e.meta || '')))).filter(Boolean).sort(), [allErrors]);
 
-    // Aplicar Filtros
+    // Aplicar Filtros (focando em erros NÃO resolvidos para as estatísticas)
     const filteredErrors = useMemo(() => {
-        return allErrors.filter(err => {
+        return localErrors.filter(err => {
+            if (err.resolved) return false; // Estatísticas mostram apenas o que pendente
+
             const matchMateria = !filterMateria || err.materia === filterMateria;
             const matchAssunto = !filterAssunto || err.assunto === filterAssunto;
             const matchMeta = !filterMeta || String(err.meta) === filterMeta;
@@ -595,7 +600,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
 
             return matchMateria && matchAssunto && matchMeta && matchSearch;
         });
-    }, [allErrors, filterMateria, filterAssunto, filterMeta, searchTerm]);
+    }, [localErrors, filterMateria, filterAssunto, filterMeta, searchTerm]);
 
     // Análise Transversal
     const transversalAnalysis = useMemo(() => {
@@ -941,13 +946,12 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({ records: r
 
             <AnimatePresence>
                 {selectedRecovery && (() => {
-                    const normalize = (s: string) => (s || "").trim().toLowerCase().replace(/\s+/g, ' ');
-                    const selMat = normalize(selectedRecovery.materia);
-                    const selAss = normalize(selectedRecovery.assunto);
+                    const selMat = normalizeText(selectedRecovery.materia);
+                    const selAss = normalizeText(selectedRecovery.assunto);
 
                     const filteredItems = localErrors.filter(e => {
-                        const errMat = normalize(e.materia);
-                        const errAss = normalize(e.assunto);
+                        const errMat = normalizeText(e.materia);
+                        const errAss = normalizeText(e.assunto);
                         return errMat === selMat && errAss === selAss && !e.resolved;
                     });
                     
