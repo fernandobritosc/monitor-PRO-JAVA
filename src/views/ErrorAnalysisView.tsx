@@ -168,15 +168,38 @@ const RecoveryMode: React.FC<{
     const parsedContent = useMemo(() => {
         const text = currentError?.enunciado_completo || currentError?.questao_preview || '';
 
-        // Quebra pelo Letra maiúscula (A-E) seguida de ponto ou parênteses, com ou sem quebra de linhas. 
-        // O lookahead preventivo proibe strings como " A " de quebrarem tudo no meio
-        const parts = text.split(/(?=(?:^|\r?\n|\s+)[A-E][.\)])/g);
+        // Detecção ultra-flexível: A-E, C/E ou Certo/Errado
+        const splitRegex = /(?=(?:^|\r?\n|\s+)(?:[A-E][.\)]|Certo:|Errado:|C[.\)]|E[.\)]))/gi;
+        const parts = text.split(splitRegex);
 
-        if (parts.length <= 1) return { statement: text, alternatives: [] };
+        if (parts.length <= 1) {
+            // Verifica se o gabarito ou o estilo da questão sugere binário (C/E)
+            const isBinaryStyle = /#GABARITO\s*[CE]|(Certo|Errado)/i.test(text) || (currentError.gabarito && /^[CE]$/i.test(String(currentError.gabarito)));
+            
+            return { 
+                statement: text.replace(/#GABARITO\s*[A-Ea-eCEce]/i, '').trim(), 
+                alternatives: isBinaryStyle ? [
+                    { letter: 'C', text: 'Certo' },
+                    { letter: 'E', text: 'Errado' }
+                ] : [],
+                isBinary: true 
+            };
+        }
 
         return {
             statement: (parts[0] || '').trim(),
-            alternatives: parts.slice(1).map(a => (a || '').trim()).filter(Boolean)
+            alternatives: parts.slice(1).map(a => {
+                const raw = (a || '').trim();
+                const match = raw.match(/^([A-E]|Certo|Errado|C|E)[.\)]?\s*/i);
+                let letter = match ? match[1].charAt(0).toUpperCase() : '';
+                
+                // Normaliza Certo/Errado para C/E
+                if (letter === 'C' && raw.toLowerCase().startsWith('certo')) letter = 'C';
+                if (letter === 'E' && raw.toLowerCase().startsWith('errado')) letter = 'E';
+
+                return { letter, text: raw };
+            }).filter(item => item.letter),
+            isBinary: false
         };
     }, [currentError]);
 
@@ -192,14 +215,25 @@ const RecoveryMode: React.FC<{
         return match ? match[1].toUpperCase() : '';
     };
 
-    const handleAnswer = async () => {
-        if (!userAnswer.trim() || isUpdating) return;
+    const handleAnswer = async (selectedLetter?: string) => {
+        const finalAnswer = selectedLetter || userAnswer;
+        if (!finalAnswer.trim() || isUpdating) return;
 
         const targetGabarito = getCalculatedGabarito().toLowerCase();
-        const cleanUserAnswer = userAnswer.trim().toLowerCase().replace(/[\s\)]/g, "").replace(/^letra/, "");
+        
+        // Normalização agressiva
+        const normalize = (val: string) => val.trim().toLowerCase()
+            .replace(/[\s\)]/g, "")
+            .replace(/^letra/, "")
+            .replace(/^certo$/, "c")
+            .replace(/^errado$/, "e");
 
-        const isCorrect = cleanUserAnswer === targetGabarito;
+        const cleanUserAnswer = normalize(finalAnswer);
+        const cleanTarget = normalize(targetGabarito);
+
+        const isCorrect = cleanUserAnswer === cleanTarget;
         setIsUpdating(true);
+        setUserAnswer(finalAnswer.toUpperCase());
 
         if (isCorrect) {
             setShowResult('correct');
@@ -272,13 +306,56 @@ const RecoveryMode: React.FC<{
 
                         {parsedContent.alternatives.length > 0 && (
                             <div className="grid grid-cols-1 gap-3">
-                                {parsedContent.alternatives.map((alt, idx) => (
-                                    <div
-                                        key={idx}
-                                        className="p-4 rounded-2xl bg-white/[0.02] border border-white/5 text-xs font-medium text-slate-400 leading-snug prose prose-sm prose-invert max-w-none"
-                                        dangerouslySetInnerHTML={{ __html: alt }}
-                                    />
-                                ))}
+                                {parsedContent.alternatives.map((alt, idx) => {
+                                    const isSelected = userAnswer.toUpperCase() === alt.letter.toUpperCase();
+                                    const isCorrectChoice = showResult === 'correct' && isSelected;
+                                    const isWrongChoice = showResult === 'wrong' && isSelected;
+
+                                    return (
+                                        <motion.button
+                                            key={idx}
+                                            whileHover={!showResult ? { scale: 1.01, x: 5 } : {}}
+                                            whileTap={!showResult ? { scale: 0.98 } : {}}
+                                            disabled={!!showResult || isUpdating}
+                                            onClick={() => handleAnswer(alt.letter)}
+                                            className={`w-full p-5 rounded-2xl border text-left transition-all relative overflow-hidden group/alt ${
+                                                isCorrectChoice ? 'bg-emerald-500/20 border-emerald-500/40' :
+                                                isWrongChoice ? 'bg-red-500/20 border-red-500/40' :
+                                                isSelected ? 'bg-[hsl(var(--accent)/0.2)] border-[hsl(var(--accent)/0.4)]' :
+                                                'bg-white/[0.02] border-white/5 hover:border-white/20 hover:bg-white/[0.05]'
+                                            }`}
+                                        >
+                                            <div className="flex items-start gap-4 relative z-10">
+                                                <div className={`w-8 h-8 rounded-xl flex items-center justify-center shrink-0 font-black text-sm border transition-colors ${
+                                                    isCorrectChoice ? 'bg-emerald-500 text-black border-emerald-400' :
+                                                    isWrongChoice ? 'bg-red-500 text-white border-red-400' :
+                                                    isSelected ? 'bg-[hsl(var(--accent))] text-black border-[hsl(var(--accent))]' :
+                                                    'bg-white/5 text-slate-400 border-white/10 group-hover/alt:border-white/30'
+                                                }`}>
+                                                    {alt.letter}
+                                                </div>
+                                                <div 
+                                                    className={`text-xs font-medium leading-relaxed prose prose-sm prose-invert max-w-none transition-colors ${
+                                                        isCorrectChoice ? 'text-emerald-200' :
+                                                        isWrongChoice ? 'text-red-200' :
+                                                        isSelected ? 'text-[hsl(var(--accent))]' :
+                                                        'text-slate-400 group-hover/alt:text-slate-200'
+                                                    }`}
+                                                    dangerouslySetInnerHTML={{ __html: alt.text }}
+                                                />
+                                            </div>
+                                            
+                                            {/* Efeito de brilho ao acertar */}
+                                            {isCorrectChoice && (
+                                                <motion.div 
+                                                    initial={{ opacity: 0 }}
+                                                    animate={{ opacity: 1 }}
+                                                    className="absolute inset-0 bg-gradient-to-r from-emerald-500/10 to-transparent pointer-events-none"
+                                                />
+                                            )}
+                                        </motion.button>
+                                    );
+                                })}
                             </div>
                         )}
                     </div>
@@ -297,14 +374,16 @@ const RecoveryMode: React.FC<{
                                     onKeyDown={e => e.key === 'Enter' && handleAnswer()}
                                 />
                             </div>
-                            <button
-                                onClick={handleAnswer}
-                                disabled={!userAnswer.trim() || isUpdating}
-                                className="w-full py-4 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent))] brightness-90 hover:brightness-110 text-black font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 group"
-                            >
-                                {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
-                                Confirmar Resposta
-                            </button>
+                            <div className="flex gap-3">
+                                <button
+                                    onClick={() => handleAnswer()}
+                                    disabled={!userAnswer.trim() || isUpdating}
+                                    className="flex-1 py-4 rounded-2xl bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent))] brightness-90 hover:brightness-110 text-black font-black uppercase tracking-widest text-xs transition-all flex items-center justify-center gap-2 group"
+                                >
+                                    {isUpdating ? <Loader2 className="animate-spin" size={16} /> : <Check size={16} />}
+                                    Confirmar Resposta
+                                </button>
+                            </div>
                         </div>
                     ) : (
                         <motion.div
