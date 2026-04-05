@@ -18,11 +18,35 @@ export const studyRecordsQueries = {
         return data ?? [];
     },
 
-    /** Insere um ou mais registros de estudo */
+    /** Insere um ou mais registros de estudo com whitelist de colunas */
     async insert(records: Partial<StudyRecord> | Partial<StudyRecord>[]) {
-        const payload = Array.isArray(records) ? records : [records];
+        const recordsArray = Array.isArray(records) ? records : [records];
+        
+        const payload = recordsArray.map(r => ({
+            id: r.id, // Supabase gera UUID se omitido, mas usamos o gerado no Dexie/Front
+            user_id: r.user_id,
+            concurso: r.concurso,
+            materia: r.materia,
+            assunto: r.assunto,
+            data_estudo: r.data_estudo,
+            acertos: r.acertos,
+            total: r.total,
+            taxa: r.taxa,
+            tempo: r.tempo,
+            comentarios: r.comentarios || null,
+            rev_24h: r.rev_24h,
+            rev_07d: r.rev_07d,
+            rev_15d: r.rev_15d,
+            rev_30d: r.rev_30d,
+            tipo: r.tipo || 'Estudo', // Agora que o SQL foi aplicado, podemos enviar
+            analise_erros: r.analise_erros && r.analise_erros.length > 0 ? r.analise_erros : null
+        }));
+
         const { error } = await supabase.from('registros_estudos').insert(payload);
-        if (error) throw error;
+        if (error) {
+            console.error('❌ Erro no Supabase (Insert):', error.message, error.details);
+            throw error;
+        }
     },
 
     /** Atualiza um registro existente */
@@ -43,6 +67,7 @@ export const studyRecordsQueries = {
             rev_07d: record.rev_07d,
             rev_15d: record.rev_15d,
             rev_30d: record.rev_30d,
+            tipo: record.tipo || 'Estudo', // Adicionado no whitelist de update também
             analise_erros: record.analise_erros && record.analise_erros.length > 0 ? record.analise_erros : null
         };
 

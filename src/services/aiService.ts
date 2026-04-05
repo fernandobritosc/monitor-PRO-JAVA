@@ -404,7 +404,7 @@ export const generateAIContent = async (
   geminiKey?: string,
   groqKey?: string,
   preferredProvider?: AIProviderName,
-  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' | 'macro_diagnostico' = 'general'
+  context: 'flashcard' | 'general' | 'mapa' | 'tabela' | 'fluxo' | 'info' | 'analise_erros' | 'macro_diagnostico' | 'explicar_erro' | 'chat_error_vault' = 'general'
 ): Promise<string> => {
   const contentToAnalyze = typeof prompt === 'string' ? prompt : prompt.content;
   const statsToAnalyze = typeof prompt === 'string' ? {} : (prompt.stats || {});
@@ -497,6 +497,53 @@ export const generateAIContent = async (
         "minha_resposta": "Letra ou resposta do aluno detectada (Ex: E)"
       }
     ]`;
+  } else if (context === 'explicar_erro') {
+    const ctx = JSON.parse(contentToAnalyze);
+    const statusText = ctx.isCorrect ? "ACERTOU (Reforço positivo e aprofundamento)" : `ERROU (${ctx.tipo_erro})`;
+    
+    finalPrompt = `Você é o Mentor Neural do MonitorPro, um especialista em didática para concursos de elite.
+Sua missão é discutir a questão abaixo com o aluno. O aluno ${statusText}.
+
+CONTEXTO DA QUESTÃO:
+- Matéria: ${ctx.materia}
+- Assunto: ${ctx.assunto}
+- Questão (Enunciado): ${ctx.question}
+- Gabarito Oficial: ${ctx.gabarito}
+- Tentativas anteriores: ${ctx.attempts}
+
+ESTRUTURA DA RESPOSTA (Markdown Premium):
+# ${ctx.isCorrect ? 'DOMÍNIO TÉCNICO' : 'O CONCEITO CHAVE'}
+[${ctx.isCorrect ? 'Parabenize pelo acerto e aprofunde o detalhe técnico que diferencia o aprovado do amador.' : 'Explique o núcleo jurídico/técnico do assunto de forma cristalina. Foque no que o aluno NÃO percebeu.'}]
+
+# ${ctx.isCorrect ? 'DETALHE DE ELITE' : 'POR QUE VOCÊ ERROU?'}
+[${ctx.isCorrect ? 'Aponte uma pegadinha que essa mesma questão poderia ter ou um desdobramento avançado desse tema.' : `Análise clínica baseada no tipo de erro (${ctx.tipo_erro}). Identifique o gatilho da falha.`}]
+
+# MEMORIZAÇÃO DEFINITIVA
+[Dê uma dica prática, mnemônico ou técnica para NUNCA MAIS esquecer este ponto específico.]
+
+REGRAS: 
+1. Tom de mentor de alta performance (direto, técnico, focado em evolução).
+2. Proibido negrito (**).
+3. Sem saudações.`;
+  } else if (context === 'chat_error_vault') {
+    const ctx = JSON.parse(contentToAnalyze);
+    finalPrompt = `Você é o Mentor Neural do MonitorPro. Você está conversando com um aluno sobre uma questão específica de ${ctx.materia} (${ctx.assunto}).
+    Gabarito Oficial: ${ctx.gabarito}.
+    O aluno está tirando dúvidas sobre esta questão. Responda de forma técnica, direta e pedagógica.
+    
+    CONTEXTO DA QUESTÃO:
+    ${ctx.question}
+    
+    HISTÓRICO DA CONVERSA ATUAL:
+    ${JSON.stringify(ctx.history)}
+    
+    ÚLTIMA PERGUNTA DO ALUNO:
+    ${ctx.lastMessage}
+    
+    REGRAS:
+    1. Responda em no máximo 2 parágrafos.
+    2. Proibido negrito (**).
+    3. Seja um mentor de elite: desafie o aluno a pensar.`;
   } else if (context === 'macro_diagnostico') {
     const reports = JSON.stringify(contentToAnalyze);
     finalPrompt = `Você é um Mentor de Elite para Concursos Públicos. 

@@ -151,13 +151,23 @@ const HomeView: React.FC = () => {
   const summaryRecords = records.filter(r => (missaoAtiva === 'Escolha a sua missão' || !missaoAtiva ? true : r.concurso === missaoAtiva) && r.data_estudo === summaryDate);
 
   const summaryStatsByMateria = useMemo(() => {
-    const stats: Record<string, { time: number; questions: number }> = {};
+    const stats: Record<string, { time: number; questions: number; tipo: string }> = {};
     summaryRecords.forEach(r => {
-      if (!stats[r.materia]) stats[r.materia] = { time: 0, questions: 0 };
-      stats[r.materia].time += r.tempo;
-      stats[r.materia].questions += r.total;
+      const type = r.tipo || 'Estudo';
+      const key = `${r.materia}|${type}`;
+      if (!stats[key]) stats[key] = { time: 0, questions: 0, tipo: type };
+      stats[key].time += r.tempo;
+      stats[key].questions += r.total;
     });
-    return Object.entries(stats).sort((a, b) => b[1].time - a[1].time);
+    
+    return Object.entries(stats)
+      .map(([key, data]) => ({
+        materia: key.split('|')[0],
+        tipo: data.tipo,
+        time: data.time,
+        questions: data.questions
+      }))
+      .sort((a, b) => b.time - a.time);
   }, [summaryRecords]);
 
   const summaryMinutes = summaryRecords.reduce((acc, r) => acc + r.tempo, 0);
@@ -506,15 +516,22 @@ return (
                 <p className="text-xs font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em]">Nenhum registro</p>
               </div>
             ) : (
-              summaryStatsByMateria.map(([materia, stats], index) => (
+              summaryStatsByMateria.map((data, index) => (
                 <div key={index} className="flex items-center justify-between p-4 rounded-2xl bg-[hsl(var(--bg-user-block)/0.3)] border border-transparent hover:border-[hsl(var(--border))] hover:bg-[hsl(var(--bg-user-block)/0.5)] transition-all group">
                   <div className="flex items-center gap-4">
-                    <div className="w-1 h-8 bg-[hsl(var(--accent))] rounded-full opacity-40 group-hover:opacity-100" />
-                    <span className="text-sm font-bold text-[hsl(var(--text-bright))] tracking-tight">{materia}</span>
+                    <div className={`w-1 h-8 rounded-full opacity-40 group-hover:opacity-100 ${data.tipo === 'Revisão' ? 'bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.4)]' : 'bg-[hsl(var(--accent))]'}`} />
+                    <div className="flex flex-col">
+                      <span className="text-sm font-bold text-[hsl(var(--text-bright))] tracking-tight leading-none group-hover:text-[hsl(var(--accent))] transition-colors">
+                        {data.materia}
+                      </span>
+                      <span className={`text-[7px] font-black uppercase tracking-[0.2em] mt-1.5 w-fit px-2 py-0.5 rounded-sm ${data.tipo === 'Revisão' ? 'bg-amber-500/10 text-amber-500 border border-amber-500/20' : 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))] border border-[hsl(var(--accent)/0.1)]'}`}>
+                        {data.tipo}
+                      </span>
+                    </div>
                   </div>
                   <div className="text-right">
-                    <div className="text-xs font-black text-[hsl(var(--accent))]">{formatTime(stats.time)}</div>
-                    <div className="text-[9px] text-[hsl(var(--text-muted))] font-bold uppercase tracking-widest mt-1">{stats.questions} Questões</div>
+                    <div className="text-xs font-black text-[hsl(var(--text-bright))]">{formatTime(data.time)}</div>
+                    <div className="text-[9px] text-[hsl(var(--text-muted))] font-bold uppercase tracking-widest mt-1">{data.questions} Questões</div>
                   </div>
                 </div>
               ))
