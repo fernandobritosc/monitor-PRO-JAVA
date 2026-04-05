@@ -47,7 +47,8 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
             });
 
             if (invokeError) {
-                throw new Error(invokeError.message || "Erro ao invocar função de IA");
+                const errorDetail = invokeError.message || "Erro ao invocar função de IA";
+                throw new Error(errorDetail);
             }
 
             // O backend já retorna o campo 'text' limpo

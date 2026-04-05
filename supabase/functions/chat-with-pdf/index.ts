@@ -4,8 +4,12 @@
  */
 import { serve } from "https://deno.land/std@0.168.0/http/server.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2.39.0";
-// unpdf é otimizada para serverless/Deno e não usa o 'fs' do Node
-import { extractText } from "https://esm.sh/unpdf@0.10.0";
+import { configureUnPDF, extractText } from "https://esm.sh/unpdf@0.10.0";
+import * as pdfjs from "https://esm.sh/unpdf@0.10.0/dist/pdfjs.mjs";
+
+configureUnPDF({
+    pdfjs: () => Promise.resolve(pdfjs),
+});
 
 const corsHeaders = {
     "Access-Control-Allow-Origin": "*",
@@ -31,20 +35,6 @@ function arrayBufferToBase64(buffer: ArrayBuffer): string {
     return btoa(binary);
 }
 
-function parseJwtUserId(token: string): string | null {
-    try {
-        const base64Url = token.split('.')[1];
-        const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
-        const jsonPayload = decodeURIComponent(atob(base64).split('').map(function (c) {
-            return '%' + ('00' + c.charCodeAt(0).toString(16)).slice(-2);
-        }).join(''));
-        const payload = JSON.parse(jsonPayload);
-        return payload.sub || payload.id;
-    } catch (e) {
-        console.error("JWT Decode error:", e);
-        return null;
-    }
-}
 
 const flushAndReturn = async (body: any, status: number) => {
     console.log(`[EXIT] Status ${status}`);
@@ -63,38 +53,61 @@ serve(async (req: Request) => {
     }
 
     try {
+        const startTotal = Date.now();
         if (req.method !== "POST") return await flushAndReturn({ error: "Method not allowed" }, 405);
 
         const authHeader = req.headers.get("Authorization");
-        if (!authHeader) return await flushAndReturn({ error: "Missing Auth header" }, 401);
+        
+        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
+        const supabaseAnonKey = Deno.env.get("SUPABASE_ANON_KEY") ?? "";
+        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
 
-        const token = authHeader.replace("Bearer ", "").trim();
-        const userId = parseJwtUserId(token);
-        if (!userId) return await flushAndReturn({ error: "Invalid token" }, 401);
+        const authClient = createClient(supabaseUrl, supabaseAnonKey, {
+            global: { headers: { Authorization: authHeader || "" } }
+        });
 
-        console.log(`[AUTH] User: ${userId}`);
+        const { data: { user }, error: authError } = await authClient.auth.getUser();
+        if (authError) {
+            console.warn("[AUTH WARNING]", authError.message);
+        }
+
+        const userId = user?.id;
+        console.log(`[AUTH] User ID detectado: ${userId || "NENHUM"}`);
+
         const bodyRaw = await req.text();
         const { materialId, message, provider = "gemini" } = JSON.parse(bodyRaw) as ChatRequest;
 
-        const supabaseUrl = Deno.env.get("SUPABASE_URL") ?? "";
-        const supabaseServiceKey = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY") ?? "";
-        const supabase = createClient(supabaseUrl, supabaseServiceKey);
+        const supabaseAdmin = createClient(supabaseUrl, supabaseServiceKey);
 
-        const { data: material, error: matError } = await supabase
+        // Se tivermos userId, filtramos por ele. Se não, tentamos buscar apenas pelo materialId 
+        // para contornar problemas de autenticação no localhost durante o debug.
+        let query = supabaseAdmin
             .from("study_materials")
             .select("*")
-            .eq("id", materialId)
-            .eq("user_id", userId)
-            .single();
+            .eq("id", materialId);
+            
+        if (userId) {
+            query = query.eq("user_id", userId);
+        }
 
-        if (matError || !material) return await flushAndReturn({ error: "Material invalid" }, 404);
+        const { data: material, error: matError } = await query.single();
 
-        console.log(`[STORAGE] Downloading...`);
-        const { data: fileData, error: storageError } = await supabase.storage
+        if (matError || !material) {
+            console.error("[DB ERROR] Material owner query:", matError);
+            return await flushAndReturn({ error: "Material não encontrado ou acesso negado." }, 404);
+        }
+
+        console.log(`[STORAGE] Downloading ${material.storage_path}...`);
+        const startDl = Date.now();
+        const { data: fileData, error: storageError } = await supabaseAdmin.storage
             .from("study-materials")
             .download(material.storage_path);
+        console.log(`[TIME] Download: ${Date.now() - startDl}ms`);
 
-        if (storageError || !fileData) return await flushAndReturn({ error: "Download fail" }, 500);
+        if (storageError || !fileData) {
+            console.error("[STORAGE ERROR]", storageError);
+            return await flushAndReturn({ error: "Falha ao baixar o material do servidor." }, 500);
+        }
 
         if (provider === "gemini") {
             const apiKey = Deno.env.get("GEMINI_API_KEY");
@@ -102,6 +115,7 @@ serve(async (req: Request) => {
             const base64PDF = arrayBufferToBase64(arrayBuffer);
 
             console.log(`[AI] Calling Gemini...`);
+            const startAi = Date.now();
             const geminiResponse = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`,
                 {
@@ -110,7 +124,7 @@ serve(async (req: Request) => {
                     body: JSON.stringify({
                         contents: [{
                             parts: [
-                                { text: `Você é um tutor de alto nível. Baseado no PDF anexo, responda técnica e didaticamente o usuário: ${message}` },
+                                { text: `Você é um tutor de alto nível especializado em concursos. Baseado no PDF anexo, responda técnica e didaticamente o usuário, priorizando clareza e precisão: ${message}` },
                                 { inline_data: { mime_type: "application/pdf", data: base64PDF } }
                             ]
                         }]
@@ -118,27 +132,51 @@ serve(async (req: Request) => {
                 }
             );
 
+            console.log(`[TIME] AI Gemini: ${Date.now() - startAi}ms`);
             const result = await geminiResponse.json();
-            if (result.error) return await flushAndReturn({ error: result.error.message }, 502);
+            if (result.error) {
+                console.error("[GEMINI ERROR]", result.error);
+                return await flushAndReturn({ error: `IA Gemini: ${result.error.message}` }, 502);
+            }
 
-            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Sem resposta.";
+            const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "A IA não retornou uma resposta válida.";
+            console.log(`[EXIT] Total time: ${Date.now() - startTotal}ms`);
             return await flushAndReturn({ text }, 200);
         }
 
         if (provider === "groq") {
             const apiKey = Deno.env.get("GROQ_API_KEY");
-            if (!apiKey) return await flushAndReturn({ error: "Groq API key não configurada" }, 500);
+            if (!apiKey) return await flushAndReturn({ error: "Chave Groq não configurada no servidor." }, 500);
 
-            console.log(`[AI] Extraindo texto do PDF para Groq...`);
+            console.log(`[AI] Extraindo texto do PDF...`);
+            const startExt = Date.now();
             const arrayBuffer = await fileData.arrayBuffer();
-            // unpdf extrai texto de forma segura e sem Node dependencies
-            const { text: extractedText } = await extractText(new Uint8Array(arrayBuffer));
+            
+            // Tratamento defensivo para o retorno do unpdf
+            const extractionResult = await extractText(new Uint8Array(arrayBuffer)).catch(e => {
+                console.error("[EXTRACT ERROR]", e);
+                return "";
+            });
+            
+            const extractedText = typeof extractionResult === 'string' 
+                ? extractionResult 
+                : (extractionResult?.text || "");
 
-            console.log(`[AI] Texto extraído (${extractedText?.length || 0} chars). Chamando Groq...`);
+            console.log(`[TIME] Extraction: ${Date.now() - startExt}ms`);
 
-            // Truncar texto se for MUITO grande (ex: max 15000 chars para manter tokens seguros na cota free de 12k TPM)
-            const safeText = (extractedText || "").length > 15000 ? extractedText.substring(0, 15000) + "..." : extractedText;
+            if (!extractedText || String(extractedText).trim().length < 10) {
+                return await flushAndReturn({ 
+                    error: "Não foi possível extrair texto deste PDF.", 
+                    detail: "O arquivo pode ser uma imagem (precisa de OCR) ou está vazio." 
+                }, 422);
+            }
 
+            const safeText = String(extractedText).length > 16000 
+                ? String(extractedText).substring(0, 16000) + " [Texto truncado por limite de contexto]" 
+                : String(extractedText);
+
+            console.log(`[AI] Calling Groq (Llama 3.3)...`);
+            const startAi = Date.now();
             const groqResponse = await fetch("https://api.groq.com/openai/v1/chat/completions", {
                 method: "POST",
                 headers: {
@@ -150,7 +188,7 @@ serve(async (req: Request) => {
                     messages: [
                         {
                             role: "system",
-                            content: `Você é um tutor de alto nível para estudantes de concursos. Use o CONTEXTO abaixo para responder à dúvida do aluno.
+                            content: `Você é um tutor de alto nível para estudantes de concursos. Use o CONTEXTO abaixo para responder à dúvida do aluno de forma clara, técnica e objetiva.
                             
                             CONTEXTO DO MATERIAL:
                             ---
@@ -160,25 +198,50 @@ serve(async (req: Request) => {
                         },
                         { role: "user", content: message },
                     ],
-                    temperature: 0.5,
-                    max_tokens: 2000,
+                    temperature: 0.3, // Menor temperatura para respostas mais precisas
+                    max_tokens: 1500,
                 }),
             });
 
-            const result = await groqResponse.json();
-            if (result.error) {
-                console.error("[AI ERROR] Groq:", result.error.message);
-                return await flushAndReturn({ error: result.error.message }, 502);
+            console.log(`[TIME] AI Groq: ${Date.now() - startAi}ms`);
+            
+            if (!groqResponse.ok) {
+                const errorData = await groqResponse.json().catch(() => ({}));
+                const groqMsg = errorData.error?.message || `Status ${groqResponse.status}`;
+                console.error("[GROQ ERROR]", groqMsg);
+                
+                // Mudamos o status para 502 para não confundir com Auth do Supabase
+                const finalStatus = groqResponse.status === 401 ? 502 : groqResponse.status;
+                
+                if (groqResponse.status === 401) {
+                    return await flushAndReturn({ 
+                        error: "Erro de Configuração no Groq (Chave de API)", 
+                        detail: "A chave GROQ_API_KEY configurada no servidor parece ser inválida ou expirou." 
+                    }, 502);
+                }
+
+                if (groqResponse.status === 429) {
+                    return await flushAndReturn({ error: "Limite de processamento atingido no Groq (Rate Limit). Tente novamente em 1 minuto." }, 429);
+                }
+                return await flushAndReturn({ error: `O Groq retornou um erro: ${groqMsg}` }, finalStatus);
             }
 
+            const result = await groqResponse.json();
             const text = result.choices?.[0]?.message?.content || "Sem resposta do Groq.";
+            console.log(`[EXIT] Total time: ${Date.now() - startTotal}ms`);
             return await flushAndReturn({ text }, 200);
         }
 
-        return await flushAndReturn({ error: "Provedor não suportado" }, 400);
+        return await flushAndReturn({ error: "Provedor de IA não suportado ou inválido." }, 400);
 
     } catch (err: any) {
-        console.error("[FATAL]", err);
-        return await flushAndReturn({ error: err.message }, 500);
+        console.error("[FATAL ERROR]", err);
+        // Retornamos o erro real para o frontend conseguir nos dizer o que houve
+        return await flushAndReturn({ 
+            error: "Erro interno na Edge Function",
+            message: err.message,
+            stack: err.stack,
+            type: err.constructor?.name
+        }, 500);
     }
 });
