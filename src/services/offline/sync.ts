@@ -43,17 +43,22 @@ export const syncService = {
     async saveAttempt(record: any) {
         const isOnline = navigator.onLine;
 
+        // Gera ID antecipadamente caso não exista (Paridade local/cloud)
+        const finalRecord = {
+            ...record,
+            id: record.id || crypto.randomUUID()
+        };
+
         // Salva localmente primeiro (Always Local-First para rapidez)
         const localId = await db.studyRecords.add({
-            ...record,
-            id: record.id || crypto.randomUUID(),
+            ...finalRecord,
             syncStatus: isOnline ? 'synced' : 'pending',
             lastModified: Date.now()
         });
 
         if (isOnline) {
             try {
-                await studyRecordsQueries.insert(record);
+                await studyRecordsQueries.insert(finalRecord);
             } catch (err) {
                 console.warn('Falha ao salvar no cloud, retornando para pendente local:', err);
                 await db.studyRecords.update(localId, { syncStatus: 'pending' });
