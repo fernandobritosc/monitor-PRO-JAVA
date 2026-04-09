@@ -14,7 +14,20 @@ import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 // Declarações para TypeScript reconhecer as bibliotecas globais
 declare global {
   interface Window {
-    pdfjsLib: any;
+    pdfjsLib: {
+      GlobalWorkerOptions: {
+        workerSrc: string;
+      };
+      getDocument: (params: { data: ArrayBuffer }) => {
+        promise: Promise<{
+          numPages: number;
+          getPage: (num: number) => Promise<{
+            getViewport: (params: { scale: number }) => { width: number; height: number };
+            render: (params: { canvasContext: CanvasRenderingContext2D; viewport: any }) => { promise: Promise<void> };
+          }>;
+        }>;
+      };
+    };
     jspdf: any;
   }
 }
@@ -64,20 +77,17 @@ const singleResponseSchema = {
   required: ["alternativa_correta_ia", "justificativa"]
 };
 
-const responseSchema = {
-  type: Type.ARRAY,
-  items: {
-    type: Type.OBJECT,
-    properties: {
-      numero_questao: { type: Type.INTEGER },
-      enunciado: { type: Type.STRING, description: "O texto completo do enunciado da questão." },
-      alternativa_correta_ia: { type: Type.STRING },
-      justificativa: { type: Type.STRING }
-    },
-    required: ["numero_questao", "enunciado", "alternativa_correta_ia", "justificativa"]
-  }
-};
+interface AIAnalysisPageResult {
+  numero_questao: number;
+  enunciado: string;
+  alternativa_correta_ia: string;
+  justificativa: string;
+}
 
+interface SingleQuestionAnalysisResult {
+  alternativa_correta_ia: string;
+  justificativa: string;
+}
 
 const GabaritoIA: React.FC = () => {
   const [activeTab, setActiveTab] = useState<'new' | 'history'>('new');
@@ -109,9 +119,10 @@ const GabaritoIA: React.FC = () => {
     try {
       const data = await gabaritosQueries.getAll();
       setSavedGabaritos(data || []);
-    } catch (err: any) {
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
       logger.error('DATA', 'Erro ao buscar histórico', err);
-      if (err.message && err.message.includes('relation "public.gabaritos_salvos" does not exist')) {
+      if (message.includes('relation "public.gabaritos_salvos" does not exist')) {
         setError("Tabela de gabaritos não encontrada. Execute o script SQL em Configurações > Diagnóstico.");
       }
     } finally {
@@ -170,20 +181,37 @@ const GabaritoIA: React.FC = () => {
         // Mas para manter a consistência com o pedido de resiliência, usaremos o serviço unificado.
 
         try {
-          const pageResults = parseAIJSON(responseText) as any;
+          const pageResults = parseAIJSON(responseText) as AIAnalysisPageResult[];
           if (Array.isArray(pageResults)) allResults.push(...pageResults);
-        } catch (e) { logger.warn('AI', `Página ${i} JSON inválido.`); }
+        } catch (e) { 
+          logger.warn('AI', `Página ${i} JSON inválido.`); 
+        }
       }
 
       const sortedResults = allResults.sort((a, b) => a.numero_questao - b.numero_questao);
 
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado para salvar a análise.");
 
-      const newRecord = await gabaritosQueries.insert({ user_id: user.id, file_name: file.name, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} });
+      const newRecord = await gabaritosQueries.insert({ 
+        user_id: user.id, 
+        file_name: file.name, 
+        results_json: sortedResults, 
+        user_answers_json: {}, 
+        official_answers_json: {} 
+      });
 
-      fetchHistory(); setSelectedGabarito(newRecord as SavedGabarito); setUserAnswers({}); setOfficialAnswers({});
-    } catch (err: any) { setError("Falha na análise: " + err.message); logger.error('AI', 'Falha na IA PDF', err); } finally { setProcessing(false); }
+      fetchHistory(); 
+      setSelectedGabarito(newRecord as SavedGabarito); 
+      setUserAnswers({}); 
+      setOfficialAnswers({});
+    } catch (err) { 
+      const message = err instanceof Error ? err.message : String(err);
+      setError("Falha na análise: " + message); 
+      logger.error('AI', 'Falha na IA PDF', err); 
+    } finally { 
+      setProcessing(false); 
+    }
   };
 
   const handleManualAnalyze = async () => {
@@ -201,20 +229,29 @@ const GabaritoIA: React.FC = () => {
 
       let analysisResults: GabaritoItem[] = [];
       try {
-        const parsed = parseAIJSON(responseText) as any;
+        const parsed = parseAIJSON(responseText) as GabaritoItem[];
         if (!Array.isArray(parsed)) throw new Error("AI did not return an array.");
         analysisResults = parsed;
       } catch (e) { throw new Error("A IA retornou um formato de dados inválido."); }
 
       const sortedResults = analysisResults.sort((a, b) => a.numero_questao - b.numero_questao);
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado para salvar a análise.");
 
       const fileName = `Análise Manual - ${new Date().toLocaleDateString('pt-BR')}`;
       const newRecord = await gabaritosQueries.insert({ user_id: user.id, file_name: fileName, results_json: sortedResults, user_answers_json: {}, official_answers_json: {} });
 
-      fetchHistory(); setSelectedGabarito(newRecord as SavedGabarito); setUserAnswers({}); setOfficialAnswers({});
-    } catch (err: any) { setError("Falha na análise manual: " + err.message); logger.error('AI', 'Falha na IA TXT', err); } finally { setProcessing(false); }
+      fetchHistory(); 
+      setSelectedGabarito(newRecord as SavedGabarito); 
+      setUserAnswers({}); 
+      setOfficialAnswers({});
+    } catch (err) { 
+      const message = err instanceof Error ? err.message : String(err);
+      setError("Falha na análise manual: " + message); 
+      logger.error('AI', 'Falha na IA TXT', err); 
+    } finally { 
+      setProcessing(false); 
+    }
   };
 
   const handleManualAddAndAnalyze = async () => {
@@ -236,7 +273,7 @@ const GabaritoIA: React.FC = () => {
         getGroqKey()
       );
 
-      const newQuestionPartial = parseAIJSON(responseText) as any;
+      const newQuestionPartial = parseAIJSON(responseText) as SingleQuestionAnalysisResult;
       const newQuestion: GabaritoItem = {
         numero_questao: parseInt(manualQuestionData.numero),
         enunciado: manualQuestionData.enunciado,
@@ -254,8 +291,9 @@ const GabaritoIA: React.FC = () => {
       setShowManualAddModal(false);
       setManualQuestionData({ numero: '', enunciado: '', alternativas: '' });
 
-    } catch (err: any) {
-      setManualAddError("Falha na análise da IA: " + err.message);
+    } catch (err) {
+      const message = err instanceof Error ? err.message : String(err);
+      setManualAddError("Falha na análise da IA: " + message);
     } finally {
       setManualAddLoading(false);
     }
@@ -332,7 +370,8 @@ const GabaritoIA: React.FC = () => {
     doc.text("Informações da Análise", 14, currentY);
     currentY += 5;
 
-    (doc as any).autoTable({
+    const autoTableDoc = doc as any;
+    autoTableDoc.autoTable({
       startY: currentY,
       body: [
         ['ALUNO(A)', user?.email || 'N/A'],
@@ -344,7 +383,7 @@ const GabaritoIA: React.FC = () => {
       styles: { fontSize: 9, cellPadding: 2 },
       columnStyles: { 0: { fontStyle: 'bold', textColor: [100, 100, 100] } },
     });
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    currentY = autoTableDoc.lastAutoTable.finalY + 10;
 
     // SUMMARY
     doc.setFontSize(14);

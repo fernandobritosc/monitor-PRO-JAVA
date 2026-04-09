@@ -2,10 +2,10 @@ import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { useFlashcards } from '../hooks/useFlashcards';
 import {
   Zap, Plus, Trash2, Layers, Brain, CheckCircle2, RotateCcw,
-  Loader2, Filter, BookOpen, Edit2, Save, X, DownloadCloud,
-  Globe, Database, Copy, ChevronDown, Eye, Sparkles, AlertTriangle, Volume2, Info, Lock, ChevronLeft, ChevronRight, Trophy, Target, Tag, Send, MessageSquarePlus, ChevronUp, Headphones, Square, Mic2, FileAudio, RefreshCw, User, Music, FileText, Share2, ArrowRightLeft, Table, Map as MapIcon
+  Loader2, Filter, BookOpen, Edit2, Save, X, DownloadCloud, Eye,
+  Globe, Database, Copy, ChevronDown, Sparkles, Volume2, Lock, ChevronLeft, ChevronRight, Trophy, Tag, Send, MessageSquarePlus, ChevronUp, Headphones, Mic2, RefreshCw, User, Music, FileText, ArrowRightLeft, Table, Map as MapIcon
 } from 'lucide-react';
-import { EditalMateria, Flashcard } from '../types';
+import { EditalMateria, Flashcard, CommunityDeck } from '../types';
 import { CustomSelector } from '../components/CustomSelector';
 import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 import { AIContentBox } from '../components/shared/AIContentBox';
@@ -47,7 +47,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
 
   const [showImportTxtModal, setShowImportTxtModal] = useState(false);
   const [rawImportText, setRawImportText] = useState('');
-  const [txtPreviewCards, setTxtPreviewCards] = useState<any[]>([]);
+  const [txtPreviewCards, setTxtPreviewCards] = useState<Partial<Flashcard>[]>([]);
   const [importMateria, setImportMateria] = useState('');
   const [importAssunto, setImportAssunto] = useState('');
 
@@ -177,7 +177,17 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                     </button>
                   </div>
 
-                  <button onClick={startStudySession} className="w-full lg:w-auto px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-500 text-[hsl(var(--bg-main))] rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all shadow-xl shadow-green-500/20 hover:scale-105 active:scale-95">
+                  <button 
+                    onClick={() => {
+                      if (studyQueue.length > 0) {
+                        if (!window.confirm("Você já tem uma sessão em andamento. Deseja reiniciar e perder o progresso atual?")) {
+                          return;
+                        }
+                      }
+                      startStudySession();
+                    }} 
+                    className="w-full lg:w-auto px-10 py-4 bg-gradient-to-r from-green-600 to-emerald-500 text-[hsl(var(--bg-main))] rounded-2xl font-black uppercase tracking-widest text-[10px] flex items-center justify-center gap-3 transition-all shadow-xl shadow-green-500/20 hover:scale-105 active:scale-95"
+                  >
                     <Zap size={18} /> Iniciar Protocolo
                   </button>
                 </div>
@@ -624,7 +634,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                   <CustomSelector
                     label="Matéria"
                     value={newCard.materia}
-                    options={materias.filter((m: string) => m !== 'Todas' && m !== 'Todos')}
+                    options={materias.filter((m) => m !== 'Todas' && m !== 'Todos')}
                     onChange={(val) => setNewCard({ ...newCard, materia: val })}
                     placeholder="Selecione a disciplina..."
                   />
@@ -656,16 +666,16 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                     {showTopicsDropdown && availableTopics.length > 0 && (
                       <div className="absolute top-full left-0 right-0 mt-3 bg-[#1a1d26] border border-white/10 rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 backdrop-blur-3xl">
                         <div
-                          onClick={() => { setNewCard((prev: any) => ({ ...prev, assunto: '' })); setShowTopicsDropdown(false); }}
+                          onClick={() => { setNewCard((prev) => ({ ...prev, assunto: '' })); setShowTopicsDropdown(false); }}
                           className="px-6 py-4 text-[10px] font-black text-slate-500 uppercase tracking-widest hover:bg-white/5 cursor-pointer border-b border-white/5 transition-all"
                         >
                           Limpar Seleção
                         </div>
-                        {availableTopics.map((t: string, idx: number) => (
+                        {availableTopics.map((t, idx) => (
                           <div
                             key={idx}
                             onClick={() => {
-                              setNewCard((prev: any) => ({ ...prev, assunto: t }));
+                              setNewCard((prev) => ({ ...prev, assunto: t }));
                               setShowTopicsDropdown(false);
                             }}
                             className={`px-6 py-4 text-xs font-bold transition-all border-b border-white/5 last:border-0 hover:bg-white/5 cursor-pointer flex items-center gap-3 ${newCard.assunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-slate-300'}`}
@@ -832,9 +842,9 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
         previewDeck && (
           <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[120] flex items-center justify-center p-4">
             <div className="bg-slate-950 border border-slate-700 w-full max-w-5xl rounded-2xl p-6 relative shadow-2xl flex flex-col max-h-[90vh]">
-              <div className="flex justify-between items-center mb-6"><div><h3 className="text-xl font-bold text-white flex items-center gap-2"><Eye className="text-cyan-400" /> {previewDeck.materia}</h3><p className="text-slate-400 text-sm">{previewDeck.count} cards disponíveis para importação</p></div><button onClick={() => setPreviewDeck(null)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><X size={20} /></button></div>
-              {previewTopics.length > 0 && (<div className="mb-4 bg-slate-900/50 p-4 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Tag size={12} /> Importar por Assunto (Tópico)</h4><div className="flex flex-wrap gap-2">{previewTopics.map((topic: string) => (<button key={topic} onClick={() => handleImportTopic(topic)} disabled={importingState.loading} className="bg-slate-800 hover:bg-cyan-600 hover:text-white text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/5 transition-all flex items-center gap-1.5"><DownloadCloud size={10} />{topic}</button>))}</div></div>)}
-              <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30 rounded-xl border border-white/5 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{previewDeck.cards.map((card: any) => (<div key={card.id} className="bg-slate-900 border border-white/10 p-4 rounded-xl flex flex-col gap-3 group hover:border-cyan-500/30 transition-all relative"><div className="flex justify-between items-start"><span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded truncate max-w-[150px]">{card.assunto || 'Geral'}</span><button onClick={() => handleImportSingle(card)} disabled={importingState.loading} className="p-1.5 bg-slate-800 hover:bg-cyan-600 text-slate-400 hover:text-white rounded-lg transition-colors border border-white/5" title="Importar este card"><DownloadCloud size={14} /></button></div><div className="flex gap-2"><span className="text-xs font-bold text-cyan-500 min-w-[20px] mt-0.5">P:</span><p className="text-sm text-slate-200 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">{card.front}</p></div><div className="h-px bg-white/5 w-full" /><div className="flex gap-2"><span className="text-xs font-bold text-purple-500 min-w-[20px] mt-0.5">R:</span><p className="text-xs text-slate-400 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">{card.back}</p></div>{card.author_name && <div className="mt-auto pt-2 border-t border-white/5 text-[9px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><User size={10} /> Por: {card.author_name}</div>}</div>))}</div>
+              <div className="flex justify-between items-center mb-6"><div><h3 className="text-xl font-bold text-white flex items-center gap-2"><Sparkles className="text-cyan-400" /> {previewDeck.materia}</h3><p className="text-slate-400 text-sm">{previewDeck.count} cards disponíveis para importação</p></div><button onClick={() => setPreviewDeck(null)} className="p-2 bg-slate-800 rounded-lg text-slate-400 hover:text-white"><X size={20} /></button></div>
+              {previewTopics.length > 0 && (<div className="mb-4 bg-slate-900/50 p-4 rounded-xl border border-white/5"><h4 className="text-xs font-bold text-slate-500 uppercase tracking-widest mb-3 flex items-center gap-2"><Tag size={12} /> Importar por Assunto (Tópico)</h4><div className="flex flex-wrap gap-2">{previewTopics.map((topic) => (<button key={topic} onClick={() => handleImportTopic(topic)} disabled={importingState.loading} className="bg-slate-800 hover:bg-cyan-600 hover:text-white text-slate-300 text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/5 transition-all flex items-center gap-1.5"><DownloadCloud size={10} />{topic}</button>))}</div></div>)}
+              <div className="flex-1 overflow-y-auto custom-scrollbar bg-slate-900/30 rounded-xl border border-white/5 p-4 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">{previewDeck.cards.map((card) => (<div key={card.id} className="bg-slate-900 border border-white/10 p-4 rounded-xl flex flex-col gap-3 group hover:border-cyan-500/30 transition-all relative"><div className="flex justify-between items-start"><span className="text-[10px] font-bold bg-slate-800 text-slate-400 px-2 py-0.5 rounded truncate max-w-[150px]">{card.assunto || 'Geral'}</span><button onClick={() => handleImportSingle(card)} disabled={importingState.loading} className="p-1.5 bg-slate-800 hover:bg-cyan-600 text-slate-400 hover:text-white rounded-lg transition-colors border border-white/5" title="Importar este card"><DownloadCloud size={14} /></button></div><div className="flex gap-2"><span className="text-xs font-bold text-cyan-500 min-w-[20px] mt-0.5">P:</span><p className="text-sm text-slate-200 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">{card.front}</p></div><div className="h-px bg-white/5 w-full" /><div className="flex gap-2"><span className="text-xs font-bold text-purple-500 min-w-[20px] mt-0.5">R:</span><p className="text-xs text-slate-400 leading-relaxed line-clamp-3 group-hover:line-clamp-none transition-all">{card.back}</p></div>{card.author_name && <div className="mt-auto pt-2 border-t border-white/5 text-[9px] text-slate-500 font-bold uppercase tracking-wider flex items-center gap-1"><User size={10} /> Por: {card.author_name}</div>}</div>))}</div>
               <div className="mt-6 flex justify-end gap-3 pt-4 border-t border-white/10"><button onClick={() => setPreviewDeck(null)} className="px-6 py-3 rounded-xl font-bold text-slate-400 hover:text-white hover:bg-slate-800 transition-all">Cancelar</button><button onClick={handleImportDeck} disabled={importingState.loading} className="px-8 py-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl font-bold shadow-lg shadow-cyan-500/20 flex items-center gap-2">{importingState.loading ? <Loader2 className="animate-spin" size={18} /> : <DownloadCloud size={18} />}{importingState.loading ? 'Importando...' : 'Importar TUDO (Restantes)'}</button></div>
             </div>
           </div>
@@ -863,7 +873,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                   <CustomSelector
                     label="Matéria"
                     value={importMateria}
-                    options={materias.filter((m: string) => m !== 'Todas' && m !== 'Todos')}
+                    options={materias.filter((m) => m !== 'Todas' && m !== 'Todos')}
                     onChange={setImportMateria}
                     placeholder="Selecione ou digite..."
                   />
@@ -900,7 +910,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                       >
                         Limpar Seleção
                       </div>
-                      {availableImportTopics.map((t: string, idx: number) => (
+                      {availableImportTopics.map((t, idx) => (
                         <div
                           key={idx}
                           onClick={() => {
@@ -932,7 +942,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
             {txtPreviewCards.length > 0 && (
               <div className="flex-1 overflow-y-auto custom-scrollbar bg-[hsl(var(--bg-main))] rounded-xl border border-[hsl(var(--border))] p-4 grid grid-cols-1 gap-3">
                 <div className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-widest mb-2 px-2">Pré-visualização ({txtPreviewCards.length} cards detectados)</div>
-                {txtPreviewCards.map((card: any) => (
+                {txtPreviewCards.map((card) => (
                   <div key={card.id} className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] p-4 rounded-xl flex flex-col gap-2">
                     <div className="flex gap-2">
                       <span className="text-xs font-bold text-cyan-500">P:</span>

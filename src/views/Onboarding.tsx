@@ -5,8 +5,33 @@ import { logger } from '../utils/logger';
 import { editaisQueries } from '../services/queries';
 import { BookOpen, Shield, Scale, Briefcase, GraduationCap, ArrowRight, Loader2, Database, DownloadCloud, Users, Search } from 'lucide-react';
 
+import { getErrorMessage } from '../utils/error';
+
+interface TemplateMateria {
+   materia: string;
+   topicos: string[];
+}
+
+interface LocalTemplate {
+   id: string;
+   title: string;
+   icon: React.ReactNode;
+   description: string;
+   color: string;
+   materias: TemplateMateria[];
+   isDynamic?: boolean;
+}
+
+interface OnboardingPayloadItem {
+   concurso: string;
+   cargo: string;
+   materia: string;
+   topicos: string[];
+   is_principal: boolean;
+}
+
 interface OnboardingProps {
-   onSelectTemplate: (template: any[]) => Promise<void>;
+   onSelectTemplate: (payload: OnboardingPayloadItem[]) => Promise<void>;
    userEmail: string;
 }
 
@@ -80,8 +105,8 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
    const [loadingId, setLoadingId] = useState<string | null>(null);
    const [activeTab, setActiveTab] = useState<'padrao' | 'comunidade'>('padrao');
 
-   const [staticTemplates] = useState<any[]>(STATIC_TEMPLATES);
-   const [dynamicTemplates, setDynamicTemplates] = useState<any[]>([]);
+   const [staticTemplates] = useState<LocalTemplate[]>(STATIC_TEMPLATES);
+   const [dynamicTemplates, setDynamicTemplates] = useState<LocalTemplate[]>([]);
 
    const [loadingTemplates, setLoadingTemplates] = useState(false);
    const [searchTerm, setSearchTerm] = useState('');
@@ -96,22 +121,19 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
 
             if (data && data.length > 0) {
                // Agrupa por concurso
-               const grouped: Record<string, any[]> = {};
-               data.forEach((row: any) => {
+               const grouped: Record<string, typeof data> = {};
+               data.forEach((row) => {
                   // Normaliza chave para evitar duplicações por case sensitive
                   const key = row.concurso;
                   if (!grouped[key]) grouped[key] = [];
                   grouped[key].push(row);
                });
 
-               const dynamicList = Object.keys(grouped).map((concursoName, idx) => {
+               const dynamicList: LocalTemplate[] = Object.keys(grouped).map((concursoName, idx) => {
                   const rows = grouped[concursoName];
                   const mainCargo = rows[0].cargo || 'Geral';
                   const totalMaterias = rows.length;
                   const totalTopicos = rows.reduce((acc, r) => acc + (r.topicos?.length || 0), 0);
-
-                  // Evita mostrar os próprios editais se já estiver logado (opcional, mas bom pra UX)
-                  // Aqui mostramos tudo para facilitar teste
 
                   return {
                      id: `dynamic-${idx}`,
@@ -127,7 +149,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
                setDynamicTemplates(dynamicList);
             }
          } catch (e) {
-            logger.error('DATA', "Erro ao buscar templates dinâmicos:", e);
+            logger.error('DATA', "Erro ao buscar templates dinâmicos:", getErrorMessage(e));
          } finally {
             setLoadingTemplates(false);
          }
@@ -138,13 +160,13 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
       }
    }, [activeTab]);
 
-   const handleSelect = async (template: any) => {
+   const handleSelect = async (template: LocalTemplate) => {
       setLoadingId(template.id);
 
       // Extrai nome limpo
       const concursoName = template.title;
 
-      const payload = template.materias.map((m: any) => ({
+      const payload: OnboardingPayloadItem[] = template.materias.map((m) => ({
          concurso: concursoName,
          cargo: 'Cargo Importado',
          materia: m.materia,
@@ -252,7 +274,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
                         <div className="space-y-2">
                            <div className="text-[10px] font-bold uppercase tracking-widest text-slate-500">Disciplinas Inclusas</div>
                            <div className="flex flex-wrap gap-1.5">
-                              {t.materias.slice(0, 3).map((m: any, i: number) => (
+                              {t.materias.slice(0, 3).map((m, i) => (
                                  <span key={i} className="text-[10px] bg-slate-800 text-slate-300 px-2 py-1 rounded border border-white/5 truncate max-w-[100px]">
                                     {m.materia}
                                  </span>

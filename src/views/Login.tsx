@@ -7,7 +7,10 @@ import { APP_VERSION } from '../constants';
 
 interface LoginProps { }
 
-const Login: React.FC<LoginProps> = () => {
+type ConfigSource = 'Checking...' | 'ENV' | 'STORAGE' | 'MISSING';
+type AIKeyStatus = 'CHECKING' | 'LOADED' | 'MISSING';
+
+const Login: React.FC = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -19,9 +22,9 @@ const Login: React.FC<LoginProps> = () => {
   const [showDiagnostics, setShowDiagnostics] = useState(false);
 
   // Diagnóstico
-  const [configSource, setConfigSource] = useState<'Checking...' | 'ENV' | 'STORAGE' | 'MISSING'>('Checking...');
+  const [configSource, setConfigSource] = useState<ConfigSource>('Checking...');
   const [configUrl, setConfigUrl] = useState('');
-  const [aiKeyStatus, setAiKeyStatus] = useState<'CHECKING' | 'LOADED' | 'MISSING'>('CHECKING');
+  const [aiKeyStatus, setAiKeyStatus] = useState<AIKeyStatus>('CHECKING');
   const [aiKeyPrefix, setAiKeyPrefix] = useState('');
 
   useEffect(() => {
@@ -64,7 +67,7 @@ const Login: React.FC<LoginProps> = () => {
 
     try {
       if (isSignUp) {
-        const { data, error } = await (supabase.auth as any).signUp({
+        const { data, error } = await supabase.auth.signUp({
           email,
           password,
         });
@@ -78,7 +81,7 @@ const Login: React.FC<LoginProps> = () => {
         setLoading(false);
 
       } else {
-        const { data, error } = await (supabase.auth as any).signInWithPassword({ email, password });
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
 
         if (rememberEmail) {
@@ -92,9 +95,10 @@ const Login: React.FC<LoginProps> = () => {
           // O App.tsx detectará a sessão automaticamente
         }
       }
-    } catch (err: any) {
+    } catch (err) {
       setLoading(false);
-      setError(err.message || 'Erro na autenticação');
+      const message = err instanceof Error ? err.message : 'Erro na autenticação';
+      setError(message);
     }
   };
 

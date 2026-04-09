@@ -7,10 +7,29 @@ import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 
 // Declaração para TypeScript reconhecer a biblioteca global
-declare global {
-    interface Window {
-        jspdf: any;
-    }
+import { getErrorMessage } from '../utils/error';
+
+interface jsPDFWithAutoTable extends Object {
+    autoTable: (options: any) => void;
+    lastAutoTable: {
+        finalY: number;
+    };
+    internal: {
+        pageSize: {
+            width: number;
+            height: number;
+        };
+    };
+    save: (filename: string) => void;
+    setFont: (font: string, style: string) => void;
+    setFontSize: (size: number) => void;
+    setTextColor: (r: number, g?: number, b?: number) => void;
+    setFillColor: (r: number, g?: number, b?: number) => void;
+    rect: (x: number, y: number, w: number, h: number, style: string) => void;
+    text: (text: string | string[], x: number, y: number, options?: { align?: 'left' | 'center' | 'right' }) => void;
+    addPage: () => void;
+    getNumberOfPages: () => number;
+    setPage: (page: number) => void;
 }
 
 // Helper para pegar data local YYYY-MM-DD
@@ -39,18 +58,7 @@ const Reports: React.FC = () => {
     const [endDate, setEndDate] = useState(getLocalToday());
     const [filterMeta, setFilterMeta] = useState('');
     const [generating, setGenerating] = useState(false);
-    const [showPDF, setShowPDF] = useState(false); // Novo estado para controle de visualização
 
-    // BUG FIX: Força o redimensionamento do navegador para garantir que o PDF carregue visualmente.
-    // Resolve o bug de 'tela preta' que só sumia ao interagir com a sidebar.
-    useEffect(() => {
-        if (generating || showPDF) {
-            const timer = setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-            }, 300);
-            return () => clearTimeout(timer);
-        }
-    }, [generating, showPDF]);
 
     // Filtragem dos dados
     const filteredRecords = useMemo(() => {
@@ -106,11 +114,9 @@ const Reports: React.FC = () => {
             }
 
             const { jsPDF } = window.jspdf;
-            const doc = new jsPDF();
+            const doc = new jsPDF() as unknown as jsPDFWithAutoTable;
 
-            // O plugin autotable se anexa automaticamente ao jsPDF quando carregado via CDN.
-            // A chamada deve ser feita diretamente na instância: doc.autoTable(options)
-            const hasAutoTable = typeof (doc as any).autoTable === 'function';
+            const hasAutoTable = typeof doc.autoTable === 'function';
 
             if (!hasAutoTable) {
                 console.warn("Plugin AutoTable não detectado corretamente.");
@@ -157,7 +163,7 @@ const Reports: React.FC = () => {
                 ['Sessões de Estudo', stats.totalRecords.toString()]
             ];
 
-            (doc as any).autoTable({
+            doc.autoTable({
                 startY: currentY,
                 head: [['Métrica', 'Valor']],
                 body: summaryData,
@@ -167,7 +173,7 @@ const Reports: React.FC = () => {
                 columnStyles: { 0: { fontStyle: 'bold', cellWidth: 80 } },
                 margin: { left: 14, right: 14 }
             });
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            currentY = doc.lastAutoTable.finalY + 15;
 
             // --- DISTRIBUIÇÃO POR MATÉRIA ---
             doc.text("2. Distribuição por Disciplina", 14, currentY);
@@ -180,7 +186,7 @@ const Reports: React.FC = () => {
                 `${s.questions > 0 ? ((s.correct / s.questions) * 100).toFixed(0) : 0}%`
             ]);
 
-            (doc as any).autoTable({
+            doc.autoTable({
                 startY: currentY,
                 head: [['Disciplina', 'Tempo', 'Questões', 'Nota']],
                 body: subjectData,
@@ -189,7 +195,7 @@ const Reports: React.FC = () => {
                 styles: { fontSize: 9 },
                 margin: { left: 14, right: 14 }
             });
-            currentY = (doc as any).lastAutoTable.finalY + 15;
+            currentY = doc.lastAutoTable.finalY + 15;
 
             // --- TABELA DE CONFERÊNCIA (LOGS DETALHADOS) ---
             if (currentY > 250) {
@@ -211,7 +217,7 @@ const Reports: React.FC = () => {
                 r.dificuldade === 'Simulado' ? 'SIMULADO' : ''
             ]);
 
-            (doc as any).autoTable({
+            doc.autoTable({
                 startY: currentY,
                 head: [['Data', 'Matéria', 'Assunto', 'Tempo', 'Qts', '%', 'Obs']],
                 body: recordsData,
@@ -228,7 +234,7 @@ const Reports: React.FC = () => {
                     6: { cellWidth: 20, fontSize: 7 }
                 },
                 margin: { left: 14, right: 14 },
-                didParseCell: (data: any) => {
+                didParseCell: (data: { row: { raw: any[] }, section: string, column: { index: number }, cell: { raw: any, styles: { fillColor?: number[], textColor?: number[] } } }) => {
                     if (data.row.raw[6] === 'SIMULADO' && data.section === 'body') {
                         data.cell.styles.fillColor = [254, 243, 199];
                     }
@@ -251,9 +257,9 @@ const Reports: React.FC = () => {
 
             doc.save(`Relatorio_MonitorPro_${missaoAtiva}_${endDate}.pdf`);
 
-        } catch (err: any) {
+        } catch (err) {
             console.error("Erro ao gerar PDF:", err);
-            alert("Erro ao gerar o PDF: " + err.message);
+            alert("Erro ao gerar o PDF: " + getErrorMessage(err));
         } finally {
             setGenerating(false);
         }

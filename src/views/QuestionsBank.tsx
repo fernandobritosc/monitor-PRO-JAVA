@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { Question, EditalMateria, GlobalQuestion, QuestionAttempt } from '../types';
-import { Search, Trash2, Edit, ExternalLink, AlertOctagon, CheckCircle2, X, ChevronDown, ChevronUp, FileText, Target, Zap, Layers, Clock, Plus, Brain, Volume2, Sparkles, Trophy, RotateCcw, ChevronLeft, ChevronRight, Save, Headphones, Music, Table, Map as MapIcon, Send, MessageSquarePlus, Hash, PlusCircle, BarChart2, Upload, ImageIcon, RefreshCw } from 'lucide-react';
+import { Search, Trash2, Edit, CheckCircle2, X, FileText, Zap, Layers, Sparkles, Send, Hash, BarChart2, Upload, Brain, AlertOctagon, ChevronLeft, ChevronRight, PlusCircle, Plus } from 'lucide-react';
 import { streamAIContent, AIProviderName, generateAIContent, handlePlayRevisionAudio, generatePodcastAudio, deleteCachedAudio } from '../services/aiService';
 import { useEditor, EditorContent, Editor } from '@tiptap/react';
 import { logger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error';
 import { questionsQueries, profilesQueries } from '../services/queries';
 import StarterKit from '@tiptap/starter-kit';
 import Placeholder from '@tiptap/extension-placeholder';
@@ -37,7 +38,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
   const [questions, setQuestions] = useState<GlobalQuestion[]>([]);
   const [loading, setLoading] = useState(true);
   const [isAdmin, setIsAdmin] = useState(false);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<any>(null); // TODO: Define User type if needed
   const [showForm, setShowForm] = useState(false);
   const [isEditing, setIsEditing] = useState<string | null>(null);
   const [expandedCards, setExpandedCards] = useState<Record<string, boolean>>({});
@@ -147,7 +148,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
       if (data) {
         const podcastIds = new Set<string>();
         let count = 0;
-        data.forEach((file: any) => {
+        data.forEach((file) => {
           if (file.name && file.name.endsWith('_podcast.wav')) {
             const id = file.name.replace('_podcast.wav', '');
             podcastIds.add(id);
@@ -462,11 +463,11 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
 
             // Hard exclusion of UI artifacts
             const toHide = clonedElement.querySelectorAll('.pdf-exclude, button, .lucide');
-            toHide.forEach((el: any) => el.style.display = 'none');
+            toHide.forEach((el) => (el as HTMLElement).style.display = 'none');
 
             // Force EVERY descendant to high-contrast black and transparent background
             const allElements = clonedElement.querySelectorAll('*');
-            allElements.forEach((el: any) => {
+            allElements.forEach((el) => {
               const style = (el as HTMLElement).style;
               style.color = '#000000';
               style.backgroundColor = 'transparent';
@@ -656,7 +657,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
       const isCorrect = question.alternativas?.find(a => a.id === selectedAltId)?.is_correct || false;
       logger.info('DATA', `[logAttempt] Saving attempt: ${question.id}, ${selectedAltId}, ${isCorrect}, ${tempo}`);
 
-      const payload: any = {
+      const payload = {
         user_id: user.id,
         question_id: question.id,
         selected_alt: selectedAltId || 'N/A',
@@ -665,7 +666,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
         assunto: question.assunto,
         banca: question.banca,
         tempo_resposta: tempo ?? null
-      };
+      } as QuestionAttempt;
 
       const { error } = await questionsQueries.insertAttempt(payload);
 
@@ -693,8 +694,8 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
     try {
       await questionsQueries.upsert(payload, isEditing || undefined);
       handleCancel(); fetchQuestions();
-    } catch (error: any) {
-      alert('Erro: ' + error.message);
+    } catch (error: unknown) {
+      alert('Erro: ' + getErrorMessage(error));
     }
   };
 
@@ -703,9 +704,9 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
     try {
       await questionsQueries.delete(id);
       fetchQuestions();
-    } catch (error: any) {
+    } catch (error: unknown) {
       logger.error('DATA', 'Erro ao excluir questão', error);
-      alert('Erro ao excluir questão');
+      alert('Erro ao excluir questão: ' + getErrorMessage(error));
     }
   };
 

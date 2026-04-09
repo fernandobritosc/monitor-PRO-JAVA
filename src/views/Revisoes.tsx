@@ -1,7 +1,8 @@
 
 import React, { useState, useMemo, useEffect } from 'react';
-import { StudyRecord, EditalMateria } from '../types';
-import { RefreshCcw, Calendar, CheckCircle2, Clock, ChevronDown, ChevronUp, AlertCircle, X, Filter, Search, SlidersHorizontal, Trash2, FileText, Target, Zap, BarChart2 } from 'lucide-react';
+import { StudyRecord } from '../types';
+import { RefreshCcw, Calendar, CheckCircle2, Clock, ChevronDown, ChevronUp, X, Filter, Search, SlidersHorizontal, Trash2, FileText, Target, Zap, BarChart2 } from 'lucide-react';
+import { getErrorMessage } from '../utils/error';
 import { supabase } from '../services/supabase';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
@@ -134,7 +135,7 @@ const Revisoes: React.FC = () => {
   const [selectedReview, setSelectedReview] = useState<PendingReview | null>(null);
 
   // States do Modal de Conclusão
-  const [reviewDate, setReviewDate] = useState(getLocalToday());
+  const [sessionDate, setSessionDate] = useState(getLocalToday());
   const [tempoHHMM, setTempoHHMM] = useState('');
   const [reviewQuestions, setReviewQuestions] = useState(0);
   const [reviewCorrect, setReviewCorrect] = useState(0);
@@ -151,7 +152,7 @@ const Revisoes: React.FC = () => {
   // Reset do formulário ao abrir modal
   useEffect(() => {
     if (selectedReview) {
-      setReviewDate(getLocalToday());
+      setSessionDate(getLocalToday());
       setTempoHHMM('');
       setReviewQuestions(0);
       setReviewCorrect(0);
@@ -188,10 +189,10 @@ const Revisoes: React.FC = () => {
 
       if (!r.rev_24h) { type = '24h'; targetDays = 1; }
       else if (!r.rev_07d) { type = '07d'; targetDays = 7; }
-      else if (!r.rev_15d) { type = '15d'; targetDays = 15; }
       else if (!r.rev_30d) { type = '30d'; targetDays = 30; }
 
       if (type) {
+        const typeInfo = type; // Keep for closure if needed
         uniqueMaterias.add(r.materia);
         const targetDate = new Date(studyDate);
         targetDate.setDate(targetDate.getDate() + targetDays);
@@ -261,44 +262,54 @@ const Revisoes: React.FC = () => {
     try {
       const taxa = reviewQuestions > 0 ? (reviewCorrect / reviewQuestions) * 100 : 0;
       const isHighPerformance = taxa > 85;
-      const fieldToUpdate = `rev_${selectedReview.reviewType}`;
-      const updates: any = { [fieldToUpdate]: true };
+      const updates: Partial<StudyRecord> = {};
+      const field = `rev_${selectedReview.reviewType}` as keyof StudyRecord;
+      (updates as any)[field] = true;
 
       if (isHighPerformance) {
-        if (selectedReview.reviewType === '24h') { updates['rev_07d'] = true; updates['rev_15d'] = true; }
-        else if (selectedReview.reviewType === '07d') { updates['rev_15d'] = true; }
+        if (selectedReview.reviewType === '24h') { 
+          updates.rev_07d = true; 
+          updates.rev_15d = true; 
+        } else if (selectedReview.reviewType === '07d') { 
+          updates.rev_15d = true; 
+        }
       }
 
-      const recordWithUpdates = { ...selectedReview, ...updates };
-      delete (recordWithUpdates as any).reviewType;
-      delete (recordWithUpdates as any).daysOverdue;
-      delete (recordWithUpdates as any).reviewDate;
+      // Criar uma cópia limpa do StudyRecord (removendo campos da interface PendingReview)
+      // Usamos prefixo _ para ignorar campos que não pertencem ao StudyRecord
+      const { reviewType: _rt, daysOverdue: _do, reviewDate: _rd, ...baseRecord } = selectedReview;
+      const recordWithUpdates: StudyRecord = { 
+        ...baseRecord, 
+        ...updates 
+      };
 
       // Executa as mutações (elas são otimistas agora)
-      updateRecord(recordWithUpdates as StudyRecord);
+      updateRecord(recordWithUpdates);
 
       if (calculatedMinutes > 0 || reviewQuestions > 0) {
-        let dificuldadeCalc: any = '🟡 Médio';
+        let dificuldadeCalc: "🟢 Fácil" | "🟡 Médio" | "🔴 Difícil" | "Simulado" = '🟡 Médio';
         if (reviewQuestions > 0) {
           if (taxa >= 80) dificuldadeCalc = '🟢 Fácil'; else if (taxa < 60) dificuldadeCalc = '🔴 Difícil';
         }
         const statsRecord = {
           user_id: userId, concurso: selectedReview.concurso, materia: selectedReview.materia,
-          assunto: selectedReview.assunto, data_estudo: reviewDate, acertos: reviewCorrect,
+          assunto: selectedReview.assunto, 
+          data_estudo: sessionDate, // Explicitly using state string
+          acertos: reviewCorrect,
           total: reviewQuestions, taxa: taxa, tempo: calculatedMinutes, dificuldade: dificuldadeCalc,
           relevancia: selectedReview.relevancia,
           comentarios: `Revisão (${selectedReview.reviewType}) realizada.${isHighPerformance ? ' Desempenho alto: avançou etapas.' : ''}`,
           rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true,
-          tipo: 'Revisão'
+          tipo: 'Revisão' as const
         };
         insertRecord(statsRecord);
       }
 
       // Fecha o modal imediatamente
       setSelectedReview(null);
-    } catch (error: any) {
+    } catch (error) {
       console.error('Erro ao processar revisão:', error);
-      alert('Erro ao concluir revisão. Tente novamente.');
+      alert('Erro ao concluir revisão: ' + getErrorMessage(error));
     } finally {
       // Opcionalmente podemos manter o state de loading se acharmos necessário
       // mas para ser instantâneo, melhor fechar o modal.
@@ -407,7 +418,7 @@ const Revisoes: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
           <div className="space-y-6 lg:col-span-1">
             <div className="flex items-center gap-3 text-red-400 font-black uppercase tracking-[0.2em] text-[10px] px-6 py-2 bg-red-500/5 rounded-full border border-red-500/20 w-fit">
-              <AlertCircle size={14} /> Ciclos Críticos ({overdue.length})
+              <div className="text-xl">⚠️</div> Ciclos Críticos ({overdue.length})
             </div>
             {overdue.map(item => <ReviewCard key={item.id} item={item} isExpanded={!!expandedCards[item.id]} onToggle={toggleExpand} onComplete={setSelectedReview} />)}
           </div>
@@ -445,7 +456,7 @@ const Revisoes: React.FC = () => {
               <div className="grid grid-cols-2 gap-6">
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Data</label>
-                  <input type="date" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] text-[hsl(var(--text-bright))] font-black uppercase tracking-widest text-xs" value={reviewDate} onChange={(e) => setReviewDate(e.target.value)} />
+                  <input type="date" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] text-[hsl(var(--text-bright))] font-black uppercase tracking-widest text-xs" value={sessionDate} onChange={(e) => setSessionDate(e.target.value)} />
                 </div>
                 <div className="space-y-3">
                   <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2">Tempo (HH:MM)</label>

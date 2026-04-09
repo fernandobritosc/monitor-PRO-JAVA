@@ -52,10 +52,12 @@ export const QuestionCard: React.FC<QuestionCardProps> = ({
   const [isFlipped, setIsFlipped] = useState(false);
   const [showStats, setShowStats] = useState(false);
   const [analyticsKey, setAnalyticsKey] = useState(0);
-  const startTimeRef = useRef<number>(Date.now());
+  const startTimeRef = useRef<number>(0);
 
   useEffect(() => {
-    if (isExpanded) startTimeRef.current = Date.now();
+    if (isExpanded) {
+      startTimeRef.current = Date.now();
+    }
   }, [isExpanded]);
 
   const handleConfirm = (e: React.MouseEvent) => {

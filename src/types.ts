@@ -163,7 +163,7 @@ export interface Flashcard {
   assunto: string;
   front: string;
   back: string;
-  status: 'novo' | 'revisando' | 'aprendido' | 'pendente';
+  status: 'novo' | 'aprendendo' | 'revisando' | 'aprendido' | 'revisar' | 'pendente';
   interval?: number;
   ease_factor?: number;
   next_review?: string;
@@ -179,6 +179,12 @@ export interface Flashcard {
     info?: string;
     [key: string]: string | undefined;
   };
+}
+
+export interface CommunityDeck {
+  materia: string;
+  count: number;
+  cards: Flashcard[];
 }
 
 export interface Discursiva {

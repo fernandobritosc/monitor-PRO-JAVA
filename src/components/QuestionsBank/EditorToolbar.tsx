@@ -8,9 +8,9 @@ interface EditorToolbarProps {
 }
 
 export const EditorToolbar: React.FC<EditorToolbarProps> = ({ editor, onImageUpload }) => {
-    if (!editor) return null;
-
     const fileInputRef = useRef<HTMLInputElement>(null);
+
+    if (!editor) return null;
 
     const addImageUrl = () => {
         const url = window.prompt('URL da imagem:');

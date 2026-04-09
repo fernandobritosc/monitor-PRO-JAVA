@@ -1,7 +1,8 @@
 import { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { streamAIContent, AIProviderName, generatePodcastAudio, handlePlayRevisionAudio, deleteCachedAudio, generateAIContent } from '../services/aiService';
-import { EditalMateria, Flashcard } from '../types';
+import { EditalMateria, Flashcard, CommunityDeck } from '../types';
+import { getErrorMessage } from '../utils/error';
 
 interface FlashcardsProps {
   missaoAtiva: string;
@@ -109,9 +110,9 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const [cards, setCards] = useState<Flashcard[]>([]);
   const [loading, setLoading] = useState(true);
   const [loadingCommunity, setLoadingCommunity] = useState(false);
-  const [communityDecks, setCommunityDecks] = useState<any[]>([]);
+  const [communityDecks, setCommunityDecks] = useState<CommunityDeck[]>([]);
   const [showSqlModal, setShowSqlModal] = useState(false);
-  const [previewDeck, setPreviewDeck] = useState<any>(null);
+  const [previewDeck, setPreviewDeck] = useState<CommunityDeck | null>(null);
   const [importingState, setImportingState] = useState<{ loading: boolean, text: string }>({ loading: false, text: '' });
   const [selectedAI, setSelectedAI] = useState<AIProviderName | 'auto'>('auto');
   const [studyQueue, setStudyQueue] = useState<Flashcard[]>([]);
@@ -168,7 +169,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       if (data) {
         const podcastIds = new Set<string>();
         let count = 0;
-        data.forEach((file: any) => {
+        data.forEach((file) => {
           if (file.name && file.name.endsWith('_podcast.wav')) {
             const id = file.name.replace('_podcast.wav', '');
             podcastIds.add(id);
@@ -178,14 +179,24 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         console.log(`✅ Sincronização: ${count} podcasts identificados no servidor.`);
         setPodcastCache(podcastIds);
       }
-    } catch (e) { console.error("Erro exceção sync podcast:", e); } finally { setIsSyncing(false); }
+    } catch (e) { 
+      console.error("Erro exceção sync podcast:", getErrorMessage(e)); 
+    } finally { 
+      setIsSyncing(false); 
+    }
   };
 
   const materias = useMemo(() => {
-    const filteredEditais = editais.filter(e => e.concurso === missaoAtiva);
-    const unique = Array.from(new Set(filteredEditais.map(e => e.materia)));
-    return ['Todas', ...unique.sort()];
-  }, [editais, missaoAtiva]);
+    const m = new Set<string>();
+    m.add('Todas');
+    // Matérias do edital atual
+    editais.forEach(e => { if (e.concurso === missaoAtiva) m.add(e.materia); });
+    // Matérias já existentes nos cards do usuário (base legada)
+    cards.forEach(c => m.add(c.materia));
+    
+    const list = Array.from(m).filter(x => x !== 'Todas').sort();
+    return ['Todas', ...list];
+  }, [editais, missaoAtiva, cards]);
 
   const assuntoOptions = useMemo(() => {
     const topics = new Set<string>();
@@ -218,7 +229,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const loadFlashcards = async () => {
     setLoading(true);
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não logado");
 
       const { data, error } = await supabase.from('flashcards')
@@ -227,70 +238,97 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         .order('created_at', { ascending: false });
 
       if (error) throw error;
-      setCards(data || []);
-    } catch (error) { console.error('Erro ao carregar flashcards:', error); } finally { setLoading(false); }
+      setCards((data as Flashcard[]) || []);
+    } catch (error) { 
+      console.error('Erro ao carregar flashcards:', getErrorMessage(error)); 
+    } finally { 
+      setLoading(false); 
+    }
   };
 
   const loadCommunityDecks = async () => {
     setLoadingCommunity(true);
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
-
       const { data, error } = await supabase.from('flashcards')
         .select('materia, assunto, front, back, id, status, created_at, ai_generated_assets, original_audio_id, author_name')
         .not('user_id', 'eq', '00000000-0000-0000-0000-000000000000');
 
       if (error) throw error;
-      const decksMap = new Map();
-      data?.forEach((card: any) => {
-        if (!decksMap.has(card.materia)) decksMap.set(card.materia, { materia: card.materia, count: 0, cards: [] });
-        const deck = decksMap.get(card.materia);
+      const decksMap = new Map<string, CommunityDeck>();
+      (data as Flashcard[])?.forEach((card) => {
+        if (!decksMap.has(card.materia)) {
+          decksMap.set(card.materia, { materia: card.materia, count: 0, cards: [] });
+        }
+        const deck = decksMap.get(card.materia)!;
         deck.count++;
         deck.cards.push(card);
       });
       const validDecks = Array.from(decksMap.values()).filter(d => d.count > 0);
       setCommunityDecks(validDecks);
-    } catch (error) { console.error('Erro ao carregar decks:', error); } finally { setLoadingCommunity(false); }
+    } catch (error) { 
+      console.error('Erro ao carregar decks:', getErrorMessage(error)); 
+    } finally { 
+      setLoadingCommunity(false); 
+    }
   };
 
-  const importCards = async (cardsToImport: any[], type: 'deck' | 'topic' | 'single', topicName?: string) => {
+  const importCards = async (cardsToImport: Partial<Flashcard>[], type: 'deck' | 'topic' | 'single') => {
     setImportingState({ loading: true, text: type === 'single' ? '' : 'Importando...' });
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
 
       const userName = user.email?.split('@')[0] || 'Eu';
 
       const payload = cardsToImport.map(c => ({
         user_id: user.id,
-        materia: c.materia,
-        assunto: c.assunto,
-        front: c.front,
-        back: c.back,
-        ai_generated_assets: c.ai_generated_assets,
+        materia: c.materia || 'Geral',
+        assunto: c.assunto || '',
+        front: c.front || '',
+        back: c.back || '',
+        ai_generated_assets: c.ai_generated_assets || null,
         original_audio_id: c.original_audio_id || c.id,
         author_name: userName,
         status: 'novo' as Flashcard['status']
       }));
 
-      const { error } = await supabase.from('flashcards').insert(payload);
+      // Filtro Anti-Duplicados robusto contra variações de caracteres especiais e espaços
+      const uniquePayload = payload.filter(p => !userCardSignatures.has(`${normalizeText(p.materia)}||${normalizeText(p.front)}`));
+      const skippedCount = payload.length - uniquePayload.length;
+
+      if (uniquePayload.length === 0) {
+        alert('Todos os cards selecionados já existem no seu inventário.');
+        return;
+      }
+
+      const { error } = await supabase.from('flashcards').insert(uniquePayload);
       if (error) throw error;
 
-      const newLocalCards = payload.map((p, idx) => ({ ...p, id: `temp-${Date.now()}-${idx}`, created_at: new Date().toISOString() })) as Flashcard[];
+      const newLocalCards = uniquePayload.map((p, idx) => ({ ...p, id: `temp-${Date.now()}-${idx}`, created_at: new Date().toISOString() })) as Flashcard[];
       setCards(prev => [...prev, ...newLocalCards]);
 
       if (previewDeck) {
         const importedIds = new Set(cardsToImport.map(c => c.id));
-        const remainingCards = previewDeck.cards.filter((c: any) => !importedIds.has(c.id));
-        if (remainingCards.length === 0) { setPreviewDeck(null); setCommunityDecks(prev => prev.filter(d => d.materia !== previewDeck.materia)); }
-        else { setPreviewDeck({ ...previewDeck, cards: remainingCards, count: remainingCards.length }); }
+        const remainingCards = previewDeck.cards.filter((c) => !importedIds.has(c.id));
+        if (remainingCards.length === 0) { 
+          setPreviewDeck(null); 
+          setCommunityDecks(prev => prev.filter(d => d.materia !== previewDeck.materia)); 
+        } else { 
+          setPreviewDeck({ ...previewDeck, cards: remainingCards, count: remainingCards.length }); 
+        }
       }
-      if (type !== 'single') alert(`${payload.length} cards importados com sucesso!`);
-    } catch (error: any) { alert('Erro ao importar: ' + error.message); } finally { setImportingState({ loading: false, text: '' }); }
+      if (type !== 'single') {
+        alert(`${uniquePayload.length} cards importados.${skippedCount > 0 ? ` (${skippedCount} já existentes ignorados)` : ''}`);
+      }
+    } catch (error) { 
+      alert('Erro ao importar: ' + getErrorMessage(error)); 
+    } finally { 
+      setImportingState({ loading: false, text: '' }); 
+    }
   };
 
-  const handleImportDeck = (deckOrEvent?: any) => {
-    const targetDeck = (deckOrEvent && deckOrEvent.cards) ? deckOrEvent : previewDeck;
+  const handleImportDeck = (deckOrEvent?: CommunityDeck | React.MouseEvent) => {
+    const targetDeck = (deckOrEvent && (deckOrEvent as CommunityDeck).cards) ? (deckOrEvent as CommunityDeck) : previewDeck;
     if (!targetDeck) return;
     if (!confirm(`Deseja importar TODOS os ${targetDeck.cards.length} cards de ${targetDeck.materia}?`)) return;
     importCards(targetDeck.cards, 'deck');
@@ -298,13 +336,13 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
   const handleImportTopic = (topic: string) => {
     if (!previewDeck) return;
-    const cardsInTopic = previewDeck.cards.filter((c: any) => c.assunto === topic);
+    const cardsInTopic = previewDeck.cards.filter((c) => c.assunto === topic);
     if (cardsInTopic.length === 0) return;
     if (!confirm(`Importar ${cardsInTopic.length} cards do tópico "${topic}"?`)) return;
-    importCards(cardsInTopic, 'topic', topic);
+    importCards(cardsInTopic, 'topic');
   };
 
-  const handleImportSingle = (card: any) => { importCards([card], 'single'); };
+  const handleImportSingle = (card: Flashcard) => { importCards([card], 'single'); };
 
   const saveAiAsset = async (assetType: keyof NonNullable<Flashcard['ai_generated_assets']>, content: string) => {
     if (!currentCard) return;
@@ -326,7 +364,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       // FIX: Explicitly convert assetType to a string to avoid implicit conversion error with symbols.
       console.log(`✅ Asset '${String(assetType)}' salvo para o card ${currentCard.id}`);
     } catch (error) {
-      console.error("Erro ao salvar asset de IA:", error);
+      console.error("Erro ao salvar asset de IA:", getErrorMessage(error));
     }
   };
 
@@ -363,8 +401,8 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const result = await generateAIContent(concept, getGeminiKey(), getGroqKey(), selectedAI === 'auto' ? undefined : selectedAI, 'flashcard');
       setMnemonicText(result);
       await saveAiAsset('mnemonic', result);
-    } catch (error: any) {
-      console.error("Erro ao gerar mnemônico:", error);
+    } catch (error) {
+      console.error("Erro ao gerar mnemônico:", getErrorMessage(error));
       setMnemonicText("Desculpe, não foi possível criar um mnemônico agora.");
     } finally {
       setMnemonicLoading(false);
@@ -389,9 +427,10 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
       setExtraContent(result);
       await saveAiAsset(format, result);
-    } catch (error: any) {
-      console.error(`Erro ao gerar ${format}:`, error);
-      setExtraContent(`Desculpe, não foi possível gerar o formato "${format}" para este card. Motivo: ${error.message}`);
+    } catch (error) {
+      const msg = getErrorMessage(error);
+      console.error(`Erro ao gerar ${format}:`, msg);
+      setExtraContent(`Desculpe, não foi possível gerar o formato "${format}" para este card. Motivo: ${msg}`);
     } finally {
       setExtraLoading(false);
     }
@@ -431,12 +470,12 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         }).eq('id', editingId);
 
         if (error) throw error;
+        cancelEdit();
         alert('Flashcard atualizado!');
         deleteCachedAudio(editingId);
         setPodcastCache(prev => { const n = new Set(prev); n.delete(editingId); return n; });
-        cancelEdit();
       } else {
-        const { data: { user } } = await (supabase.auth as any).getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Usuário não autenticado');
 
         const authorName = user.email?.split('@')[0] || 'Anônimo';
@@ -456,7 +495,9 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         setTimeout(() => setSaveMessage(null), 3000);
       }
       loadFlashcards();
-    } catch (error: any) { alert('Erro: ' + error.message); }
+    } catch (error) { 
+      alert('Erro: ' + getErrorMessage(error)); 
+    }
   };
 
   const updateCardStatus = async (id: string, status: Flashcard['status']) => { try { const { error } = await supabase.from('flashcards').update({ status }).eq('id', id); if (error) throw error; loadFlashcards(); } catch (error) { console.error(error); } };
@@ -490,11 +531,39 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   };
 
   const startStudySession = () => {
-    const filtered = filteredCards.filter(card => card.status === 'novo' || card.status === 'revisando' || card.status === 'pendente');
-    if (filtered.length === 0) { alert('Nenhum card para estudar com os filtros atuais!'); return; }
-    const shuffledQueue = smartShuffle([...filtered]);
-    setStudyQueue(shuffledQueue); setCurrentCardIndex(0); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery("");
-    setSessionStats({ learned: 0, review: 0, total: shuffledQueue.length }); setShowSessionSummary(false);
+    // 1. Filtro expandido para incluir todos os status de estudo ativos
+    const studyable = filteredCards.filter(card => 
+      card.status === 'novo' || 
+      card.status === 'aprendendo' || 
+      card.status === 'revisando' || 
+      card.status === 'revisar' || 
+      card.status === 'pendente'
+    );
+
+    if (studyable.length === 0) { 
+      alert('Nenhum card para estudar com os filtros atuais!'); 
+      return; 
+    }
+
+    // 2. Divisão por Grupos de Prioridade
+    // Prioridade 1: Revisar (agendados) e Aprendendo (foco imediato)
+    // Prioridade 2: Novos, Revisando e Pendentes
+    const priorityGroup = studyable.filter(c => c.status === 'revisar' || c.status === 'aprendendo');
+    const normalGroup = studyable.filter(c => c.status === 'novo' || c.status === 'revisando' || c.status === 'pendente');
+
+    // 3. Embaralhamento inteligente dentro de cada grupo para manter a alternância de matérias
+    const shuffledPriority = smartShuffle([...priorityGroup]);
+    const shuffledNormal = smartShuffle([...normalGroup]);
+
+    const finalQueue = [...shuffledPriority, ...shuffledNormal];
+
+    setStudyQueue(finalQueue); 
+    setCurrentCardIndex(0); 
+    setIsFlipped(false); 
+    setAiStreamText(""); 
+    setFollowUpQuery("");
+    setSessionStats({ learned: 0, review: 0, total: finalQueue.length }); 
+    setShowSessionSummary(false);
   };
 
   const endSession = () => { setStudyQueue([]); setCurrentCardIndex(0); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery(""); setMnemonicText(""); setShowSessionSummary(false); };
@@ -655,7 +724,10 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
   const filteredCards = useMemo(() => {
     let filtered = [...cards];
-    if (filterMateria !== 'Todas') filtered = filtered.filter(card => card.materia === filterMateria);
+    if (filterMateria !== 'Todas') {
+      const normalizedFilter = normalizeText(filterMateria);
+      filtered = filtered.filter(card => normalizeText(card.materia) === normalizedFilter);
+    }
     if (filterAssunto !== 'Todos') filtered = filtered.filter(card => card.assunto === filterAssunto);
     if (filterStatus !== 'Todos') filtered = filtered.filter(card => card.status === filterStatus);
     if (filterPodcast === 'Com Podcast') { filtered = filtered.filter(card => podcastCache.has(card.original_audio_id || card.id)); }
@@ -699,7 +771,11 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const date = new Date().toLocaleDateString("pt-BR").replace(/\//g, '-');
       const fileName = `Flashcards_${filterMateria}_${filterAssunto}_${date}.pdf`;
       doc.save(fileName);
-    } catch (err: any) { alert("Erro ao gerar PDF: " + err.message); } finally { setIsGeneratingPdf(false); }
+    } catch (err) { 
+      alert("Erro ao gerar PDF: " + getErrorMessage(err)); 
+    } finally { 
+      setIsGeneratingPdf(false); 
+    }
   };
 
   useEffect(() => {

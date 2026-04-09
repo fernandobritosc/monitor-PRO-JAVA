@@ -9,6 +9,7 @@ import { AudioConverter } from '../utils/AudioConverter';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
+import { useResizeObserver } from '../hooks/useResizeObserver';
 
 interface StudyMaterial {
     id: string;
@@ -41,6 +42,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais: editaisProps, missao
     const [isUploadOpen, setIsUploadOpen] = useState(false);
 
     const [selectedPDF, setSelectedPDF] = useState<string | null>(null);
+    const [isPDFLoading, setIsPDFLoading] = useState(true);
     const [cachedIds, setCachedIds] = useState<Set<string>>(new Set());
 
     // IA Chat State
@@ -87,15 +89,13 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais: editaisProps, missao
         checkCache();
     }, []);
 
+    const [pdfContainerRef, pdfDimensions] = useResizeObserver<HTMLDivElement>();
+
     useEffect(() => {
         if (selectedPDF) {
-            const timer = setTimeout(() => {
-                window.dispatchEvent(new Event('resize'));
-                logger.debug('LIBRARY', 'Resize disparado (timer)');
-            }, 500); // Mais tempo para animação concluir
-            return () => clearTimeout(timer);
+            logger.debug('LIBRARY', `PDF Aberto - Dimensões do container: ${pdfDimensions.width}x${pdfDimensions.height}`);
         }
-    }, [selectedPDF]);
+    }, [selectedPDF, pdfDimensions]);
 
     const checkCache = async () => {
         try {
@@ -404,6 +404,7 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais: editaisProps, missao
                 url = data.signedUrl;
             }
 
+            setIsPDFLoading(true);
             setSelectedPDF(url);
         } catch (e) {
             alert("Erro ao abrir PDF");
@@ -718,30 +719,52 @@ const LibraryView: React.FC<LibraryViewProps> = ({ editais: editaisProps, missao
                                     <ExternalLink size={14} /> Abrir em Nova Aba
                                 </a>
                                 <button
-                                    onClick={() => setSelectedPDF(null)}
+                                    onClick={() => {
+                                        setSelectedPDF(null);
+                                        setIsPDFLoading(true);
+                                    }}
                                     className="bg-white/10 hover:bg-red-500 text-white p-2 rounded-full transition-all ml-2"
                                 >
                                     <X size={20} />
                                 </button>
                             </div>
                         </div>
-                        <div className="flex-1 w-full bg-slate-800 relative flex flex-col items-center justify-center">
-                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none">
-                                <FileText size={48} className="text-slate-700 mb-4" />
-                                <p className="text-slate-500 text-sm max-w-xs">
-                                    Se o PDF não carregar abaixo, clique em <b>"Abrir em Nova Aba"</b> acima.
-                                </p>
+                        <div 
+                            ref={pdfContainerRef}
+                            className="flex-1 w-full bg-slate-800 relative flex flex-col items-center justify-center overflow-hidden"
+                        >
+                            {/* Placeholder/Loader Background */}
+                            <div className="absolute inset-0 flex flex-col items-center justify-center text-center p-8 pointer-events-none bg-slate-900/50">
+                                {isPDFLoading ? (
+                                    <div className="flex flex-col items-center gap-4 animate-in fade-in zoom-in duration-300">
+                                        <Loader2 size={40} className="text-indigo-400 animate-spin" />
+                                        <p className="text-indigo-200/50 text-[10px] font-black uppercase tracking-widest">
+                                            Preparando Documento...
+                                        </p>
+                                    </div>
+                                ) : (
+                                    <>
+                                        <FileText size={48} className="text-slate-700 mb-4" />
+                                        <p className="text-slate-500 text-sm max-w-xs">
+                                            Se o PDF não carregar abaixo, clique em <b>"Abrir em Nova Aba"</b> acima.
+                                        </p>
+                                    </>
+                                )}
                             </div>
-                            <iframe
-                                key={selectedPDF}
-                                src={`${selectedPDF}#toolbar=0`}
-                                className="w-full h-full border-none bg-white relative z-10"
-                                title="PDF Viewer"
-                                onLoad={() => {
-                                    // Força o resize quando o iframe efetivamente carregar o HTML interno
-                                    setTimeout(() => window.dispatchEvent(new Event('resize')), 100);
-                                }}
-                            />
+
+                            {/* O Iframe agora renderiza independente do Observer para começar o download mais rápido */}
+                            {selectedPDF && (
+                                <iframe
+                                    key={selectedPDF}
+                                    src={`${selectedPDF}#toolbar=0&view=FitH`}
+                                    className={`w-full h-full border-none bg-white relative z-10 transition-opacity duration-700 ${isPDFLoading ? 'opacity-0' : 'opacity-100'}`}
+                                    title="PDF Viewer"
+                                    onLoad={() => {
+                                        logger.debug('LIBRARY', 'PDF Carregado no Iframe');
+                                        setIsPDFLoading(false);
+                                    }}
+                                />
+                            )}
                         </div>
                     </motion.div>
                 )}

@@ -12,18 +12,37 @@ import {
 import { ViewType } from '../types';
 import { supabase } from '../services/supabase';
 
+interface RankingGeralRow {
+    user_id: string;
+    name: string | null;
+    total_questoes: number;
+    total_acertos: number;
+    total_tempo: number;
+}
+
+interface Ranker {
+    id: string;
+    name: string;
+    questions: number;
+    hours: number;
+    accuracy: number;
+    status: string;
+    isUser: boolean;
+    totalTempo: number;
+}
+
 interface RankingViewProps { }
 
-const RankingView: React.FC<RankingViewProps> = () => {
+const RankingView: React.FC = () => {
     const navigate = useNavigate();
     const [searchTerm, setSearchTerm] = useState('');
-    const [rankers, setRankers] = useState<any[]>([]);
+    const [rankers, setRankers] = useState<Ranker[]>([]);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         const fetchRanking = async () => {
             try {
-                const { data: { user } } = await (supabase.auth as any).getUser();
+                const { data: { user } } = await supabase.auth.getUser();
 
                 const { data, error } = await supabase
                     .from('ranking_geral')
@@ -32,9 +51,9 @@ const RankingView: React.FC<RankingViewProps> = () => {
                 if (error) throw error;
 
                 if (data) {
-                    const formatted = data.map((r: any) => {
+                    const formatted: Ranker[] = (data as RankingGeralRow[]).map((r) => {
                         const accuracy = r.total_questoes > 0 ? Math.round((r.total_acertos / r.total_questoes) * 100) : 0;
-                        const hours = Math.floor(r.total_tempo / 60); // converte minutos para horas
+                        const hours = Math.floor(r.total_tempo / 60);
 
                         let status = 'Iniciante';
                         if (hours > 500) status = 'Lendário';
@@ -51,13 +70,11 @@ const RankingView: React.FC<RankingViewProps> = () => {
                             accuracy: accuracy,
                             status: status,
                             isUser: user ? r.user_id === user.id : false,
-                            totalTempo: r.total_tempo // kept for fine sorting
+                            totalTempo: r.total_tempo
                         };
                     });
 
-                    // Ordena pela tempo de estudo (horas/minutos) do histórico (Top 50 apenas)
                     formatted.sort((a, b) => b.totalTempo - a.totalTempo);
-
                     setRankers(formatted.slice(0, 50));
                 }
             } catch (err) {
@@ -86,7 +103,7 @@ const RankingView: React.FC<RankingViewProps> = () => {
         visible: {
             x: 0,
             opacity: 1,
-            transition: { type: 'spring', stiffness: 300, damping: 24 } as any
+            transition: { type: 'spring' as const, stiffness: 300, damping: 24 }
         }
     };
 

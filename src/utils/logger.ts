@@ -4,7 +4,9 @@
  * Em produção, logs são capturados em sessionStorage mas NÃO poluem o console.
  */
 
-const IS_DEV = import.meta.env.DEV;
+import * as Sentry from "@sentry/react";
+
+const IS_DEV = (import.meta as any).env.DEV;
 
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 type LogCategory =
@@ -72,25 +74,39 @@ class MonitorProLogger {
         this.saveLogs();
 
         // Em DEV, mostra no console com cores. Em PROD, silencioso.
-        if (!IS_DEV) return;
+        if (IS_DEV) {
+            const emoji = {
+                INFO: 'ℹ️', WARN: '⚠️', ERROR: '❌', DEBUG: '🔍'
+            }[entry.level];
 
-        const emoji = {
-            INFO: 'ℹ️', WARN: '⚠️', ERROR: '❌', DEBUG: '🔍'
-        }[entry.level];
+            const color = {
+                INFO: 'color: #3b82f6',
+                WARN: 'color: #f59e0b',
+                ERROR: 'color: #ef4444',
+                DEBUG: 'color: #8b5cf6'
+            }[entry.level];
 
-        const color = {
-            INFO: 'color: #3b82f6',
-            WARN: 'color: #f59e0b',
-            ERROR: 'color: #ef4444',
-            DEBUG: 'color: #8b5cf6'
-        }[entry.level];
+            // eslint-disable-next-line no-console
+            console.log(
+                `%c${emoji} [${entry.category}] ${entry.message}`,
+                color,
+                entry.data || ''
+            );
+        }
 
-        // eslint-disable-next-line no-console
-        console.log(
-            `%c${emoji} [${entry.category}] ${entry.message}`,
-            color,
-            entry.data || ''
-        );
+        // Integração com Sentry para Erros críticos
+        if (entry.level === 'ERROR') {
+            Sentry.captureException(entry.data instanceof Error ? entry.data : new Error(entry.message), {
+                extra: {
+                    category: entry.category,
+                    data: entry.data,
+                    userId: entry.userId
+                },
+                tags: {
+                    category: entry.category
+                }
+            });
+        }
     }
 
     // —— Métodos Públicos ——

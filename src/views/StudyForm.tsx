@@ -1,7 +1,9 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { EditalMateria } from '../types';
-import { CheckCircle2, AlertCircle, Calculator, Clock, BookOpen, Target, Zap, AlertTriangle, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, Clock, BookOpen, Target, Zap, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { EditalMateria, StudyRecord, ErrorAnalysis } from '../types';
+import { getErrorMessage } from '../utils/error';
+import { EditorView } from '@tiptap/pm/view';
 import { CustomSelector } from '../components/CustomSelector';
 import { useEditor, EditorContent } from '@tiptap/react';
 import StarterKit from '@tiptap/starter-kit';
@@ -11,12 +13,12 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { EditorToolbar } from '../components/QuestionsBank/EditorToolbar';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
-import { studyRecordsQueries, questionsQueries } from '../services/queries';
+import { questionsQueries, studyRecordsQueries } from '../services/queries';
 import { syncService } from '../services/offline/sync';
-import { ErrorAnalysis } from '../types';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
+import { useTimerStore } from '../stores/useTimerStore';
 import { ESTUDO_LIVRE } from '../constants';
 
 interface StudyFormProps {
@@ -59,6 +61,15 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     const [comentarios, setComentarios] = useState('');
     const [errorText, setErrorText] = useState('');
     const [saveToBank, setSaveToBank] = useState(false);
+    
+    // Timer integration
+    const timerSeconds = useTimerStore(state => state.seconds);
+
+    const handleFillFromTimer = () => {
+        const hrs = Math.floor(timerSeconds / 3600);
+        const mins = Math.floor((timerSeconds % 3600) / 60);
+        setTempoHHMM(`${hrs.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`);
+    };
 
     // Multi Record States (Simulado)
     const [simuladoScores, setSimuladoScores] = useState<Record<string, { acertos: string, total: string }>>({});
@@ -174,7 +185,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
         } catch (error) {
             logger.error('AI', 'Erro na análise de IA:', error);
-            setMsg({ type: 'error', text: 'Falha ao analisar erros com IA.' });
+            setMsg({ type: 'error', text: 'Falha ao analisar erros com IA: ' + getErrorMessage(error) });
         } finally {
             setIsAnalyzing(false);
         }
@@ -207,7 +218,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
         attributes: {
             class: `prose prose-invert prose-sm max-w-none focus:outline-none ${minHeight} p-5 text-xs text-[hsl(var(--text-bright))]`
         },
-        handlePaste: (view: any, event: ClipboardEvent) => {
+        handlePaste: (_view: EditorView, event: ClipboardEvent) => {
             const items = Array.from(event.clipboardData?.items || []);
             const imageItem = items.find(item => item.type.startsWith('image'));
             if (imageItem) {
@@ -224,7 +235,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             }
             return false;
         },
-        handleDrop: (view: any, event: DragEvent) => {
+        handleDrop: (_view: EditorView, event: DragEvent) => {
             const files = Array.from(event.dataTransfer?.files || []);
             const imageFile = files.find(file => file.type.startsWith('image'));
             if (imageFile) {
@@ -372,7 +383,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
         setLoading(true);
         // Otimização de Delay: Usar o getSession (frequentemente em cache) em vez do getUser (requisição HTTP obrigatória)
-        const { data: { session } } = await (supabase.auth as any).getSession();
+        const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
 
         if (isSimulado) {
@@ -402,7 +413,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 return;
             }
 
-            const payloads = (Object.entries(simuladoScores)).map(([mat, score]: [string, any]) => {
+            const payloads = (Object.entries(simuladoScores) as [string, { acertos: string, total: string }][]).map(([mat, score]) => {
                 const a = parseInt(score.acertos || '0');
                 const t = parseInt(score.total || '0');
                 if (t === 0) return null;
@@ -428,7 +439,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     rev_30d: false,
                     tipo: 'Estudo'
                 };
-            }).filter(Boolean) as any[]; // Remove nulos
+            }).filter((p): p is NonNullable<typeof p> => p !== null); // Remove nulos
 
             try {
                 // Sincroniza em série ou paralelo (saveAttempt lida com local-first)
@@ -439,8 +450,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 setComentarios('');
                 setTempoHHMM('');
                 setSimuladoScores({});
-            } catch (error: any) {
-                setMsg({ type: 'error', text: 'Erro ao salvar simulado: ' + error.message });
+            } catch (error) {
+                setMsg({ type: 'error', text: 'Erro ao salvar simulado: ' + getErrorMessage(error) });
             }
 
         } else {
@@ -464,7 +475,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             }
 
             // Validar e tipar o payload para StudyRecord
-            const payload: any = {
+            const payload: Partial<StudyRecord> = {
                 user_id: user?.id,
                 concurso: missaoAtiva,
                 materia,
@@ -481,7 +492,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 rev_30d: false,
                 meta: meta.trim() || null,
                 tipo: 'Estudo',
-                analise_erros: errorAnalysis.length > 0 ? errorAnalysis : null
+                analise_erros: errorAnalysis.length > 0 ? errorAnalysis : undefined
             };
 
             try {
@@ -529,8 +540,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 setErrorText('');
                 setErrorAnalysis([]);
                 window.scrollTo({ top: 0, behavior: 'smooth' });
-            } catch (error: any) {
-                setMsg({ type: 'error', text: 'Erro ao salvar: ' + error.message });
+            } catch (error) {
+                setMsg({ type: 'error', text: 'Erro ao salvar: ' + getErrorMessage(error) });
             }
         }
         setLoading(false);
@@ -541,7 +552,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
             {msg.type && (
                 <div className={`mb-8 p-6 rounded-2xl flex items-center gap-4 text-sm font-black border animate-in slide-in-from-top-4 ${msg.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                    {msg.type === 'success' ? <CheckCircle2 size={24} /> : <AlertTriangle size={24} />}
+                    {msg.type === 'success' ? <CheckCircle2 size={24} /> : <div className="text-xl">⚠️</div>}
                     <span className="uppercase tracking-widest">{msg.text}</span>
                 </div>
             )}
@@ -754,7 +765,21 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                         <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative z-10">
                             <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><Target size={18} className="text-[hsl(var(--accent))]" /> Performance</h4>
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Tempo (HH:MM)</label><input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} /></div>
+                                <div className="space-y-2">
+                                    <div className="flex justify-between items-center ml-1">
+                                        <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">Tempo (HH:MM)</label>
+                                        {timerSeconds > 0 && (
+                                            <button 
+                                                type="button" 
+                                                onClick={handleFillFromTimer}
+                                                className="text-[9px] font-black text-[hsl(var(--accent))] uppercase flex items-center gap-1 hover:underline"
+                                            >
+                                                <Clock size={10} /> Usar Timer
+                                            </button>
+                                        )}
+                                    </div>
+                                    <input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} />
+                                </div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Acertos</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-green-400 font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={acertos} onChange={(e) => setAcertos(e.target.value)} /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Total Questões</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
                                 <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Nº da Meta</label><input type="text" placeholder="Ex: Meta 05" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={meta} onChange={(e) => setMeta(e.target.value)} /></div>
@@ -936,7 +961,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                 </>
                             ) : (
                                 <>
-                                    <Calculator size={20} /> <span>Finalizar e Salvar Estudo</span>
+                                    <span>Finalizar e Salvar Estudo</span>
                                 </>
                             )}
                         </button>

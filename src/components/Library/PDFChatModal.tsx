@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Send, Bot, User, Loader2, Sparkles, Zap, Trash2 } from 'lucide-react';
+import { X, Send, Bot, User, Loader2, Sparkles, Trash2 } from 'lucide-react';
 import { supabase } from '../../services/supabase';
 import { logger } from '../../utils/logger';
 
@@ -20,7 +20,6 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
     const [messages, setMessages] = useState<Message[]>([]);
     const [input, setInput] = useState('');
     const [loading, setLoading] = useState(false);
-    const [provider, setProvider] = useState<'gemini' | 'groq'>('gemini');
     const scrollRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
@@ -38,26 +37,74 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
         setLoading(true);
 
         try {
-            const { data, error: invokeError } = await supabase.functions.invoke('chat-with-pdf', {
-                body: {
+            // Adicionamos uma mensagem vazia para o assistente que será preenchida via stream
+            setMessages(prev => [...prev, { role: 'assistant', content: '' }]);
+
+            // Capturamos a URL e a KEY diretamente do cliente para garantir precisão
+            const { data: sessionData } = await supabase.auth.getSession();
+            const supabaseUrl = (supabase as any).supabaseUrl;
+            const supabaseKey = (supabase as any).supabaseKey;
+            const token = sessionData?.session?.access_token;
+
+            const endpoint = `${supabaseUrl}/functions/v1/chat-with-pdf`;
+
+            const response = await fetch(endpoint, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token || ''}`,
+                    'apikey': supabaseKey
+                },
+                body: JSON.stringify({
                     materialId,
                     message: userMsg,
-                    provider
-                }
+                    stream: true
+                })
             });
 
-            if (invokeError) {
-                const errorDetail = invokeError.message || "Erro ao invocar função de IA";
-                throw new Error(errorDetail);
+            if (!response.ok) {
+                const errBody = await response.json().catch(() => ({}));
+                throw new Error(errBody.error || `Erro ${response.status}: ${response.statusText}`);
             }
 
-            // O backend já retorna o campo 'text' limpo
-            const aiContent = data.text || "Não consegui processar uma resposta.";
+            if (!response.body) throw new Error("Resposta sem corpo de dados");
 
-            setMessages(prev => [...prev, { role: 'assistant', content: aiContent }]);
+            const reader = response.body.getReader();
+            const decoder = new TextDecoder();
+            let aiContent = "";
+
+            while (true) {
+                const { done, value } = await reader.read();
+                if (done) break;
+
+                const chunk = decoder.decode(value, { stream: true });
+                aiContent += chunk;
+
+                // Atualiza apenas a última mensagem (do sistema) com o conteúdo acumulado
+                setMessages(prev => {
+                    const newMessages = [...prev];
+                    const lastMsg = newMessages[newMessages.length - 1];
+                    if (lastMsg && lastMsg.role === 'assistant') {
+                        lastMsg.content = aiContent;
+                    }
+                    return newMessages;
+                });
+            }
+
+            logger.debug('AI', `Resposta completa recebida (${aiContent.length} chars)`);
+
         } catch (e: any) {
             logger.error('LIBRARY', 'Erro no chat PDF', e);
-            setMessages(prev => [...prev, { role: 'assistant', content: `❌ Erro: ${e.message}` }]);
+            setMessages(prev => {
+                const newMessages = [...prev];
+                const lastMsg = newMessages[newMessages.length - 1];
+                if (lastMsg && lastMsg.role === 'assistant' && lastMsg.content === '') {
+                    lastMsg.content = `❌ Erro: ${e.message}`;
+                } else if (lastMsg && lastMsg.role === 'assistant') {
+                    lastMsg.content += `\n\n[ERRO DE CONEXÃO: ${e.message}]`;
+                }
+                return newMessages;
+            });
         } finally {
             setLoading(false);
         }
@@ -86,20 +133,12 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
                                 <Bot size={20} />
                             </div>
                             <div className="overflow-hidden">
-                                <h4 className="text-sm font-black text-white uppercase tracking-tight truncate">Chat IA: {materialName}</h4>
+                                <h4 className="text-sm font-black text-white uppercase tracking-tight truncate">Tutor IA: {materialName}</h4>
                                 <div className="flex gap-2 mt-1">
-                                    <button
-                                        onClick={() => setProvider('gemini')}
-                                        className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border transition-all ${provider === 'gemini' ? 'bg-indigo-500 text-white border-indigo-400' : 'bg-slate-800 text-slate-500 border-transparent'}`}
-                                    >
-                                        Gemini Pro
-                                    </button>
-                                    <button
-                                        onClick={() => setProvider('groq')}
-                                        className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border transition-all ${provider === 'groq' ? 'bg-orange-500 text-white border-orange-400' : 'bg-slate-800 text-slate-500 border-transparent'}`}
-                                    >
-                                        Groq (Fast)
-                                    </button>
+                                    <div className="flex items-center gap-1.5 px-2 py-0.5 rounded border border-indigo-500/30 bg-indigo-500/10">
+                                        <Sparkles size={8} className="text-indigo-400" />
+                                        <span className="text-[8px] font-black uppercase text-indigo-300 tracking-widest">Gemini Pro 2.0</span>
+                                    </div>
                                 </div>
                             </div>
                         </div>
@@ -166,8 +205,8 @@ const PDFChatModal: React.FC<PDFChatModalProps> = ({ isOpen, onClose, materialId
                         </div>
                         <div className="mt-2 flex items-center justify-between">
                             <div className="flex items-center gap-1.5 opacity-40">
-                                {provider === 'gemini' ? <Sparkles size={10} className="text-blue-400" /> : <Zap size={10} className="text-orange-400" />}
-                                <span className="text-[8px] font-bold uppercase text-white">{provider === 'gemini' ? 'Multimodal Ativado' : 'Fast Mode'}</span>
+                                <Sparkles size={10} className="text-indigo-400" />
+                                <span className="text-[8px] font-bold uppercase text-white">Análise Multimodal Ativa</span>
                             </div>
                             <span className="text-[8px] text-slate-600 font-mono">Shift + Enter para nova linha</span>
                         </div>

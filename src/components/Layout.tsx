@@ -29,6 +29,8 @@ import { preserveMissaoOnClear } from '../utils/localStorage';
 import { ViewType } from '../types';
 import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../stores/useAppStore';
+import { useTimerStore } from '../stores/useTimerStore';
+import { StudyTimer } from './ui/StudyTimer';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -205,6 +207,9 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
   };
 
   const menuItems = getMenuItems();
+  const isTimerRunning = useTimerStore(state => state.isRunning);
+  const isTimerVisible = useTimerStore(state => state.isVisible);
+  const toggleTimer = useTimerStore(state => state.toggleVisibility);
 
   return (
     <div className="flex min-h-screen bg-[hsl(var(--bg-main))] relative">
@@ -357,9 +362,30 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
                   <div className="flex items-center gap-3">
                     {activeView === 'HUB' ? null : (
-                      <h2 className={`font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none ${isQuestionModule || activeView === 'PERFORMANCE' ? 'text-sm lg:text-base' : 'text-xl lg:text-2xl'}`}>
-                        {missaoAtiva || 'Selecione uma Missão'}
-                      </h2>
+                      <div className="flex items-center gap-4">
+                        <h2 className={`font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none ${isQuestionModule || activeView === 'PERFORMANCE' ? 'text-sm lg:text-base' : 'text-xl lg:text-2xl'}`}>
+                          {missaoAtiva || 'Selecione uma Missão'}
+                        </h2>
+                        
+                        <motion.button
+                          whileHover={{ scale: 1.05 }}
+                          whileTap={{ scale: 0.95 }}
+                          onClick={toggleTimer}
+                          className={`
+                            flex items-center gap-2 px-4 py-2 rounded-full border transition-all duration-500
+                            ${isTimerVisible 
+                              ? 'bg-[#c21807] border-white/20 text-white shadow-[0_0_20px_rgba(194,24,7,0.3)]' 
+                              : 'bg-[hsl(var(--accent)/0.1)] border-[hsl(var(--accent)/0.2)] text-[hsl(var(--accent))] hover:bg-[hsl(var(--accent)/0.2)]'
+                            }
+                          `}
+                        >
+                          <div className={`w-2 h-2 rounded-full ${isTimerRunning ? 'bg-white animate-pulse' : 'bg-current opacity-50'}`} />
+                          <Clock size={14} />
+                          <span className="text-[10px] font-black uppercase tracking-widest hidden sm:block">
+                            {isTimerVisible ? 'Timer Ativo' : 'Cronômetro'}
+                          </span>
+                        </motion.button>
+                      </div>
                     )}
                     <div className="flex items-center gap-2">
                       <div className="h-0.5 w-6 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full opacity-50" />
@@ -388,6 +414,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
           </AnimatePresence>
         </div>
       </main>
+      <StudyTimer />
     </div>
   );
 };
