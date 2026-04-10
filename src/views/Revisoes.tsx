@@ -378,7 +378,6 @@ const Revisoes: React.FC = () => {
                 </div>
               </div>
             </div>
-            </div>
           </div>
         )}
       </div>
@@ -429,15 +428,15 @@ const Revisoes: React.FC = () => {
                 <CheckCircle2 size={40} />
               </div>
               <h3 className="text-2xl font-black uppercase tracking-tighter text-[hsl(var(--text-bright))]">Validar Retenção</h3>
-              <p className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] mt-2">{selectedReview.materia}</p>
+              <p className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] mt-2">{selectedReview?.materia}</p>
             </div>
 
             <div className="overflow-y-auto pr-2 custom-scrollbar space-y-8">
               <div className="bg-[hsl(var(--bg-user-block))] p-6 rounded-2xl border border-[hsl(var(--border))]">
-                <p className="text-sm font-bold text-[hsl(var(--text-main))] leading-relaxed italic">"{selectedReview.assunto}"</p>
+                <p className="text-sm font-bold text-[hsl(var(--text-main))] leading-relaxed italic">"{selectedReview?.assunto}"</p>
                 <div className="flex justify-between items-center text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mt-4 pt-4 border-t border-[hsl(var(--border))]">
-                  <span>Etapa: {selectedReview.reviewType}</span>
-                  <span>Base: {new Date(selectedReview.data_estudo).toLocaleDateString('pt-BR')}</span>
+                  <span>Etapa: {selectedReview?.reviewType}</span>
+                  <span>Base: {selectedReview && new Date(selectedReview.data_estudo).toLocaleDateString('pt-BR')}</span>
                 </div>
               </div>
 
