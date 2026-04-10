@@ -10,7 +10,7 @@ import { SyncStatus } from './components/ui/SyncStatus';
 import { useAppStore } from './stores/useAppStore';
 import { useStudyRecords } from './hooks/queries/useStudyRecords';
 import { useEditais } from './hooks/queries/useEditais';
-
+import { syncService } from './services/offline/sync';
 import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useSentry } from './hooks/useSentry';
@@ -63,8 +63,23 @@ const AppContent: React.FC = () => {
   }, [authLoading, session, reset]);
 
   const handleResetCache = async () => {
-    if (window.confirm('Deseja limpar o cache local e forçar sincronização? Isso pode resolver dados zerados.')) {
+    // 1. Verificar registros pendentes antes de qualquer ação
+    const pendingTotal = await db.studyRecords.where('syncStatus').equals('pending').count();
+    
+    let confirmMsg = 'Deseja limpar o cache local e forçar a recarga?';
+    if (pendingTotal > 0) {
+      confirmMsg = `⚠️ ATENÇÃO: Você tem ${pendingTotal} registros que ainda NÃO foram sincronizados com a nuvem. Se você limpar o cache agora, esses dados serão perdidos DEFINITIVAMENTE. Deseja continuar mesmo assim?`;
+    }
+
+    if (window.confirm(confirmMsg)) {
       try {
+        // TENTA SINCRONIZAR ANTES DE LIMPAR (Se houver internet)
+        if (navigator.onLine && pendingTotal > 0) {
+          console.log('🔄 Sincronizando dados pendentes antes da limpeza...');
+          // Importamos o syncService em App.tsx se necessário
+          await syncService.syncPendingAttempts();
+        }
+
         await db.studyRecords.clear();
         await db.editais.clear();
         queryClient.clear();
@@ -82,7 +97,7 @@ const AppContent: React.FC = () => {
   // Note: 'records' is not defined in App.tsx. Assuming 'studyRecords' is intended.
   const records = studyRecords || []; // Assuming studyRecords are the 'records' referred to in the instruction
   const activeRecords = records.filter(r =>
-    r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
+    r.concurso === missaoAtiva && r.tipo !== 'Simulado' && r.materia !== 'SIMULADO'
   );
 
   if (records.length > 0 && activeRecords.length === 0) {

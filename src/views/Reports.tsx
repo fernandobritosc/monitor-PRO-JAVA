@@ -214,7 +214,7 @@ const Reports: React.FC = () => {
                 `${Math.floor(r.tempo / 60)}h${r.tempo % 60}m`,
                 `${r.acertos}/${r.total}`,
                 `${r.taxa.toFixed(0)}%`,
-                r.dificuldade === 'Simulado' ? 'SIMULADO' : ''
+                ''
             ]);
 
             doc.autoTable({
@@ -235,9 +235,6 @@ const Reports: React.FC = () => {
                 },
                 margin: { left: 14, right: 14 },
                 didParseCell: (data: { row: { raw: any[] }, section: string, column: { index: number }, cell: { raw: any, styles: { fillColor?: number[], textColor?: number[] } } }) => {
-                    if (data.row.raw[6] === 'SIMULADO' && data.section === 'body') {
-                        data.cell.styles.fillColor = [254, 243, 199];
-                    }
                     if (data.column.index === 5 && data.section === 'body') {
                         const val = parseFloat(data.cell.raw as string);
                         if (val < 60) data.cell.styles.textColor = [220, 38, 38];

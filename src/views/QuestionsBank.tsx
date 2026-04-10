@@ -207,7 +207,7 @@ const QuestionsBank: React.FC<QuestionsBankProps> = ({ missaoAtiva: missaoAtivaP
       filtered = filtered.filter(q => !podcastCache.has(q.original_audio_id || q.id));
     }
 
-    return [...filtered].sort((a, b) => (Number(b.relevancia) || 0) - (Number(a.relevancia) || 0));
+    return [...filtered].sort((a, b) => new Date(b.data).getTime() - new Date(a.data).getTime());
   }, [questions, searchTerm, filterMateria, filterAssunto, filterBanca, filterAno, filterOrgao, filterCargo, filterPodcast, podcastCache]);
 
   const currentQuestion = viewMode === 'study' ? reviewQueue[currentQuestionIndex] : null;

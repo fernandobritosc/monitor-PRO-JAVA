@@ -59,9 +59,7 @@ const History: React.FC = () => {
       tempoHHMM: string;
       acertos: number | string;
       total: number | string;
-      relevancia: number;
       comentarios: string;
-      dificuldade: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' | 'Simulado';
       meta: string;
       tipo: string;
       analise_erros: ErrorAnalysis[];
@@ -74,9 +72,7 @@ const History: React.FC = () => {
       tempoHHMM: '',
       acertos: '',
       total: '',
-      relevancia: 5,
       comentarios: '',
-      dificuldade: '🟡 Médio',
       meta: '',
       tipo: '',
       analise_erros: [],
@@ -111,7 +107,7 @@ const History: React.FC = () => {
 
    useEffect(() => {
       // Atualiza a dificuldade sugerida se estiver editando (exceto Simulados)
-      if (editingRecord && editingRecord.dificuldade !== 'Simulado' && numericTotal > 0) {
+      if (editingRecord && editingRecord.tipo !== 'Simulado' && numericTotal > 0) {
          let suggested: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' = '🟡 Médio';
          if (percentage >= 80) suggested = '🟢 Fácil';
          else if (percentage < 60) suggested = '🔴 Difícil';
@@ -269,9 +265,7 @@ const History: React.FC = () => {
          tempoHHMM: minutesToHHMM(r.tempo),
          acertos: r.acertos,
          total: r.total,
-         relevancia: r.relevancia,
          comentarios: r.comentarios || '',
-         dificuldade: r.dificuldade,
          meta: String(r.meta || ''),
          tipo: r.tipo || '',
          analise_erros: r.analise_erros || [],
@@ -306,9 +300,7 @@ const History: React.FC = () => {
          total,
          taxa,
          tempo,
-         relevancia: editForm.relevancia,
          comentarios: editForm.comentarios,
-         dificuldade: editForm.dificuldade,
          meta: (editForm.meta as string).trim() || null,
          tipo: editForm.tipo || null,
          gabarito: editForm.gabarito,
@@ -322,7 +314,7 @@ const History: React.FC = () => {
       setLoading(false);
 
       // Salvar no banco de questões é uma operação secundária (não precisa ser otimista)
-      if (saveToBank && editingRecord.dificuldade !== 'Simulado') {
+      if (saveToBank && editingRecord.tipo !== 'Simulado') {
          const { data: { user } } = await supabase.auth.getUser();
          if (user) {
             const questionPayload = {
@@ -331,7 +323,6 @@ const History: React.FC = () => {
                data: editForm.data_estudo,
                materia: editForm.materia,
                assunto: editForm.assunto,
-               relevancia: editForm.relevancia,
                anotacoes: editForm.comentarios,
                status: 'Pendente',
                tags: [],
@@ -346,7 +337,7 @@ const History: React.FC = () => {
       }
    };
 
-   const isSimuladoEdit = editingRecord?.dificuldade === 'Simulado';
+   const isSimuladoEdit = editingRecord?.tipo === 'Simulado';
 
    return (
       <div className="space-y-6 animate-in fade-in duration-500 pb-20">
@@ -446,9 +437,7 @@ const History: React.FC = () => {
                                           <span className={`text-[9px] font-black px-3 py-1 rounded-full uppercase tracking-widest shadow-sm ${r.taxa >= 80 ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-yellow-500/10 text-yellow-400 border border-yellow-500/20'}`}>
                                              {r.taxa.toFixed(0)}%
                                           </span>
-                                          {r.dificuldade === 'Simulado' && (
-                                             <span className="text-[9px] font-black bg-purple-500/10 text-purple-400 px-3 py-1 rounded-full border border-purple-500/20 uppercase tracking-widest">Simulado</span>
-                                          )}
+                                          </span>
                                           {r.meta && (
                                              <span className="text-[9px] font-black bg-cyan-500/10 text-cyan-400 px-3 py-1 rounded-full border border-cyan-500/20 uppercase tracking-widest">
                                                 {r.meta}

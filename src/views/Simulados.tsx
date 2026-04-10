@@ -123,7 +123,7 @@ const Simulados: React.FC = () => {
   // 1. Filtrar registros do tipo Simulado
   const activeSimuladoRecords = useMemo(() => {
     return records
-      .filter(r => r.concurso === missaoAtiva && r.dificuldade === 'Simulado')
+      .filter(r => r.concurso === missaoAtiva && r.tipo === 'Simulado')
       .sort((a, b) => new Date(b.data_estudo).getTime() - new Date(a.data_estudo).getTime());
   }, [records, missaoAtiva]);
 

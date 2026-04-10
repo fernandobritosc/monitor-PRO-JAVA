@@ -12,7 +12,23 @@ export const useStudyRecords = (userId: string | undefined) => {
     queryFn: async () => {
       if (!userId) return [];
       
-      // 1. Buscar dados locais (Dexie)
+      // 0. Recuperar registros "orfãos" (sem user_id) salvos por erro
+      try {
+        const allLocal = await db.studyRecords.toArray();
+        const orphans = allLocal.filter(r => !r.user_id || r.user_id === 'undefined');
+        if (orphans.length > 0) {
+          console.warn(`🔍 Recuperando ${orphans.length} registros sem usuário para ${userId}`);
+          await db.studyRecords.bulkPut(orphans.map(o => ({ 
+            ...o, 
+            user_id: userId,
+            syncStatus: 'pending' // Força sincronização desses recuperados
+          })));
+        }
+      } catch (err) {
+        console.error('Erro na auto-recuperação:', err);
+      }
+
+      // 1. Buscar dados locais (Dexie) agora já normalizados
       const localData = await db.studyRecords
         .where('user_id')
         .equals(userId)

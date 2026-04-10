@@ -48,11 +48,12 @@ export const studyRecordsQueries = {
             return entry;
         });
 
-        const { error } = await supabase.from('registros_estudos').insert(payload);
+        const { data, error } = await supabase.from('registros_estudos').insert(payload).select();
         if (error) {
             console.error('❌ Erro no Supabase (Insert):', error.message, error.details);
             throw error;
         }
+        return data as StudyRecord[];
     },
 
     /** Atualiza um registro existente */

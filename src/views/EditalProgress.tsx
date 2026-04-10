@@ -71,7 +71,7 @@ const EditalProgress: React.FC = () => {
         let topicsWithAccuracyCount = 0;
 
         const allMissionRecords = records.filter(r =>
-            r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
+            r.concurso === missaoAtiva && r.tipo !== 'Simulado' && r.materia !== 'SIMULADO'
         );
 
         activeEditais.forEach(ed => {

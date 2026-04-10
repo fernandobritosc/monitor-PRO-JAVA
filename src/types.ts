@@ -20,8 +20,6 @@ export interface StudyRecord {
   total: number;
   taxa: number;
   tempo: number; // minutes
-  dificuldade: '🟢 Fácil' | '🟡 Médio' | '🔴 Difícil' | 'Simulado';
-  relevancia: number;
   comentarios?: string;
   rev_24h: boolean;
   rev_07d: boolean;
@@ -68,7 +66,6 @@ export interface Question {
   materia: string;
   assunto: string;
   simulado?: string;
-  relevancia: number;
   enunciado?: string; // NOVO: Texto rico Tiptap
   resposta?: string;  // NOVO: Texto rico Tiptap
   anotacoes?: string;

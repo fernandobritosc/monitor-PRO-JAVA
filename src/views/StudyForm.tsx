@@ -81,6 +81,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
     // New Meta State
     const [meta, setMeta] = useState('');
+    const [tipo, setTipo] = useState<'Estudo' | 'Revisão'>('Estudo');
 
     // Error Algorithm States (moved up)
     const [errorAnalysis, setErrorAnalysis] = useState<ErrorAnalysis[]>([]);
@@ -437,7 +438,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     rev_07d: false,
                     rev_15d: false,
                     rev_30d: false,
-                    tipo: 'Estudo'
+                    tipo: 'Simulado'
                 };
             }).filter((p): p is NonNullable<typeof p> => p !== null); // Remove nulos
 
@@ -491,7 +492,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 rev_15d: false,
                 rev_30d: false,
                 meta: meta.trim() || null,
-                tipo: 'Estudo',
+                tipo,
                 analise_erros: errorAnalysis.length > 0 ? errorAnalysis : undefined
             };
 
@@ -539,6 +540,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 setTempoHHMM('');
                 setErrorText('');
                 setErrorAnalysis([]);
+                setTipo('Estudo');
                 window.scrollTo({ top: 0, behavior: 'smooth' });
             } catch (error) {
                 setMsg({ type: 'error', text: 'Erro ao salvar: ' + getErrorMessage(error) });
@@ -690,13 +692,38 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
                         {/* PASSO 1: IDENTIFICAÇÃO */}
-                        <div className={`glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative ${showTopicsDropdown ? 'z-40' : 'z-30'}`}>
-                            <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><BookOpen size={18} className="text-[hsl(var(--accent))]" /> Identificação</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Data do Estudo</label>
+                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-8 relative z-10 overflow-hidden">
+                            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600/10 to-transparent rounded-bl-full pointer-events-none" />
+                            
+                            <div className="flex flex-col md:flex-row gap-8">
+                                {/* Seletor de Tipo (Novo) */}
+                                <div className="md:w-1/3 space-y-3">
+                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
+                                        <Layers size={14} className="text-[hsl(var(--accent))]" /> Tipo de Registro
+                                    </label>
+                                    <div className="flex bg-[hsl(var(--bg-user-block))] p-1.5 rounded-2xl border border-[hsl(var(--border))]">
+                                        {(['Estudo', 'Revisão'] as const).map((t) => (
+                                            <button
+                                                key={t}
+                                                type="button"
+                                                onClick={() => setTipo(t)}
+                                                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tipo === t ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg shadow-[hsl(var(--accent)/0.2)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))]'}`}
+                                            >
+                                                {t}
+                                            </button>
+                                        ))}
+                                    </div>
+                                </div>
+
+                                <div className="flex-1 space-y-3">
+                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
+                                        <Calendar size={14} className="text-[hsl(var(--accent))]" /> Data da Atividade
+                                    </label>
                                     <input type="date" required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-black uppercase tracking-widest" value={dataEstudo} onChange={(e) => setDataEstudo(e.target.value)} />
                                 </div>
+                            </div>
+
+                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
                                 <div className="space-y-2">
                                     <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Matéria</label>
                                     <CustomSelector

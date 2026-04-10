@@ -80,10 +80,8 @@ const ReviewCard: React.FC<{
           </div>
           <h4 className="text-xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter truncate leading-tight group-hover:text-[hsl(var(--accent))] transition-colors duration-300">{item.materia}</h4>
         </div>
-        <div className="text-right shrink-0">
-          <div className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] mb-1">Impacto</div>
-          <div className={`text-2xl font-black tracking-tighter ${item.relevancia >= 8 ? 'text-red-400' : 'text-yellow-400'}`}>{item.relevancia}</div>
         </div>
+      </div>
       </div>
 
       <div className="bg-black/10 p-5 rounded-[1.5rem] border border-[hsl(var(--border))] space-y-4">
@@ -147,7 +145,6 @@ const Revisoes: React.FC = () => {
   const [showFilters, setShowFilters] = useState(false);
   const [quickFilterMateria, setQuickFilterMateria] = useState('Todas'); // NOVO
   const [filterAssunto, setFilterAssunto] = useState('');
-  const [filterRelevancia, setFilterRelevancia] = useState(1);
 
   // Reset do formulário ao abrir modal
   useEffect(() => {
@@ -170,7 +167,7 @@ const Revisoes: React.FC = () => {
     const uniqueMaterias = new Set<string>();
 
     const activeRecords = records.filter(r =>
-      r.concurso === missaoAtiva && r.dificuldade !== 'Simulado' && r.materia !== 'SIMULADO'
+      r.concurso === missaoAtiva && r.tipo !== 'Simulado' && r.materia !== 'SIMULADO'
     );
 
     if (records.length > 0 && activeRecords.length === 0) {
@@ -208,11 +205,10 @@ const Revisoes: React.FC = () => {
     const filteredPending = pending.filter(item => {
       const matchQuickMateria = quickFilterMateria === 'Todas' || item.materia === quickFilterMateria;
       const matchAssunto = !filterAssunto || item.assunto.toLowerCase().includes(filterAssunto.toLowerCase());
-      const matchRelevancia = item.relevancia >= filterRelevancia;
-      return matchQuickMateria && matchAssunto && matchRelevancia;
+      return matchQuickMateria && matchAssunto;
     });
 
-    const sorted = filteredPending.sort((a, b) => b.daysOverdue - a.daysOverdue || b.relevancia - a.relevancia);
+    const sorted = filteredPending.sort((a, b) => b.daysOverdue - a.daysOverdue);
 
     return {
       overdue: sorted.filter(r => r.daysOverdue > 0),
@@ -221,7 +217,7 @@ const Revisoes: React.FC = () => {
       totalFiltered: sorted.length,
       materiasOptions: Array.from(uniqueMaterias).sort()
     };
-  }, [records, missaoAtiva, quickFilterMateria, filterAssunto, filterRelevancia]);
+  }, [records, missaoAtiva, quickFilterMateria, filterAssunto]);
 
   const validateTimeInput = (val: string): number | null => {
     if (!val) return 0;
@@ -287,19 +283,21 @@ const Revisoes: React.FC = () => {
       updateRecord(recordWithUpdates);
 
       if (calculatedMinutes > 0 || reviewQuestions > 0) {
-        let dificuldadeCalc: "🟢 Fácil" | "🟡 Médio" | "🔴 Difícil" | "Simulado" = '🟡 Médio';
-        if (reviewQuestions > 0) {
-          if (taxa >= 80) dificuldadeCalc = '🟢 Fácil'; else if (taxa < 60) dificuldadeCalc = '🔴 Difícil';
-        }
         const statsRecord = {
-          user_id: userId, concurso: selectedReview.concurso, materia: selectedReview.materia,
+          user_id: userId,
+          concurso: selectedReview.concurso,
+          materia: selectedReview.materia,
           assunto: selectedReview.assunto, 
-          data_estudo: sessionDate, // Explicitly using state string
+          data_estudo: sessionDate,
           acertos: reviewCorrect,
-          total: reviewQuestions, taxa: taxa, tempo: calculatedMinutes, dificuldade: dificuldadeCalc,
-          relevancia: selectedReview.relevancia,
+          total: reviewQuestions,
+          taxa: taxa,
+          tempo: calculatedMinutes,
           comentarios: `Revisão (${selectedReview.reviewType}) realizada.${isHighPerformance ? ' Desempenho alto: avançou etapas.' : ''}`,
-          rev_24h: true, rev_07d: true, rev_15d: true, rev_30d: true,
+          rev_24h: true,
+          rev_07d: true,
+          rev_15d: true,
+          rev_30d: true,
           tipo: 'Revisão' as const
         };
         insertRecord(statsRecord);
@@ -317,8 +315,8 @@ const Revisoes: React.FC = () => {
   };
 
   const toggleExpand = (id: string) => setExpandedCards(prev => ({ ...prev, [id]: !prev[id] }));
-  const clearFilters = () => { setQuickFilterMateria('Todas'); setFilterAssunto(''); setFilterRelevancia(1); };
-  const hasActiveFilters = quickFilterMateria !== 'Todas' || filterAssunto || filterRelevancia > 1;
+  const clearFilters = () => { setQuickFilterMateria('Todas'); setFilterAssunto(''); };
+  const hasActiveFilters = quickFilterMateria !== 'Todas' || filterAssunto;
 
   const renderPerformanceBadge = () => {
     if (reviewQuestions === 0) return null;
@@ -381,15 +379,7 @@ const Revisoes: React.FC = () => {
                   <input type="text" placeholder="Ex: Controle de Constitucionalidade..." className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl pl-14 pr-6 py-4 text-sm font-bold text-[hsl(var(--text-bright))] focus:ring-2 focus:ring-[hsl(var(--accent)/0.3)] transition-all placeholder-[hsl(var(--text-muted)/0.5)]" value={filterAssunto} onChange={(e) => setFilterAssunto(e.target.value)} />
                 </div>
               </div>
-              <div className="space-y-3">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex justify-between">
-                  <span>Relevância Prioritária</span>
-                  <span className="text-[hsl(var(--accent))]">{filterRelevancia > 1 ? `Mínima ${filterRelevancia}` : 'Todas'}</span>
-                </label>
-                <div className="pt-3">
-                  <input type="range" min="1" max="10" step="1" className="w-full h-2 bg-[hsl(var(--bg-user-block))] rounded-full appearance-none cursor-pointer accent-[hsl(var(--accent))]" value={filterRelevancia} onChange={(e) => setFilterRelevancia(Number(e.target.value))} />
-                </div>
-              </div>
+            </div>
             </div>
           </div>
         )}
