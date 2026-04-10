@@ -80,8 +80,6 @@ const ReviewCard: React.FC<{
           </div>
           <h4 className="text-xl font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter truncate leading-tight group-hover:text-[hsl(var(--accent))] transition-colors duration-300">{item.materia}</h4>
         </div>
-        </div>
-      </div>
       </div>
 
       <div className="bg-black/10 p-5 rounded-[1.5rem] border border-[hsl(var(--border))] space-y-4">
