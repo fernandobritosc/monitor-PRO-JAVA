@@ -13,7 +13,7 @@ import Placeholder from '@tiptap/extension-placeholder';
 import { EditorToolbar } from '../components/QuestionsBank/EditorToolbar';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
-import { questionsQueries, studyRecordsQueries } from '../services/queries';
+import { questionsQueries } from '../services/queries';
 import { syncService } from '../services/offline/sync';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
@@ -510,7 +510,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     }
                 }
 
-                await studyRecordsQueries.insert(payload);
+                await syncService.saveAttempt(payload);
 
                 // Opcional: Banco de Questões
                 if (saveToBank) {

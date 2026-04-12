@@ -39,6 +39,7 @@ export const studyRecordsQueries = {
                 rev_15d: r.rev_15d,
                 rev_30d: r.rev_30d,
                 tipo: r.tipo || 'Estudo',
+                meta: r.meta ?? null,
                 analise_erros: r.analise_erros && r.analise_erros.length > 0 ? r.analise_erros : null
             };
 
@@ -74,7 +75,8 @@ export const studyRecordsQueries = {
             rev_07d: record.rev_07d,
             rev_15d: record.rev_15d,
             rev_30d: record.rev_30d,
-            tipo: record.tipo || 'Estudo', // Adicionado no whitelist de update também
+            tipo: record.tipo || 'Estudo',
+            meta: record.meta ?? null,
             analise_erros: record.analise_erros && record.analise_erros.length > 0 ? record.analise_erros : null
         };
 
