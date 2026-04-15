@@ -1,54 +1,101 @@
 # MonitorPRO - AI Agent Instructions
 
-Este arquivo (`AGENTS.md` / `GEMINI.md`) define as regras de arquitetura, padrões de código e diretrizes comportamentais para ferramentas de IA que interagem com este repositório.
+Este arquivo define as regras de arquitetura, padrões de código e diretrizes comportamentais para ferramentas de IA que interagem com este repositório.
 
-## 1. Stack Tecnológica Primária
-- **Core**: React 18, TypeScript, Vite.
-- **Estilização**: Tailwind CSS, Framer Motion (animações), Lucide React (ícones).
-- **Gerenciamento de Estado**: 
-  - **Global/Local**: Zustand.
-  - **Server State / Data Fetching**: TanStack React Query.
-- **Backend as a Service (BaaS)**: Supabase (Auth, Realtime, e Postgres DB).
-- **Armazenamento Local/Offline**: Dexie.js (IndexedDB).
-- **Tratamento de Erros**: `@sentry/react` (Prioritário para logs de erros críticos).
-- **Testes**: Vitest (Unitários/Componentes - `*.test.tsx`) e Playwright (E2E - `*.spec.ts`).
+## 1. Comandos de Build, Lint e Test
 
-## 2. Arquitetura e Estrutura de Diretórios
-Sempre respeite e mantenha a estrutura existente:
+### Comandos Principais
+
+```bash
+npm run dev          # Inicia servidor de desenvolvimento
+npm run build        # Build de produção
+npm run preview      # Preview do build de produção
+npm run lint         # Executa ESLint (report-unused_disable_directives, max_warnings: 0)
+npm run format       # Formata código com Prettier
+```
+
+### Testes Unitários (Vitest)
+
+```bash
+npm run test                    # Executa todos os testes unitários
+npm run test:watch              # Executa testes em modo watch
+npm run test:ui                 # Executa testes com UI interativa
+npm run test:coverage           # Executa testes com coverage
+
+# Executar UM ÚNICO teste:
+npx vitest run src/utils/rateLimiter.test.ts
+npx vitest run --testNamePattern "nome do teste"
+```
+
+### Testes E2E (Playwright)
+
+```bash
+npm run e2e             # Executa testes E2E
+npm run e2e:ui         # Executa testes com UI interativa
+npm run e2e:headed     # Executa testes com browser visível
+
+# Executar UM ÚNICO teste E2E:
+npx playwright test e2e/login.spec.ts
+npx playwright test --grep "nome do teste"
+```
+
+## 2. Stack Tecnológica
+
+- **Core**: React 18, TypeScript, Vite
+- **Estilização**: Tailwind CSS, Framer Motion, Lucide React
+- **Estado**: Zustand (global), TanStack React Query (server state)
+- **Backend**: Supabase (Auth, Realtime, Postgres DB)
+- **Offline**: Dexie.js (IndexedDB)
+- **Erros**: @sentry/react
+- **Testes**: Vitest (unitários), Playwright (E2E)
+
+## 3. Estrutura de Diretórios
 
 ```
 /src
-├── /components        # Componentes reutilizáveis e modulares
-│   ├── /ui           # Componentes de UI base (Button, Input, etc)
-│   └── /features     # Componentes específicos de features
-├── /views            # Páginas/telas completas (smart components)
-├── /hooks            # Custom React Hooks
-├── /services         # Integrações com APIs externas
-│   └── /supabase    # Funções do Supabase client
-├── /stores           # Zustand stores
-├── /utils            # Funções utilitárias puras
-├── /lib              # Configurações de bibliotecas (incluindo Sentry/Supabase)
-├── /types.ts         # Tipagens globais e interfaces
-└── /constants.ts     # Constantes da aplicação
+├── /components      # Componentes reutilizáveis
+│   ├── /ui         # Componentes de UI base (Button, Input, etc)
+│   ├── /features   # Componentes específicos de features
+│   └── /shared     # Componentes compartilhados
+├── /views           # Páginas/telas completas
+├── /hooks           # Custom React Hooks
+│   └── /queries    # Hooks do React Query
+├── /services        # Integrações com APIs
+│   ├── /supabase   # Funções do Supabase
+│   ├── /queries    # Queries do React Query
+│   └── /offline    # Sync e DB local
+├── /stores          # Zustand stores
+├── /utils           # Funções utilitárias
+├── /lib             # Configurações (Supabase, Sentry)
+├── /test            # Setup e mocks de testes
+├── /types.ts        # Tipagens globais
+└── /constants.ts    # Constantes da aplicação
 ```
 
-### Convenções de Nomenclatura
-- **Arquivos de componentes**: PascalCase (`CameraCard.tsx`)
+## 4. Convenções de Nomenclatura
+
+- **Componentes**: PascalCase (`CameraCard.tsx`)
 - **Hooks**: camelCase com prefixo `use` (`useCameraData.ts`)
 - **Utilitários**: camelCase (`formatDate.ts`)
 - **Tipos/Interfaces**: PascalCase (`Camera`, `AlertConfig`)
 - **Constantes**: UPPER_SNAKE_CASE (`MAX_RETRY_ATTEMPTS`)
+- **Testes**: `{nome}.test.tsx` (unitário) ou `{nome}.spec.ts` (E2E)
 
-## 3. Padrões de Código TypeScript e React
+## 5. Padrões de Código TypeScript
 
-### TypeScript
-- **Modo Strict**: Sempre ativo, sem exceções.
-- **Proibido `any`**: Use `unknown` e type guards quando necessário.
-- **Tipagem explícita**: 
-  - Props de componentes devem ter interface/type dedicado.
-  - Retornos de funções complexas devem ser tipados.
-  - Use generics quando apropriado.
-- **Enums vs Union Types**: Preferir Union Types para conjuntos simples.
+### Regras do ESLint Ativas
+
+- TypeScript strict mode
+- Proibido `any` (@typescript-eslint/no-explicit-any: error)
+- Variáveis não usadas são erro (@typescript-eslint/no-unused-vars)
+- Console.log permitido (via logger customizado)
+
+### Boas Práticas
+
+- Props de componentes DEVEM ter interface/type dedicado
+- Retornos de funções complexas DEVEM ser tipados
+- Usar generics quando apropriado
+- Preferir Union Types vs Enums para conjuntos simples
 
 ```typescript
 // ✅ BOM
@@ -59,43 +106,88 @@ interface CameraCardProps {
 }
 
 // ❌ RUIM
-function CameraCard(props: any) { }
+function CameraCard(props: any) {}
 ```
 
-### React Components
-- **Functional Components**: Sempre usar arrow functions.
-- **Props Destructuring**: Desestruturar props no parâmetro.
-- **Zustand**: Evite plugar stores globais inteiras em cada componente, isole os "slices".
-- **Ordem interna**:
-  1. Hooks (useState, useEffect, custom hooks)
-  2. Derived state e computações
-  3. Event handlers
-  4. useEffect/useLayoutEffect
-  5. Return JSX
+## 6. Padrões de React
 
-### Data Fetching e Supabase
-- **SEMPRE use React Query**: Nunca fazer fetch manual com useEffect para dados do servidor.
-- **Supabase Client Único**: Importar sempre de `/src/lib/supabase`.
-- **RSL (Row Level Security)**: Preferir regras de acesso do lado do DB, evitando lógica crítica de segurança pesada no frontend.
+### Componentes
 
-## 4. Otimizações, Estilo e Assets
-- **Memoização**: Use `useMemo`, `useCallback` e `memo()` conscientemente.
-- **Tailwind e Tailwind-Merge/Clsx**: Combine utilitários de classes (ex: `cn` em `utils`) antes de injetar nas propriedades. A abordagem principal é Mobile-first.
-- Prefira formatos nativos de web performáticos ou vetores como o `Lucide React`.
+- Usar SEMPRE functional components com arrow functions
+- Desestruturar props no parâmetro
+- Evitar plugar stores globais inteiras (isolar slices)
 
-## 5. Diretrizes Comportamentais para IA
-### Comportamento Geral
-1. **Idioma**: Responder sempre em **Português do Brasil**.
-2. **Tom**: Profissional, conciso e direto ao ponto.
+### Ordem Interna de Componentes
+
+1. Hooks (useState, useEffect, custom hooks)
+2. Derived state e computações (useMemo)
+3. Event handlers
+4. useEffect/useLayoutEffect
+5. Return JSX
+
+### Data Fetching
+
+- SEMPRE usar React Query para dados do servidor
+- Nunca fazer fetch manual com useEffect
+- Importar Supabase client de `/src/lib/supabase`
+
+## 7. Estilo e Otimizações
+
+### Tailwind CSS
+
+- Usar `cn()` (tailwind-merge + clsx) para combinar classes
+- Abordagem Mobile-first
+- Classes utilitárias em ordem consistente
+
+### Memoização
+
+- Usar `useMemo`, `useCallback` e `memo()` conscientemente
+- Não abusar - verificar necessidade com React DevTools
+
+### Assets
+
+- Preferir formatos nativos web ou vetores (Lucide React)
+- Ícones: sempre Lucide React
+
+## 8. Diretrizes Comportamentais
+
+### Idioma e Tom
+
+- Responder sempre em **Português do Brasil**
+- Tom: Profissional, conciso e direto ao ponto
 
 ### Ao Modificar Código
-1. **Análise primeiro**: Entender o código existente antes de modificar.
-2. **Mudanças mínimas**: Fornecer Diffs ou edições apenas das linhas alteradas. Não reescreva o arquivo de cima a baixo sem necessidade.
-3. Não crie componentes de classe de forma alguma.
-4. Jamais adicione uma biblioteca extra caso a funcionalidade já exista de modo trivial em uma lib previamente mapeada no `package.json` (Exemplo: Sentry, zustand, date-fns).
+
+1. Analisar código existente antes de modificar
+2. Mudanças mínimas - fornecer diffs apenas das linhas alteradas
+3. Não reescrever arquivo inteiro sem necessidade
+4. Jamais adicionar biblioteca extra se funcionalidade já existir
 
 ### O que EVITAR
-- ❌ Adicionar novas dependências sem necessidade real (sempre cheque meu package.json)
-- ❌ Sugerir refatorações massivas da arquitetura não solicitadas.
-- ❌ Usar `any` no TypeScript sob qualquer pretexto que não seja debug pontual.
-- ❌ Fazer data fetching manual em vez de usar React Query.
+
+- ❌ Adicionar dependências desnecessárias (sempre checar package.json)
+- ❌ Sugerir refatorações massivas não solicitadas
+- ❌ Usar `any` no TypeScript (exceto debug pontual)
+- ❌ Fazer data fetching manual (usar React Query)
+- ❌ Criar componentes de classe
+
+## 9. Tratamento de Erros
+
+- Usar Sentry para logs de erros críticos
+- Criar utilitários de erro em `/src/utils/error.ts`
+- Nunca expor secrets em logs ou erros
+
+## 10. Testes
+
+### Unitários (Vitest)
+
+- Arquivos: `*.test.tsx` ou `*.test.ts`
+- Local: mesmo diretório do componente ou `/src/test/`
+- Setup: `/src/test/setup.ts`
+- Mock de Supabase: `/src/test/mocks/supabaseMock.ts`
+
+### E2E (Playwright)
+
+- Arquivos: `*.spec.ts`
+- Local: `/e2e/`
+- Configuração: `playwright.config.ts`
