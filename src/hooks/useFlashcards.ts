@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from 'react';
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { streamAIContent, AIProviderName, generatePodcastAudio, handlePlayRevisionAudio, deleteCachedAudio, generateAIContent } from '../services/aiService';
 import { EditalMateria, Flashcard, CommunityDeck } from '../types';
@@ -15,6 +15,7 @@ const SQL_FLASHCARDS_POLICY = `
 CREATE TABLE IF NOT EXISTS public.flashcards (
   id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
   user_id uuid REFERENCES auth.users NOT NULL,
+  concurso text DEFAULT 'Geral',
   materia text NOT NULL,
   assunto text,
   front text NOT NULL,
@@ -31,6 +32,7 @@ CREATE TABLE IF NOT EXISTS public.flashcards (
 
 -- GARANTIR COLUNAS NOVAS (Para quem já tem a tabela)
 ALTER TABLE flashcards DROP COLUMN IF EXISTS ai_explanation;
+ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS concurso text DEFAULT 'Geral';
 ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS ai_generated_assets jsonb;
 ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS original_audio_id text;
 ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS author_name text;
@@ -69,9 +71,13 @@ DROP POLICY IF EXISTS "Permitir Exclusao Propria Flashcards" ON flashcards;
 CREATE POLICY "Permitir Exclusao Propria Flashcards" ON flashcards FOR DELETE USING (auth.uid() = user_id);
 
 -- 4. ÍNDICES E LIMPEZA DE DUPLICADOS
-DELETE FROM flashcards WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, materia, front ORDER BY created_at DESC) as row_num FROM flashcards) t WHERE t.row_num > 1);
+-- Remover índice antigo que não considerava o concurso (causador do erro de duplicata entre missões)
+ALTER TABLE IF EXISTS flashcards DROP CONSTRAINT IF EXISTS flashcards_user_materia_front_key;
 DROP INDEX IF EXISTS flashcards_user_materia_front_key;
-CREATE UNIQUE INDEX flashcards_user_materia_front_key ON flashcards (user_id, materia, front);
+
+DELETE FROM flashcards WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, concurso, materia, front ORDER BY created_at DESC) as row_num FROM flashcards) t WHERE t.row_num > 1);
+DROP INDEX IF EXISTS flashcards_user_concurso_materia_front_key;
+CREATE UNIQUE INDEX flashcards_user_concurso_materia_front_key ON flashcards (user_id, concurso, materia, front);
 
 -- 5. ATUALIZAR CARDS ANTIGOS (BACKFILL AUTOR)
 -- Isso preenche o nome do autor em cards criados antes dessa atualização
@@ -235,6 +241,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const { data, error } = await supabase.from('flashcards')
         .select('*')
         .eq('user_id', user.id)
+        .eq('concurso', missaoAtiva)
         .order('created_at', { ascending: false });
 
       if (error) throw error;
@@ -282,6 +289,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
       const payload = cardsToImport.map(c => ({
         user_id: user.id,
+        concurso: missaoAtiva,
         materia: c.materia || 'Geral',
         assunto: c.assunto || '',
         front: c.front || '',
@@ -482,6 +490,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
         const { error } = await supabase.from('flashcards').insert([{
           user_id: user.id,
+          concurso: missaoAtiva,
           materia: newCard.materia,
           assunto: newCard.assunto,
           front: newCard.front,
@@ -796,6 +805,46 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     loadFlashcards();
   }, [missaoAtiva]);
 
+  const otherMissionsWithCards = useCallback(async () => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('flashcards')
+        .select('concurso')
+        .eq('user_id', user.id)
+        .not('concurso', 'eq', missaoAtiva);
+      
+      if (error) throw error;
+      
+      const uniqueMissions = Array.from(new Set(data.map(d => d.concurso))).filter(Boolean) as string[];
+      return uniqueMissions.sort();
+    } catch (e) {
+      console.error("Erro ao carregar outras missões:", e);
+      return [];
+    }
+  }, [missaoAtiva]);
+
+  const fetchCardsFromMission = async (sourceMission: string) => {
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return [];
+      
+      const { data, error } = await supabase
+        .from('flashcards')
+        .select('*')
+        .eq('user_id', user.id)
+        .eq('concurso', sourceMission);
+      
+      if (error) throw error;
+      return data as Flashcard[];
+    } catch (e) {
+      console.error("Erro ao buscar cards da missão:", e);
+      return [];
+    }
+  };
+
   const getActiveProviderName = () => { if (selectedAI === 'gemini') return geminiKeyAvailable ? 'Gemini' : 'Groq (Fallback)'; if (selectedAI === 'groq') return groqKeyAvailable ? 'Groq' : 'Gemini (Fallback)'; return geminiKeyAvailable ? 'Gemini (Auto)' : 'Groq (Auto)'; }
 
   const handleExportLabPDF = async () => {
@@ -921,5 +970,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     deleteCard, startStudySession, endSession, handleCardResult, handleSpeak,
     handlePlayNeural, handlePodcastDuo, handleSendFollowUp, filteredCards,
     previewTopics, generatePDF, syncPodcastCache, getActiveProviderName,
+    otherMissionsWithCards, fetchCardsFromMission
   };
 };

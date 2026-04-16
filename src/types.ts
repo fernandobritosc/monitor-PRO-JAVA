@@ -156,6 +156,7 @@ export interface SavedGabarito {
 export interface Flashcard {
   id: string;
   user_id: string;
+  concurso: string;
   materia: string;
   assunto: string;
   front: string;

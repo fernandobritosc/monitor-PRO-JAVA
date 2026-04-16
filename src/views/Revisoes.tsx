@@ -545,10 +545,10 @@ const Revisoes: React.FC = () => {
           )}
         </div>
       ) : (
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-2 lg:grid-cols-3">
-          <div className="space-y-6 lg:col-span-1">
+        <div className="grid grid-cols-1 gap-8 lg:grid-cols-2">
+          <div className="space-y-6">
             <div className="flex w-fit items-center gap-3 rounded-full border border-red-500/20 bg-red-500/5 px-6 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-red-400">
-              <div className="text-xl">⚠️</div> Ciclos Críticos (
+              <RefreshCcw size={16} className="animate-spin-slow" /> Ciclos Críticos (
               {overdue.length})
             </div>
             {overdue.map((item) => (
@@ -561,9 +561,9 @@ const Revisoes: React.FC = () => {
               />
             ))}
           </div>
-          <div className="space-y-6 lg:col-span-2">
+          <div className="space-y-6">
             <div className="flex w-fit items-center gap-3 rounded-full border border-green-500/20 bg-green-500/5 px-6 py-2 text-[10px] font-black uppercase tracking-[0.2em] text-green-400">
-              <Calendar size={14} /> Cronograma Hoje ({today.length})
+              <Calendar size={16} /> Cronograma Hoje ({today.length})
             </div>
             {today.map((item) => (
               <ReviewCard
