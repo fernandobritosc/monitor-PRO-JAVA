@@ -120,21 +120,6 @@ export default defineConfig(({ mode }) => {
       // Em produção, remove TODOS os console.* e debugger do bundle final
       // O logger centralizado já captura tudo em sessionStorage
       ...(mode === 'production' ? { minify: 'esbuild' } : {}),
-      rollupOptions: {
-        external: [],
-        output: {
-          entryFileNames: `assets/[name]-${timestamp}.js`,
-          chunkFileNames: `assets/[name]-${timestamp}.js`,
-          assetFileNames: `assets/[name]-${timestamp}.[ext]`,
-          manualChunks(id) {
-            if (id.includes('node_modules')) {
-              // Se @google/genai estiver instalado, separa, mas o external acima tem prioridade
-              if (id.includes('@google')) return 'vendor-ai';
-              return 'vendor';
-            }
-          }
-        }
-      }
     },
     esbuild: {
       // Remove console.* e debugger em produção

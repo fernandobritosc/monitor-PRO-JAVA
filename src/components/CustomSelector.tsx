@@ -1,5 +1,18 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState } from 'react';
 import { ChevronDown } from 'lucide-react';
+import {
+    useFloating,
+    autoUpdate,
+    offset,
+    flip,
+    shift,
+    useClick,
+    useDismiss,
+    useRole,
+    useInteractions,
+    FloatingPortal,
+    FloatingFocusManager,
+} from '@floating-ui/react';
 
 interface CustomSelectorProps {
     label: string;
@@ -11,8 +24,7 @@ interface CustomSelectorProps {
     className?: string;
 }
 
-export const CustomSelector: React.FC<CustomSelectorProps> = ({
-    label,
+export const CustomSelector: React.FC<CustomSelectorProps> = React.memo(({
     value,
     options,
     onChange,
@@ -21,25 +33,36 @@ export const CustomSelector: React.FC<CustomSelectorProps> = ({
     className = ""
 }) => {
     const [isOpen, setIsOpen] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
 
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setIsOpen(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    const { refs, floatingStyles, context } = useFloating({
+        open: isOpen,
+        onOpenChange: setIsOpen,
+        middleware: [
+            offset(8),
+            flip({ fallbackAxisSideDirection: 'end' }),
+            shift({ padding: 10 }),
+        ],
+        whileElementsMounted: autoUpdate,
+    });
+
+    const click = useClick(context);
+    const dismiss = useDismiss(context);
+    const role = useRole(context);
+
+    const { getReferenceProps, getFloatingProps } = useInteractions([
+        click,
+        dismiss,
+        role,
+    ]);
 
     const displayValue = value || placeholder;
 
     return (
-        <div className={`relative ${className}`} ref={dropdownRef}>
+        <div className={className}>
             <button
                 type="button"
-                onClick={() => setIsOpen(!isOpen)}
+                ref={refs.setReference}
+                {...getReferenceProps()}
                 className={`w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-black text-xs uppercase tracking-widest flex justify-between items-center hover:bg-[hsl(var(--bg-card))] ${isOpen ? 'ring-2 ring-[hsl(var(--accent)/0.5)]' : ''}`}
             >
                 <div className="flex items-center gap-3 truncate">
@@ -49,36 +72,48 @@ export const CustomSelector: React.FC<CustomSelectorProps> = ({
                 <ChevronDown size={18} className={`text-[hsl(var(--text-muted))] transition-transform duration-300 ${isOpen ? 'rotate-180' : ''}`} />
             </button>
 
-            {isOpen && (
-                <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
-                    {/* Limpar seleção */}
-                    <div
-                        onClick={() => { onChange(''); setIsOpen(false); }}
-                        className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--accent-glow))] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
-                    >
-                        Limpar Seleção
-                    </div>
-
-                    {/* Opções */}
-                    {options.map((opt, index) => (
+            <FloatingPortal>
+                {isOpen && (
+                    <FloatingFocusManager context={context} modal={false}>
                         <div
-                            key={index}
-                            onClick={() => {
-                                onChange(opt);
-                                setIsOpen(false);
+                            ref={refs.setFloating}
+                            style={{
+                                ...floatingStyles,
+                                width: refs.domReference.current?.getBoundingClientRect().width,
                             }}
-                            className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 cursor-pointer flex items-center gap-3
-                                ${value === opt
-                                    ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))]'
-                                    : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--bg-user-block))] hover:text-[hsl(var(--text-bright))]'
-                                }`}
+                            {...getFloatingProps()}
+                            className="bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-[100] max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2 backdrop-blur-3xl"
                         >
-                            <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${value === opt ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
-                            <span className="flex-1 leading-relaxed truncate">{opt}</span>
+                            {/* Limpar seleção */}
+                            <div
+                                onClick={() => { onChange(''); setIsOpen(false); }}
+                                className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--accent-glow))] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
+                            >
+                                Limpar Seleção
+                            </div>
+
+                            {/* Opções */}
+                            {options.map((opt, index) => (
+                                <div
+                                    key={index}
+                                    onClick={() => {
+                                        onChange(opt);
+                                        setIsOpen(false);
+                                    }}
+                                    className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 cursor-pointer flex items-center gap-3
+                                        ${value === opt
+                                            ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))]'
+                                            : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--bg-user-block))] hover:text-[hsl(var(--text-bright))]'
+                                        }`}
+                                >
+                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${value === opt ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
+                                    <span className="flex-1 leading-relaxed truncate">{opt}</span>
+                                </div>
+                            ))}
                         </div>
-                    ))}
-                </div>
-            )}
+                    </FloatingFocusManager>
+                )}
+            </FloatingPortal>
         </div>
     );
-};
+});

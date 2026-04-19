@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { CheckCircle2, Clock, BookOpen, Target, Zap, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, Clock, Target, Zap, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { EditalMateria, StudyRecord, ErrorAnalysis } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { EditorView } from '@tiptap/pm/view';
@@ -279,11 +279,11 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     // Resetar editor externo se o estado mudar externamente
     useEffect(() => {
         if (comentarios === '') comentariosEditor?.commands.setContent('');
-    }, [comentarios]);
+    }, [comentarios, comentariosEditor?.commands]);
 
     useEffect(() => {
         if (errorText === '') errorTextEditor?.commands.setContent('');
-    }, [errorText]);
+    }, [errorText, errorTextEditor?.commands]);
 
     // Removal of handleFileUpload as per user request (removing upload .txt)
 
@@ -692,7 +692,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
                         {/* PASSO 1: IDENTIFICAÇÃO */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-8 relative z-10 overflow-hidden">
+                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-8 relative z-20">
                             <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600/10 to-transparent rounded-bl-full pointer-events-none" />
                             
                             <div className="flex flex-col md:flex-row gap-8">

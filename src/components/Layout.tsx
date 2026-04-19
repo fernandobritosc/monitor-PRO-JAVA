@@ -135,7 +135,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
     }
 
     await (supabase.auth as any).signOut();
-    preserveMissaoOnClear(); // Usa função utilitária
+    preserveMissaoOnClear();
     window.location.reload();
   };
 
@@ -146,67 +146,67 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
     isNew?: boolean;
   }
 
-  const getMenuItems = (): MenuItem[] => {
-    // Basic items always present
-    const hubItems = [
-      { id: 'HUB', label: 'Início', icon: Home },
-      { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
-    ];
-
-    const studyItems = [
-      { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
-      { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
-      { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
-      { id: 'LIBRARY', label: 'Biblioteca PDF', icon: BookOpen, isNew: true },
-      { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
-      { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
-      { id: 'SIMULADOS', label: 'Simulados', icon: Target },
-      { id: 'DISCURSIVA', label: 'IA Discursiva', icon: FileText, isNew: true },
-      { id: 'GABARITO_IA', label: 'Gabarito IA', icon: Sparkles },
-      { id: 'ANALISE_ERROS', label: 'Analise de Performace', icon: Activity },
-      { id: 'RELATORIOS', label: 'Relatórios Pro', icon: TrendingUp },
-      { id: 'HISTORICO', label: 'Histórico', icon: Activity },
-    ];
-
-    const questionItems = [
-      { id: 'QUESTOES', label: 'Banco de Questões', icon: CheckSquare },
-      { id: 'CADASTRO_QUESTOES', label: 'Gerenciar Banco', icon: PlusCircle },
-    ];
-
-    // Determine current context
-    const isStudyModule = [
-      'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
-      'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-      'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'LIBRARY'
-    ].includes(activeView);
-
-    const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
-
-    if (activeView === 'HUB') {
-      return [...hubItems, ...questionItems]; // Show Hub + Quick Links to Questões
-    }
-
-    if (isStudyModule) {
-      return [
-        { id: 'HUB', label: 'Voltar ao Início', icon: Home },
-        ...studyItems,
+  const menuItems = React.useMemo(() => {
+    const getItems = (): MenuItem[] => {
+      const hubItems = [
+        { id: 'HUB', label: 'Início', icon: Home },
         { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
       ];
-    }
 
-    if (isQuestionModule) {
-      return [
-        { id: 'HUB', label: 'Voltar ao Início', icon: Home },
-        ...questionItems,
-        { id: 'PERFORMANCE', label: 'Performance Alpha', icon: Trophy },
-        { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
+      const studyItems = [
+        { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
+        { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
+        { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
+        { id: 'LIBRARY', label: 'Biblioteca PDF', icon: BookOpen, isNew: true },
+        { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
+        { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
+        { id: 'SIMULADOS', label: 'Simulados', icon: Target },
+        { id: 'DISCURSIVA', label: 'IA Discursiva', icon: FileText, isNew: true },
+        { id: 'GABARITO_IA', label: 'Gabarito IA', icon: Sparkles },
+        { id: 'ANALISE_ERROS', label: 'Analise de Performace', icon: Activity },
+        { id: 'RELATORIOS', label: 'Relatórios Pro', icon: TrendingUp },
+        { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       ];
-    }
 
-    return [...hubItems, ...questionItems];
-  };
+      const questionItems = [
+        { id: 'QUESTOES', label: 'Banco de Questões', icon: CheckSquare },
+        { id: 'CADASTRO_QUESTOES', label: 'Gerenciar Banco', icon: PlusCircle },
+      ];
 
-  const menuItems = getMenuItems();
+      const isStudyModule = [
+        'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
+        'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
+        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'LIBRARY'
+      ].includes(activeView);
+
+      const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
+
+      if (activeView === 'HUB') {
+        return [...hubItems, ...questionItems];
+      }
+
+      if (isStudyModule) {
+        return [
+          { id: 'HUB', label: 'Voltar ao Início', icon: Home },
+          ...studyItems,
+          { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
+        ];
+      }
+
+      if (isQuestionModule) {
+        return [
+          { id: 'HUB', label: 'Voltar ao Início', icon: Home },
+          ...questionItems,
+          { id: 'PERFORMANCE', label: 'Performance Alpha', icon: Trophy },
+          { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
+        ];
+      }
+
+      return [...hubItems, ...questionItems];
+    };
+    return getItems();
+  }, [activeView]);
+
   const isTimerRunning = useTimerStore(state => state.isRunning);
   const isTimerVisible = useTimerStore(state => state.isVisible);
   const toggleTimer = useTimerStore(state => state.toggleVisibility);
@@ -406,7 +406,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
               initial={{ opacity: 0, y: 20, scale: 0.98 }}
               animate={{ opacity: 1, y: 0, scale: 1 }}
               exit={{ opacity: 0, y: -20, scale: 0.98 }}
-              transition={{ duration: 0.4, ease: [0.23, 1, 0.32, 1] }}
+              transition={{ duration: 0.3, ease: [0.23, 1, 0.32, 1] }}
               className="relative z-10"
             >
               {children}
