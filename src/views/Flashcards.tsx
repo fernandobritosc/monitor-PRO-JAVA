@@ -1109,6 +1109,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                       <div className="flex-1">
                         <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Matéria na Origem</label>
                         <CustomFilterDropdown
+                          label="Matéria"
                           value={missionFilterMateria}
                           options={sourceMissionMaterias}
                           onChange={(val) => {
@@ -1121,6 +1122,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                       <div className="flex-1">
                         <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Assunto na Origem</label>
                         <CustomFilterDropdown
+                          label="Assunto"
                           value={missionFilterAssunto}
                           options={sourceMissionAssuntos}
                           onChange={setMissionFilterAssunto}
