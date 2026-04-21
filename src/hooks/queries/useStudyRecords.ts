@@ -3,7 +3,6 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studyRecordsQueries } from '../../services/queries/studyRecords';
 import { StudyRecord } from '../../types';
 import { db, OfflineAttempt } from '../../services/offline/db';
-import { syncService } from '../../services/offline/sync';
 import { supabase } from '../../lib/supabase';
 
 export const useStudyRecords = (userId: string | undefined) => {
@@ -66,49 +65,24 @@ export const useStudyRecords = (userId: string | undefined) => {
           const remoteData = await studyRecordsQueries.getByUser(userId);
           const remoteCount = remoteData?.length || 0;
           
-          console.log(`[SYNC] ☁️ Supabase: ${remoteCount} registros | Dexie: ${localData.length} registros`);
-          
           if (remoteData && remoteCount > 0) {
-            const remoteIds = new Set(remoteData.map((r: StudyRecord) => r.id));
-            
             // Merge: atualiza cache local com dados da nuvem
+            const pendingIds = new Set(
+              localData.filter((d: OfflineAttempt) => d.syncStatus === 'pending').map((d: OfflineAttempt) => d.id)
+            );
+            
             const remoteToStore: OfflineAttempt[] = remoteData.map((r: StudyRecord) => ({
               ...r,
-              syncStatus: 'synced' as const,
+              syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
               lastModified: (r as any).lastModified || Date.now()
             }));
             await db.studyRecords.bulkPut(remoteToStore);
-
-            // PROTEÇÃO: registros locais que NÃO existem na nuvem
-            // Em vez de DELETAR (perda de dados), marca como 'pending' para re-sync
-            const orphans = localData.filter(
-              (l: OfflineAttempt) => l.syncStatus === 'synced' && !remoteIds.has(l.id)
-            );
-            
-            if (orphans.length > 0) {
-              console.warn(`[SYNC] ⚠️ ${orphans.length} registros locais não encontrados na nuvem. Marcando para re-sync...`);
-              await db.studyRecords.bulkPut(
-                orphans.map((o: OfflineAttempt) => ({ ...o, syncStatus: 'pending' as const }))
-              );
-            }
-          } else if (remoteCount === 0 && localData.length > 0) {
-            // Nuvem vazia mas temos dados locais → marca tudo como pending para upload
-            const syncedLocals = localData.filter((d: OfflineAttempt) => d.syncStatus === 'synced');
-            if (syncedLocals.length > 0) {
-              console.warn(`[SYNC] 🚨 Nuvem vazia! Marcando ${syncedLocals.length} registros locais para re-upload...`);
-              await db.studyRecords.bulkPut(
-                syncedLocals.map((o: OfflineAttempt) => ({ ...o, syncStatus: 'pending' as const }))
-              );
-            }
           }
-          
-          // Dispara sync de pendentes em background (não bloqueia a UI)
-          syncService.syncPendingAttempts().catch(() => {});
         }
         
         return await db.studyRecords.where('user_id').equals(userId).toArray();
       } catch (error) {
-        console.error('[SYNC] ❌ Erro ao sincronizar:', error);
+        console.error('[SYNC] Erro ao sincronizar:', error);
         return localData;
       }
     },
