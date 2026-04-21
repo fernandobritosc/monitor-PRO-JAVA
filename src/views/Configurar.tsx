@@ -3,13 +3,15 @@ import { supabase, saveAppConfig } from '../services/supabase';
 import { EditalMateria, UserProfile, StudyRecord } from '../types';
 import { logger } from '../utils/logger';
 import { editaisQueries, profilesQueries } from '../services/queries';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock, Smartphone } from 'lucide-react';
+import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock, Smartphone, HardDriveDownload } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useAppStore } from '../stores/useAppStore';
 import { ESTUDO_LIVRE } from '../constants';
+import { syncService } from '../services/offline/sync';
+import { useQueryClient } from '@tanstack/react-query';
 
 interface ConfigurarProps {
   editais?: EditalMateria[];
@@ -116,6 +118,9 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
 
   const [diagLog, setDiagLog] = useState<string[]>([]);
   const [diagLoading, setLoadingDiag] = useState(false);
+  const [resyncLoading, setResyncLoading] = useState(false);
+  const [resyncResult, setResyncResult] = useState<{ success: boolean; message: string } | null>(null);
+  const queryClient = useQueryClient();
 
   const [communityTemplates, setCommunityTemplates] = useState<any[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
@@ -638,6 +643,61 @@ NOTIFY pgrst, 'reload schema';
             <button onClick={runDiagnostics} disabled={diagLoading} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg shadow-purple-500/20 flex items-center gap-2">{diagLoading ? <Loader2 className="animate-spin" size={16} /> : "Executar Teste Completo"}</button>
           </div>
           <div className="bg-black/50 rounded-xl border border-white/10 p-4 font-mono text-xs text-green-400 h-64 overflow-y-auto custom-scrollbar relative">{diagLog.length === 0 ? (<div className="absolute inset-0 flex items-center justify-center text-slate-600 italic pointer-events-none">Clique em "Executar Teste Completo" para ver os logs.</div>) : (diagLog.map((log, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0">{log}</div>))}</div>
+
+          {/* FORCE RE-SYNC */}
+          <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl space-y-4">
+            <div className="flex items-start gap-4">
+              <div className="p-3 bg-red-500/10 rounded-xl shrink-0">
+                <HardDriveDownload size={24} className="text-red-400" />
+              </div>
+              <div className="flex-1">
+                <h4 className="font-black text-white text-sm uppercase tracking-widest">Force Re-sync</h4>
+                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
+                  Limpa <strong className="text-slate-300">todo o cache local (IndexedDB)</strong> e re-baixa os dados diretamente do Supabase.
+                  Use quando os números estiverem inflados, duplicados ou divergentes da realidade.
+                </p>
+              </div>
+            </div>
+            {resyncResult && (
+              <div className={`p-4 rounded-xl text-xs font-bold flex items-center gap-3 animate-in slide-in-from-bottom-2 ${
+                resyncResult.success 
+                  ? 'bg-green-500/10 border border-green-500/20 text-green-400' 
+                  : 'bg-red-500/10 border border-red-500/20 text-red-400'
+              }`}>
+                {resyncResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
+                {resyncResult.message}
+              </div>
+            )}
+            <button
+              onClick={async () => {
+                if (!window.confirm(
+                  '⚠️ FORCE RE-SYNC\n\n' +
+                  'Isso vai:\n' +
+                  '1. Apagar TODO o cache local do navegador\n' +
+                  '2. Baixar dados frescos do Supabase\n\n' +
+                  'Registros pendentes (não sincronizados) serão PERDIDOS.\n\n' +
+                  'Continuar?'
+                )) return;
+                setResyncLoading(true);
+                setResyncResult(null);
+                const result = await syncService.forceResync(userId || '');
+                setResyncResult(result);
+                setResyncLoading(false);
+                if (result.success) {
+                  queryClient.invalidateQueries({ queryKey: ['studyRecords'] });
+                }
+              }}
+              disabled={resyncLoading}
+              className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-4 rounded-xl shadow-lg shadow-red-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-[0.2em]"
+            >
+              {resyncLoading ? (
+                <><Loader2 className="animate-spin" size={18} /> Limpando cache e re-sincronizando...</>
+              ) : (
+                <><HardDriveDownload size={18} /> Executar Force Re-sync</>
+              )}
+            </button>
+          </div>
+
           <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex gap-4 items-start"><AlertTriangle className="text-yellow-500 shrink-0 mt-1" /><div><h4 className="font-bold text-yellow-200 text-sm">Problemas com Permissões?</h4><p className="text-xs text-yellow-200/70 mt-1 mb-3">Se o log mostrar erros "42501" ou "Permission denied", você precisa rodar o script de correção no Supabase.</p><button onClick={() => setShowSqlModal(true)} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-yellow-500/20">Ver Script de Correção</button></div></div>
         </div>
       )}

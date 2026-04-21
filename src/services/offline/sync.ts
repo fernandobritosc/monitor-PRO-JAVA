@@ -91,6 +91,56 @@ export const syncService = {
                 console.warn('[SYNC] Falha no cloud, mantendo pendente:', err);
             }
         }
+    },
+
+    /**
+     * Force Re-sync: Limpa TODO o cache local (Dexie) e re-hidrata com dados frescos do Supabase.
+     * Usa para corrigir duplicatas, dados inflados ou cache corrompido.
+     */
+    async forceResync(userId: string): Promise<{ success: boolean; recordCount: number; message: string }> {
+        if (!navigator.onLine) {
+            return { success: false, recordCount: 0, message: 'Sem conexão com a internet. Conecte-se e tente novamente.' };
+        }
+
+        if (!userId) {
+            return { success: false, recordCount: 0, message: 'Usuário não autenticado.' };
+        }
+
+        try {
+            console.log('[FORCE-RESYNC] 🔄 Iniciando resync forçado...');
+
+            // 1. Contar registros locais antes da limpeza
+            const localBefore = await db.studyRecords.count();
+            console.log(`[FORCE-RESYNC] 📊 Registros locais antes: ${localBefore}`);
+
+            // 2. Limpar TODOS os registros locais do Dexie
+            await db.studyRecords.clear();
+            console.log('[FORCE-RESYNC] 🗑️ Cache local limpo.');
+
+            // 3. Buscar dados frescos do Supabase
+            const remoteData = await studyRecordsQueries.getByUser(userId);
+            const remoteCount = remoteData?.length || 0;
+            console.log(`[FORCE-RESYNC] ☁️ Registros no Supabase: ${remoteCount}`);
+
+            // 4. Inserir dados limpos no Dexie
+            if (remoteData && remoteCount > 0) {
+                const cleanRecords = remoteData.map(r => ({
+                    ...r,
+                    syncStatus: 'synced' as const,
+                    lastModified: Date.now()
+                }));
+                await db.studyRecords.bulkAdd(cleanRecords);
+            }
+
+            const message = `Resync concluído! ${localBefore} registros locais → ${remoteCount} registros limpos do Supabase.`;
+            console.log(`[FORCE-RESYNC] ✅ ${message}`);
+
+            return { success: true, recordCount: remoteCount, message };
+        } catch (err: any) {
+            const message = `Erro no resync: ${err?.message || 'Desconhecido'}`;
+            console.error(`[FORCE-RESYNC] ❌ ${message}`);
+            return { success: false, recordCount: 0, message };
+        }
     }
 };
 

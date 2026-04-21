@@ -31,6 +31,7 @@ import { useLocation, useNavigate, Link } from 'react-router-dom';
 import { useAppStore } from '../stores/useAppStore';
 import { useTimerStore } from '../stores/useTimerStore';
 import { StudyTimer } from './ui/StudyTimer';
+import { APP_VERSION } from '../constants';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -40,10 +41,6 @@ interface LayoutProps {
   userEmail?: string;
   onLogout?: () => void;
 }
-
-
-
-const APP_VERSION = '1.0.32';
 const BUILD_TIME = typeof __BUILD_TIMESTAMP__ !== 'undefined'
   ? new Date(Number(__BUILD_TIMESTAMP__)).toLocaleString('pt-BR', {
     timeZone: 'America/Sao_Paulo',

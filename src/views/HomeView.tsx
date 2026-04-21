@@ -1,4 +1,5 @@
 import React, { useMemo, useState, useRef } from 'react';
+import { APP_VERSION } from '../constants';
 import { motion } from 'framer-motion';
 import {
   BookOpen,
@@ -408,7 +409,7 @@ return (
             className="px-4 py-2 flex items-center gap-2 bg-[hsl(var(--bg-user-block))] hover:bg-[hsl(var(--border))] border border-[hsl(var(--border))] text-[hsl(var(--text-bright))] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg"
           >
             <GitCommit size={14} className="text-[hsl(var(--accent))]" />
-            v1.0.31
+            v{APP_VERSION}
           </button>
         </div>
 
