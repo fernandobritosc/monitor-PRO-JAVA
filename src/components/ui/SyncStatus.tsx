@@ -3,6 +3,7 @@ import { Cloud, CloudOff, RefreshCw } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { db } from '../../services/offline/db';
 import { useLiveQuery } from 'dexie-react-hooks';
+import { syncService } from '../../services/offline/sync';
 
 export const SyncStatus: React.FC = () => {
   const [isOnline, setIsOnline] = useState(navigator.onLine);
@@ -44,6 +45,26 @@ export const SyncStatus: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [pendingCount, isOnline]);
+
+  const handleEmergencyRescue = async () => {
+    if (confirm('🚨 MODO RESGATE DE EMERGÊNCIA 🚨\n\nIsso forçará todos os registros locais salvos no navegador a se marcarem como pendentes e serem re-enviados para a nuvem.\n\nDeseja realizar o resgate agora?')) {
+      setIsSyncing(true);
+      try {
+        const recordsToRescue = await db.studyRecords.where('syncStatus').equals('synced').toArray();
+        if (recordsToRescue.length > 0) {
+          await db.studyRecords.bulkPut(recordsToRescue.map(r => ({ ...r, syncStatus: 'pending' })));
+          await syncService.syncPendingAttempts();
+          alert(`Resgate acionado! ${recordsToRescue.length} registros foram reenviados para a fila de sincronização.`);
+        } else {
+          alert('Nenhum registro local encontrado para resgate.');
+        }
+      } catch (err) {
+        console.error('Erro no resgate:', err);
+      } finally {
+        setTimeout(() => setIsSyncing(false), 2000);
+      }
+    }
+  };
 
   return (
     <div className="fixed bottom-6 right-6 z-50">
@@ -92,7 +113,9 @@ export const SyncStatus: React.FC = () => {
             initial={{ y: 20, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 20, opacity: 0 }}
-            className="flex items-center gap-3 px-4 py-2.5 bg-green-500/10 border border-green-500/20 backdrop-blur-xl rounded-2xl shadow-2xl group cursor-help"
+            onDoubleClick={handleEmergencyRescue}
+            className="flex items-center gap-3 px-4 py-2.5 bg-green-500/10 border border-green-500/20 backdrop-blur-xl rounded-2xl shadow-2xl group cursor-help transition-all hover:bg-green-500/20"
+            title="Dê um duplo clique para FORÇAR o resgate e re-enviar os dados travados no Cache."
           >
             <div className="p-1.5 bg-green-500/20 rounded-lg group-hover:bg-green-500/30 transition-colors">
               <Cloud size={16} className="text-green-400" />

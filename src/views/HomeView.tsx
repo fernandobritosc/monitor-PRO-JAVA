@@ -15,7 +15,8 @@ import {
   Waves,
   CalendarDays,
   Eye,
-  Calendar
+  Calendar,
+  GitCommit
 } from 'lucide-react';
 import {
   AreaChart,
@@ -38,6 +39,7 @@ import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useEditais } from '../hooks/queries/useEditais';
 import { StudyRecord, EditalMateria } from '../types';
+import { ReleaseNotesModal } from '../components/ui/ReleaseNotesModal';
 // --- SUBCOMPONENTES ---
 
 interface KPICardProps {
@@ -118,6 +120,7 @@ const HomeView: React.FC = () => {
 
   const [summaryDate, setSummaryDate] = useState(getLocalTodayStr());
   const dateInputRef = useRef<HTMLInputElement>(null);
+  const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
 
   const activeRecords = useMemo(() => {
     const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
@@ -191,7 +194,7 @@ const HomeView: React.FC = () => {
   }, [editais, missaoAtiva]);
 
   const evolutionData = useMemo(() => {
-    return activeRecords.reduce((acc: { date: string, correct: number, total: number, precision: number }[], r) => {
+    const aggregated = activeRecords.reduce((acc: { date: string, correct: number, total: number, precision: number }[], r) => {
       const existing = acc.find(i => i.date === r.data_estudo);
       const rAcertos = Number(r.acertos);
       const rTotal = Number(r.total);
@@ -199,17 +202,29 @@ const HomeView: React.FC = () => {
       if (existing) {
         existing.correct += rAcertos;
         existing.total += rTotal;
-        existing.precision = existing.total > 0 ? (existing.correct / existing.total) * 100 : 0;
       } else {
         acc.push({
           date: r.data_estudo,
           correct: rAcertos,
           total: rTotal,
-          precision: rTotal > 0 ? (rAcertos / rTotal) * 100 : 0
+          precision: 0
         });
       }
       return acc;
     }, []);
+
+    let lastPrecision = 0;
+    
+    // Calcula a precisão. Se o dia não teve questões (total=0), herda a última média.
+    return aggregated.map(day => {
+      if (day.total > 0) {
+        day.precision = (day.correct / day.total) * 100;
+        lastPrecision = day.precision;
+      } else {
+        day.precision = lastPrecision;
+      }
+      return day;
+    });
   }, [activeRecords]);
 
   const colorOffset = useMemo(() => {
@@ -370,15 +385,25 @@ return (
       )}
 
       {/* FILTROS DE PERÍODO */}
-      <motion.div variants={itemVariants} className="flex flex-col sm:flex-row justify-between items-center gap-6">
-        <div className="flex items-center gap-3">
-          <div className="p-2 bg-[hsl(var(--accent-glow))] rounded-xl">
-            <Sparkles size={20} className="text-[hsl(var(--accent))]" />
+      <motion.div variants={itemVariants} className="flex flex-col lg:flex-row justify-between items-center gap-6">
+        <div className="flex flex-col sm:flex-row items-center gap-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-[hsl(var(--accent-glow))] rounded-xl">
+              <Sparkles size={20} className="text-[hsl(var(--accent))]" />
+            </div>
+            <div>
+              <h3 className="text-sm font-bold text-[hsl(var(--text-bright))] uppercase tracking-widest">Motor de Análise</h3>
+              <p className="text-[10px] text-[hsl(var(--text-muted))] font-medium uppercase tracking-[0.1em]">Visão analítica da sua performance</p>
+            </div>
           </div>
-          <div>
-            <h3 className="text-sm font-bold text-[hsl(var(--text-bright))] uppercase tracking-widest">Motor de Análise</h3>
-            <p className="text-[10px] text-[hsl(var(--text-muted))] font-medium uppercase tracking-[0.1em]">Visão analítica da sua performance</p>
-          </div>
+          
+          <button 
+            onClick={() => setIsReleaseNotesOpen(true)}
+            className="px-4 py-2 flex items-center gap-2 bg-[hsl(var(--bg-user-block))] hover:bg-[hsl(var(--border))] border border-[hsl(var(--border))] text-[hsl(var(--text-bright))] rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors shadow-lg"
+          >
+            <GitCommit size={14} className="text-[hsl(var(--accent))]" />
+            v1.0.31
+          </button>
         </div>
 
         <div className="flex p-1 bg-[hsl(var(--bg-sidebar)/0.5)] backdrop-blur-md border border-[hsl(var(--border))] rounded-2xl shadow-xl">
@@ -623,6 +648,8 @@ return (
           </div>
         </div>
       </motion.div>
+
+      <ReleaseNotesModal isOpen={isReleaseNotesOpen} onClose={() => setIsReleaseNotesOpen(false)} />
     </motion.div>
   );
 };

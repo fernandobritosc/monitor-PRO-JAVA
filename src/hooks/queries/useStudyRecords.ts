@@ -1,11 +1,37 @@
+import { useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { studyRecordsQueries } from '../../services/queries/studyRecords';
 import { StudyRecord } from '../../types';
 import { db, OfflineAttempt } from '../../services/offline/db';
+import { supabase } from '../../lib/supabase';
 
 export const useStudyRecords = (userId: string | undefined) => {
   const queryClient = useQueryClient();
   const queryKey = ['studyRecords', userId];
+
+  // Escuta ativa em Tempo Real via Supabase WebSockets (Resolve o delay Multi-Dispositivo)
+  useEffect(() => {
+    if (!userId) return;
+
+    const channel = supabase.channel('schema-db-changes')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'registros_estudos',
+          filter: `user_id=eq.${userId}`
+        },
+        () => {
+          queryClient.invalidateQueries({ queryKey });
+        }
+      )
+      .subscribe();
+
+    return () => {
+      supabase.removeChannel(channel);
+    };
+  }, [userId, queryClient, queryKey.join('-')]);
 
   const query = useQuery({
     queryKey,
@@ -51,6 +77,16 @@ export const useStudyRecords = (userId: string | undefined) => {
             }));
 
             await db.studyRecords.bulkPut(recordsToStore);
+
+            // Verifica deleções: limpar registros locais que foram deletados no Remote (Evita dados fantasmas)
+            const remoteIds = new Set(remoteData.map((r: StudyRecord) => r.id));
+            const toDelete = localData
+              .filter((l: OfflineAttempt) => l.syncStatus === 'synced' && !remoteIds.has(l.id))
+              .map((l: OfflineAttempt) => l.id);
+            
+            if (toDelete.length > 0) {
+              await db.studyRecords.bulkDelete(toDelete);
+            }
           }
         }
         
@@ -84,9 +120,14 @@ export const useStudyRecords = (userId: string | undefined) => {
       // Tentar enviar para o Supabase se houver rede
       if (navigator.onLine) {
         try {
-          await studyRecordsQueries.insert(recordsToInsert as StudyRecord[]);
-          // Se deu certo, atualizamos o status no Dexie para 'synced'
-          await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'synced' })));
+          const insertedData = await studyRecordsQueries.insert(recordsToInsert as StudyRecord[]);
+          // Supabase RLS silenciosamente retorna array vazio se bloquear a inserção
+          if (insertedData && insertedData.length === recordsToInsert.length) {
+            await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'synced' })));
+          } else {
+            console.warn('⚠️ Supabase não retornou os dados. Bloqueio por RLS provável. Mantendo como pending.');
+            await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'pending' })));
+          }
         } catch (e) {
           console.warn('⚠️ Falha no sync imediato, ficará pendente:', e);
         }
