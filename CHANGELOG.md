@@ -2,6 +2,17 @@
 
 Todas as mudanças notáveis neste projeto serão documentadas neste arquivo.
 
+## [1.0.33] - 2026-04-21
+### Corrigido
+- **Sincronização blindada**: Registros agora começam como `pending` até confirmação real do Supabase, eliminando perda silenciosa por RLS.
+- **Proteção contra perda de dados**: Registros locais órfãos são re-sincronizados automaticamente em vez de deletados.
+- **Re-sync periódico**: Background sync a cada 2 minutos captura qualquer pendência automaticamente.
+- **Race condition de auth**: Dashboard não renderiza mais com `userId: undefined`.
+- **Filtro de missão inteligente**: Se a missão ativa não tem dados, exibe visão global automaticamente.
+
+### Removido
+- Logs de debug temporários (`[SYNC-DEBUG]`, `[HomeView]`) adicionados durante diagnóstico.
+
 ## [1.0.32] - 2026-03-01
 ### Adicionado
 - Integração completa do **Laboratório Neural** no Banco de Questões.

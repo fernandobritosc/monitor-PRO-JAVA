@@ -101,14 +101,15 @@ const CustomYAxisTick = (props: any) => {
 
 const HomeView: React.FC = () => {
   const { missaoAtiva } = useAppStore();
-  const { session } = useAuth();
+  const { session, loading: authLoading } = useAuth();
   const { studyRecords: records = [], isLoading: recordsLoading } = useStudyRecords(session?.user?.id);
   const { editais = [], isLoading: editaisLoading } = useEditais(session?.user?.id);
-  const studyLoading = recordsLoading || editaisLoading;
+  const studyLoading = authLoading || recordsLoading || editaisLoading;
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
   const [analysisTab, setAnalysisTab] = useState<'time' | 'errors'>('time');
   const [filterPeriod, setFilterPeriod] = useState<number>(30);
+  const [showGlobalStats, setShowGlobalStats] = useState(false);
 
   const getLocalTodayStr = () => {
     const now = new Date();
@@ -123,32 +124,19 @@ const HomeView: React.FC = () => {
   const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
 
   const activeRecords = useMemo(() => {
-    const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
-    
-    console.log('[HomeView] Debug Stats:', {
-      missaoAtiva,
-      totalRecords: records.length,
-      isGlobal,
-      concursosDisponiveis: Array.from(new Set(records.map(r => r.concurso)))
-    });
+    const hasRecordsInActiveMission = records.some(rec => rec.concurso === missaoAtiva);
+    const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva || !hasRecordsInActiveMission;
 
     const baseRecords = records
-      .filter((r: StudyRecord) => {
-        const match = isGlobal ? true : r.concurso === missaoAtiva;
-        return match;
-      })
+      .filter((r: StudyRecord) => isGlobal ? true : r.concurso === missaoAtiva)
       .sort((a: StudyRecord, b: StudyRecord) => new Date(a.data_estudo).getTime() - new Date(b.data_estudo).getTime());
-
-    console.log('[HomeView] Records after mission filter:', baseRecords.length);
 
     if (filterPeriod === 0) return baseRecords;
 
     const limitDate = new Date();
     limitDate.setDate(limitDate.getDate() - filterPeriod);
 
-    const filtered = baseRecords.filter((r: StudyRecord) => new Date(r.data_estudo + 'T00:00:00').getTime() >= limitDate.getTime());
-    console.log('[HomeView] Records after period filter:', filtered.length);
-    return filtered;
+    return baseRecords.filter((r: StudyRecord) => new Date(r.data_estudo + 'T00:00:00').getTime() >= limitDate.getTime());
   }, [records, missaoAtiva, filterPeriod]);
 
   const summaryRecords = records.filter(r => (missaoAtiva === 'Escolha a sua missão' || !missaoAtiva ? true : r.concurso === missaoAtiva) && r.data_estudo === summaryDate);
@@ -384,9 +372,27 @@ return (
         </motion.div>
       )}
 
-      {/* FILTROS DE PERÍODO */}
+      {/* FILTROS DE PERÍODO E DADOS DETECTADOS */}
       <motion.div variants={itemVariants} className="flex flex-col lg:flex-row justify-between items-center gap-6">
         <div className="flex flex-col sm:flex-row items-center gap-6">
+          {records.length > 0 && activeRecords.length === 0 && missaoAtiva !== 'Escolha a sua missão' && !showGlobalStats && (
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              className="bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--accent)/0.2)] px-4 py-2 rounded-2xl flex items-center gap-4"
+            >
+              <div className="flex flex-col">
+                <p className="text-[10px] font-black text-[hsl(var(--text-bright))] uppercase tracking-tight">Dados em outras missões!</p>
+                <p className="text-[8px] text-[hsl(var(--text-muted))] font-bold uppercase">Total: {records.length} registros</p>
+              </div>
+              <button 
+                onClick={() => setShowGlobalStats(true)}
+                className="px-3 py-1.5 bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] text-[9px] font-black rounded-lg uppercase hover:scale-105 transition-transform"
+              >
+                Ativar Visão Global
+              </button>
+            </motion.div>
+          )}
           <div className="flex items-center gap-3">
             <div className="p-2 bg-[hsl(var(--accent-glow))] rounded-xl">
               <Sparkles size={20} className="text-[hsl(var(--accent))]" />

@@ -93,17 +93,6 @@ const AppContent: React.FC = () => {
   if (authLoading) return <div className="min-h-screen bg-[hsl(var(--bg-main))] flex items-center justify-center text-[hsl(var(--accent))]">Carregando...</div>;
   if (!session) return <Login />;
 
-  // Debugging logic for records, moved here to be syntactically correct
-  // Note: 'records' is not defined in App.tsx. Assuming 'studyRecords' is intended.
-  const records = studyRecords || []; // Assuming studyRecords are the 'records' referred to in the instruction
-  const activeRecords = records.filter(r =>
-    r.concurso === missaoAtiva && r.tipo !== 'Simulado' && r.materia !== 'SIMULADO'
-  );
-
-  if (records.length > 0 && activeRecords.length === 0) {
-    console.warn(`⚠️ Revisoes: ${records.length} registros totais, mas 0 para a missão "${missaoAtiva}"`);
-  }
-
   return (
     <Layout
       userEmail={userEmail}
