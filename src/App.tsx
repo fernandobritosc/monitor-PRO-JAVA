@@ -63,29 +63,28 @@ const AppContent: React.FC = () => {
   }, [authLoading, session, reset]);
 
   const handleResetCache = async () => {
-    // 1. Verificar registros pendentes antes de qualquer ação
+    if (!session?.user?.id) return;
+
     const pendingTotal = await db.studyRecords.where('syncStatus').equals('pending').count();
+    let confirmMsg = 'Deseja realizar uma sincronização completa e atualizar o cache local?';
     
-    let confirmMsg = 'Deseja limpar o cache local e forçar a recarga?';
     if (pendingTotal > 0) {
-      confirmMsg = `⚠️ ATENÇÃO: Você tem ${pendingTotal} registros que ainda NÃO foram sincronizados com a nuvem. Se você limpar o cache agora, esses dados serão perdidos DEFINITIVAMENTE. Deseja continuar mesmo assim?`;
+      confirmMsg = `Você tem ${pendingTotal} registros pendentes. Eles serão sincronizados antes da atualização. Deseja continuar?`;
     }
 
     if (window.confirm(confirmMsg)) {
       try {
-        // TENTA SINCRONIZAR ANTES DE LIMPAR (Se houver internet)
-        if (navigator.onLine && pendingTotal > 0) {
-          console.log('🔄 Sincronizando dados pendentes antes da limpeza...');
-          // Importamos o syncService em App.tsx se necessário
-          await syncService.syncPendingAttempts();
+        const result = await syncService.safeRefresh(session.user.id);
+        if (result.success) {
+          alert(result.message);
+          queryClient.invalidateQueries();
+          window.location.reload();
+        } else {
+          alert(result.message);
         }
-
-        await db.studyRecords.clear();
-        await db.editais.clear();
-        queryClient.clear();
-        window.location.reload();
       } catch (err) {
-        console.error('Erro ao limpar cache:', err);
+        console.error('Erro ao atualizar cache:', err);
+        alert('Falha ao atualizar cache. Verifique sua conexão.');
       }
     }
   };

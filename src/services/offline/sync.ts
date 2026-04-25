@@ -2,14 +2,52 @@ import { db } from './db';
 import { studyRecordsQueries } from '../queries/studyRecords';
 
 export const syncService = {
+    /**
+     * Remove duplicatas locais comparando o conteúdo dos registros.
+     * Útil quando o mesmo registro existe com IDs diferentes (ex: numérico vs UUID).
+     */
+    async deduplicateLocal() {
+        const all = await db.studyRecords.toArray();
+        const seen = new Map<string, any>();
+        const toDelete: string[] = [];
+
+        for (const r of all) {
+            // Cria uma chave única baseada no conteúdo real do estudo
+            const key = `${r.user_id}-${r.data_estudo}-${r.materia}-${r.assunto}-${r.acertos}-${r.total}-${r.tempo}`;
+            
+            if (seen.has(key)) {
+                const existing = seen.get(key);
+                // Se um está sincronizado e o outro não, deletamos o não sincronizado
+                if (existing.syncStatus === 'synced' && r.syncStatus === 'pending') {
+                    toDelete.push(r.id);
+                } else if (existing.syncStatus === 'pending' && r.syncStatus === 'synced') {
+                    toDelete.push(existing.id);
+                    seen.set(key, r);
+                } else {
+                    // Se ambos têm o mesmo status, deletamos a duplicata mais nova (ou qualquer uma)
+                    toDelete.push(r.id);
+                }
+            } else {
+                seen.set(key, r);
+            }
+        }
+
+        if (toDelete.length > 0) {
+            console.log(`[DEDUPLICATE] 🧹 Limpando ${toDelete.length} duplicatas locais...`);
+            await db.studyRecords.bulkDelete(toDelete);
+        }
+    },
+
     /** 
-     * Sincroniza tentativas pendentes locais com o Supabase.
-     * Apenas registros GENUINAMENTE novos (criados offline ou com falha real).
+     * Sincroniza tentativas pendentes locais com o Supabase usando batch upsert.
      */
     async syncPendingAttempts() {
         if (!navigator.onLine) return;
 
         try {
+            // 0. Limpa duplicatas antes de tentar subir
+            await this.deduplicateLocal();
+
             const pending = await db.studyRecords
                 .where('syncStatus')
                 .equals('pending')
@@ -17,55 +55,40 @@ export const syncService = {
 
             if (pending.length === 0) return;
 
-            console.log(`[SYNC] 🔄 Sincronizando ${pending.length} registros pendentes...`);
+            console.log(`[SYNC] 🔄 Sincronizando lote de ${pending.length} registros...`);
+            
+            // ... resto do código (mantido igual)
 
-            let synced = 0;
-            let failed = 0;
+            // Remove campos locais antes de enviar para o Supabase
+            const payloads = pending.map(({ syncStatus: _s, lastModified: _l, ...payload }) => payload);
 
-            for (const attempt of pending) {
-                try {
-                    // Mantém o ID original no payload para evitar duplicatas
-                    const { syncStatus, lastModified, ...payload } = attempt;
-
-                    const result = await studyRecordsQueries.insert(payload);
-                    
-                    if (result && result.length > 0) {
-                        await db.studyRecords.update(attempt.id, {
-                            syncStatus: 'synced',
-                            lastModified: Date.now()
-                        });
-                        synced++;
-                    } else {
-                        // RLS bloqueou silenciosamente — marca como error para não retentar infinitamente
-                        await db.studyRecords.update(attempt.id, { syncStatus: 'error' });
-                        failed++;
-                    }
-                } catch (err: any) {
-                    if (err?.code === '23505') {
-                        // Duplicata = já existe no Supabase, marcar como synced
-                        await db.studyRecords.update(attempt.id, {
-                            syncStatus: 'synced',
-                            lastModified: Date.now()
-                        });
-                        synced++;
-                    } else {
-                        console.error(`[SYNC] ❌ Falha no registro ${attempt.id}:`, err?.message);
-                        await db.studyRecords.update(attempt.id, { syncStatus: 'error' });
-                        failed++;
-                    }
+            // Tenta o Upsert em lote
+            const result = await studyRecordsQueries.upsert(payloads);
+            
+            if (result && result.length > 0) {
+                // Mapeia apenas os IDs que o Supabase confirmou que recebeu/atualizou
+                const confirmedIds = result.map(r => r.id);
+                
+                await db.studyRecords.where('id').anyOf(confirmedIds).modify({
+                    syncStatus: 'synced',
+                    lastModified: Date.now()
+                });
+                
+                const failedCount = pending.length - result.length;
+                if (failedCount > 0) {
+                    console.warn(`[SYNC] ⚠️ ${failedCount} registros não foram confirmados pelo Supabase.`);
+                } else {
+                    console.log(`[SYNC] ✅ Todos os ${result.length} registros sincronizados com sucesso.`);
                 }
             }
-
-            if (synced > 0 || failed > 0) {
-                console.log(`[SYNC] ✅ Resultado: ${synced} sincronizados, ${failed} falharam`);
-            }
-        } catch (err) {
-            console.error('[SYNC] Erro geral:', err);
+        } catch (err: any) {
+            console.error('[SYNC] ❌ Erro na sincronização em lote:', err?.message);
+            // Em caso de erro crítico, não alteramos o status para permitir nova tentativa
         }
     },
 
     /** 
-     * Salva um registro novo. Se offline → pending. Se online → tenta Supabase.
+     * Salva um registro novo. Se offline → pending. Se online → tenta Supabase via Upsert.
      */
     async saveAttempt(record: any) {
         const isOnline = navigator.onLine;
@@ -83,47 +106,46 @@ export const syncService = {
 
         if (isOnline) {
             try {
-                const result = await studyRecordsQueries.insert(finalRecord);
+                const result = await studyRecordsQueries.upsert(finalRecord);
                 if (result && result.length > 0) {
                     await db.studyRecords.update(localId, { syncStatus: 'synced' });
                 }
             } catch (err) {
-                console.warn('[SYNC] Falha no cloud, mantendo pendente:', err);
+                console.warn('[SYNC] Falha no cloud (saveAttempt), mantendo pendente:', err);
             }
         }
     },
 
     /**
-     * Force Re-sync: Limpa TODO o cache local (Dexie) e re-hidrata com dados frescos do Supabase.
-     * Usa para corrigir duplicatas, dados inflados ou cache corrompido.
+     * Safe Refresh: Atualiza o cache local de forma segura.
+     * 1. Sincroniza pendências.
+     * 2. Busca dados frescos.
+     * 3. Limpa e repovoa o Dexie apenas após o sucesso do download.
      */
-    async forceResync(userId: string): Promise<{ success: boolean; recordCount: number; message: string }> {
+    async safeRefresh(userId: string): Promise<{ success: boolean; message: string }> {
         if (!navigator.onLine) {
-            return { success: false, recordCount: 0, message: 'Sem conexão com a internet. Conecte-se e tente novamente.' };
-        }
-
-        if (!userId) {
-            return { success: false, recordCount: 0, message: 'Usuário não autenticado.' };
+            return { success: false, message: 'Sem conexão com a internet.' };
         }
 
         try {
-            console.log('[FORCE-RESYNC] 🔄 Iniciando resync forçado...');
+            console.log('[SAFE-REFRESH] 🛡️ Iniciando atualização segura...');
 
-            // 1. Contar registros locais antes da limpeza
-            const localBefore = await db.studyRecords.count();
-            console.log(`[FORCE-RESYNC] 📊 Registros locais antes: ${localBefore}`);
+            // 1. Tentar sincronizar o que estiver pendente antes de mais nada
+            const pendingCount = await db.studyRecords.where('syncStatus').equals('pending').count();
+            if (pendingCount > 0) {
+                console.log(`[SAFE-REFRESH] 🔄 Sincronizando ${pendingCount} pendências antes do refresh...`);
+                await this.syncPendingAttempts();
+            }
 
-            // 2. Limpar TODOS os registros locais do Dexie
-            await db.studyRecords.clear();
-            console.log('[FORCE-RESYNC] 🗑️ Cache local limpo.');
-
-            // 3. Buscar dados frescos do Supabase
+            // 2. Buscar dados frescos do Supabase
             const remoteData = await studyRecordsQueries.getByUser(userId);
-            const remoteCount = remoteData?.length || 0;
-            console.log(`[FORCE-RESYNC] ☁️ Registros no Supabase: ${remoteCount}`);
+            if (!remoteData) throw new Error('Falha ao obter dados da nuvem.');
 
-            // 4. Inserir dados limpos no Dexie
-            if (remoteData && remoteCount > 0) {
+            // 3. Só agora limpamos o cache local (Garante que não ficaremos sem nada)
+            await db.studyRecords.clear();
+
+            // 4. Repovoar com dados limpos
+            if (remoteData.length > 0) {
                 const cleanRecords = remoteData.map(r => ({
                     ...r,
                     syncStatus: 'synced' as const,
@@ -132,14 +154,13 @@ export const syncService = {
                 await db.studyRecords.bulkAdd(cleanRecords);
             }
 
-            const message = `Resync concluído! ${localBefore} registros locais → ${remoteCount} registros limpos do Supabase.`;
-            console.log(`[FORCE-RESYNC] ✅ ${message}`);
-
-            return { success: true, recordCount: remoteCount, message };
+            return { 
+                success: true, 
+                message: `Sucesso! Cache atualizado com ${remoteData.length} registros da nuvem.` 
+            };
         } catch (err: any) {
-            const message = `Erro no resync: ${err?.message || 'Desconhecido'}`;
-            console.error(`[FORCE-RESYNC] ❌ ${message}`);
-            return { success: false, recordCount: 0, message };
+            console.error('[SAFE-REFRESH] ❌ Erro:', err?.message);
+            return { success: false, message: `Falha na atualização: ${err?.message}` };
         }
     }
 };

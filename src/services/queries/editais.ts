@@ -34,16 +34,14 @@ export const editaisQueries = {
         if (error) throw error;
     },
 
-    /** Insere novos editais */
+    /** Insere novos editais (agora usando upsert para segurança) */
     async insert(records: Partial<EditalMateria>[]) {
-        const { error } = await supabase.from('editais_materias').insert(records);
-        if (error) throw error;
+        return this.upsert(records);
     },
 
     /** Atualiza editais existentes via upsert */
     async update(records: Partial<EditalMateria>[]) {
-        const { error } = await supabase.from('editais_materias').upsert(records);
-        if (error) throw error;
+        return this.upsert(records);
     },
 
     /** Deleta editais por IDs */

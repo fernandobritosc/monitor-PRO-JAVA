@@ -680,11 +680,11 @@ NOTIFY pgrst, 'reload schema';
                 )) return;
                 setResyncLoading(true);
                 setResyncResult(null);
-                const result = await syncService.forceResync(userId || '');
+                const result = await syncService.safeRefresh(userId || '');
                 setResyncResult(result);
                 setResyncLoading(false);
                 if (result.success) {
-                  queryClient.invalidateQueries({ queryKey: ['studyRecords'] });
+                  queryClient.invalidateQueries();
                 }
               }}
               disabled={resyncLoading}

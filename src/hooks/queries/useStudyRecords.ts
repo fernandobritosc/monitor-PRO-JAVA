@@ -64,9 +64,9 @@ export const useStudyRecords = (userId: string | undefined) => {
         if (navigator.onLine) {
           const remoteData = await studyRecordsQueries.getByUser(userId);
           const remoteCount = remoteData?.length || 0;
+          console.log(`[SYNC] ☁️ Dados remotos recebidos: ${remoteCount}`);
           
           if (remoteData && remoteCount > 0) {
-            // Merge: atualiza cache local com dados da nuvem
             const pendingIds = new Set(
               localData.filter((d: OfflineAttempt) => d.syncStatus === 'pending').map((d: OfflineAttempt) => d.id)
             );
@@ -76,18 +76,20 @@ export const useStudyRecords = (userId: string | undefined) => {
               syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
               lastModified: (r as any).lastModified || Date.now()
             }));
-            await db.studyRecords.bulkPut(remoteToStore);
+            
+            const result = await db.studyRecords.bulkPut(remoteToStore);
+            console.log(`[SYNC] ✅ Cache local (Dexie) atualizado com ${remoteToStore.length} registros.`);
           }
         }
         
         return await db.studyRecords.where('user_id').equals(userId).toArray();
-      } catch (error) {
+      } catch (error: unknown) {
         console.error('[SYNC] Erro ao sincronizar:', error);
         return localData;
       }
     },
     enabled: !!userId,
-    staleTime: 1000 * 60 * 5, // 5 minutos refresca
+    staleTime: 0, // Força verificação sempre que o componente montar
   });
 
   const insertMutation = useMutation({
@@ -95,25 +97,36 @@ export const useStudyRecords = (userId: string | undefined) => {
       const recordsArray = Array.isArray(records) ? records : [records];
       
       // SEMPRE inserimos no Dexie primeiro
-      const recordsToInsert = recordsArray.map((r: Partial<StudyRecord>) => ({
-        ...r,
-        id: r.id || crypto.randomUUID(),
-        user_id: userId,
-        syncStatus: 'pending',
-        lastModified: Date.now()
-      })) as OfflineAttempt[];
+      const recordsToInsert = recordsArray.map((r: Partial<StudyRecord>, index: number) => {
+        const newId = r.id || crypto.randomUUID();
+        console.log(`[SYNC] Preparando registro ${index + 1}: ID=${newId} (Tipo: ${typeof newId})`);
+        
+        return {
+          ...r,
+          id: String(newId), // Força string para compatibilidade com Dexie e UUIDs
+          user_id: userId,
+          syncStatus: 'pending',
+          lastModified: Date.now()
+        };
+      }) as OfflineAttempt[];
 
       await db.studyRecords.bulkAdd(recordsToInsert);
 
       // Tentar enviar para o Supabase se houver rede
       if (navigator.onLine) {
         try {
-          const insertedData = await studyRecordsQueries.insert(recordsToInsert as StudyRecord[]);
-          // Supabase RLS silenciosamente retorna array vazio se bloquear a inserção
-          if (insertedData && insertedData.length === recordsToInsert.length) {
-            await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'synced' })));
+          const insertedData = await studyRecordsQueries.upsert(recordsToInsert as StudyRecord[]);
+          
+          // Validação Rigorosa: Só marca como synced se o Supabase devolveu os registros
+          if (insertedData && insertedData.length >= recordsToInsert.length) {
+            await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ 
+              ...r, 
+              syncStatus: 'synced',
+              lastModified: Date.now() 
+            })));
+            console.log(`[SYNC] ✅ ${recordsToInsert.length} registros confirmados na nuvem.`);
           } else {
-            console.warn('⚠️ Supabase não retornou os dados. Bloqueio por RLS provável. Mantendo como pending.');
+            console.error('[SYNC] ❌ Supabase não confirmou todos os registros. Mantendo como pending para retry.');
             await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'pending' })));
           }
         } catch (e) {
@@ -144,16 +157,16 @@ export const useStudyRecords = (userId: string | undefined) => {
           await studyRecordsQueries.update(record);
           // Se deu certo, atualiza o status no Dexie para 'synced'
           await db.studyRecords.put({ ...offlineRecord, syncStatus: 'synced' });
-        } catch (e: any) {
-          // Se for erro de rede (offline), apenas avisamos e deixamos pendente no Dexie
-          if (!navigator.onLine || e.message === 'Failed to fetch') {
-            console.warn('⚠️ Update offline, marcado como pendente no Dexie');
-          } else {
-            // Se for erro de banco (400, RLS, etc), logamos e podemos propagar ou tratar
-            console.error('❌ Falha na sincronização remota (não é offline):', e);
-            throw e; // Propaga para o ErrorAnalysisView detectar a falha
+          } catch (e: unknown) {
+            // Se for erro de rede (offline), apenas avisamos e deixamos pendente no Dexie
+            if (!navigator.onLine || (e as Error).message === 'Failed to fetch') {
+              console.warn('⚠️ Update offline, marcado como pendente no Dexie');
+            } else {
+              // Se for erro de banco (400, RLS, etc), logamos e podemos propagar ou tratar
+              console.error('❌ Falha na sincronização remota (não é offline):', e);
+              throw e; // Propaga para o ErrorAnalysisView detectar a falha
+            }
           }
-        }
       }
       return offlineRecord;
     },

@@ -18,40 +18,53 @@ export const studyRecordsQueries = {
         return data ?? [];
     },
 
-    /** Insere um ou mais registros de estudo com whitelist de colunas */
-    async insert(records: Partial<StudyRecord> | Partial<StudyRecord>[]) {
+    /** Insere ou atualiza registros de estudo (Upsert) */
+    async upsert(records: Partial<StudyRecord> | Partial<StudyRecord>[]) {
         const recordsArray = Array.isArray(records) ? records : [records];
         
         const payload = recordsArray.map(r => {
-            const entry: any = {
+            const entry: Record<string, unknown> = {
                 user_id: r.user_id,
                 concurso: r.concurso,
                 materia: r.materia,
                 assunto: r.assunto,
                 data_estudo: r.data_estudo,
-                acertos: r.acertos,
-                total: r.total,
-                taxa: r.taxa,
-                tempo: r.tempo,
+                acertos: Number(r.acertos) || 0,
+                total: Number(r.total) || 0,
+                taxa: Number(r.taxa) || 0,
+                tempo: Number(r.tempo) || 0,
                 comentarios: r.comentarios || null,
-                rev_24h: r.rev_24h,
-                rev_07d: r.rev_07d,
-                rev_15d: r.rev_15d,
-                rev_30d: r.rev_30d,
+                rev_24h: !!r.rev_24h,
+                rev_07d: !!r.rev_07d,
+                rev_15d: !!r.rev_15d,
+                rev_30d: !!r.rev_30d,
                 tipo: r.tipo || 'Estudo',
-                meta: r.meta ?? null,
+                meta: r.meta ? String(r.meta) : null,
                 analise_erros: r.analise_erros && r.analise_erros.length > 0 ? r.analise_erros : null
             };
 
-            // Somente inclui o ID se ele existir (evita null violating not-null constraint)
-            if (r.id) entry.id = r.id;
+            // Se o ID for um número (banco legado), mandamos como número. 
+            // Se for string (UUID), mandamos como string.
+            if (r.id) {
+                const numericId = Number(r.id);
+                entry.id = !isNaN(numericId) && String(numericId) === String(r.id) ? numericId : r.id;
+            }
             
             return entry;
         });
 
-        const { data, error } = await supabase.from('registros_estudos').insert(payload).select();
+        console.log('[SUPABASE] Upsert Payload:', payload);
+
+        const { data, error } = await supabase
+            .from('registros_estudos')
+            .upsert(payload, { onConflict: 'id' })
+            .select();
+
         if (error) {
-            console.error('❌ Erro no Supabase (Insert):', error.message, error.details);
+            console.error('❌ Erro no Supabase (Upsert):', error.message);
+            console.error('🔍 Detalhes:', error.details);
+            console.error('💡 Dica:', error.hint);
+            console.error('📦 Payload enviado:', JSON.stringify(payload, null, 2));
             throw error;
         }
         return data as StudyRecord[];
@@ -107,5 +120,14 @@ export const studyRecordsQueries = {
             .delete()
             .in('id', ids);
         if (error) throw error;
+    },
+    /** Conta total de registros do usuário */
+    async getCount(userId: string) {
+        const { count, error } = await supabase
+            .from('registros_estudos')
+            .select('*', { count: 'exact', head: true })
+            .eq('user_id', userId);
+        if (error) throw error;
+        return count || 0;
     },
 };
