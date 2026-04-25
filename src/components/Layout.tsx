@@ -82,7 +82,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case '/relatorios': return 'RELATORIOS';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
-      case '/biblioteca': return 'LIBRARY';
       default: return 'HUB';
     }
   };
@@ -110,7 +109,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'RELATORIOS': return '/relatorios';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
-      case 'LIBRARY': return '/biblioteca';
       default: return '/';
     }
   };
@@ -154,7 +152,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
         { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
         { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
-        { id: 'LIBRARY', label: 'Biblioteca PDF', icon: BookOpen, isNew: true },
         { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
         { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
         { id: 'SIMULADOS', label: 'Simulados', icon: Target },
@@ -173,7 +170,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       const isStudyModule = [
         'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
         'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'LIBRARY'
+        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
       ].includes(activeView);
 
       const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);

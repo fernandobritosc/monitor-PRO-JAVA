@@ -17,7 +17,6 @@ const BancoQuestoesView   = lazy(() => import('../../views/QuestionsBank'));
 const FlashcardsView      = lazy(() => import('../../views/Flashcards'));
 const DiscursivaView      = lazy(() => import('../../views/Discursiva'));
 const GabaritoIAView      = lazy(() => import('../../views/GabaritoIA'));
-const LibraryView         = lazy(() => import('../../views/LibraryView'));
 const RankingView         = lazy(() => import('../../views/RankingView'));
 
 interface AppRouterProps {
@@ -52,7 +51,6 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
         <Route path="/flashcards" element={<FlashcardsView />} />
         <Route path="/discursiva" element={<DiscursivaView />} />
         <Route path="/gabarito-ia" element={<GabaritoIAView />} />
-        <Route path="/biblioteca" element={<LibraryView />} />
         <Route path="/ranking" element={<RankingView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

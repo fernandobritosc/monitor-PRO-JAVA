@@ -31,6 +31,6 @@ O sistema utiliza um modelo **Offline-First com Reconciliação Conflito-Zero**:
 
 ## 📈 Roadmap & Consolidação
 - [x] **Estabilização de Sync**: Motor V2.5 com reconciliação automática de IDs.
-- [ ] **Inventário & Pruning**: Identificar e remover funcionalidades redundantes para reduzir o "bloat".
+- [x] **Pruning (Fase 1)**: Remoção da Biblioteca PDF para focar em core features e performance.
 - [ ] **Novo Dashboard**: Criar visualizações de progresso baseadas na nova estrutura de dados limpa.
 - [ ] **Gamificação**: Sistema de streaks baseado em registros reais sincronizados.

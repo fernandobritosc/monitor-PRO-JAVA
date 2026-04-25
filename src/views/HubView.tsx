@@ -150,7 +150,6 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
     const navItems = [
         { id: 'HOME', label: 'Portal do Aluno', desc: 'Edital e Cronômetro', icon: <BookOpen size={24} />, bg: 'from-blue-600/20 to-cyan-600/20', color: 'text-cyan-400' },
-        { id: 'LIBRARY', label: 'Biblioteca', desc: 'Meus Materiais e PDFs', icon: <Zap size={24} />, bg: 'from-indigo-600/20 to-blue-600/20', color: 'text-indigo-400' },
         { id: 'QUESTOES', label: 'Banco de Provas', desc: 'Simulados e Questões', icon: <Target size={24} />, bg: 'from-purple-600/20 to-indigo-600/20', color: 'text-purple-400' },
         { id: 'CONFIGURAR', label: 'Configurações', desc: 'Ajustes da Conta', icon: <Settings size={24} />, bg: 'from-slate-600/20 to-slate-500/20', color: 'text-slate-400' },
     ];
@@ -282,8 +281,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                                 onClick={() => {
                                     const path = item.id === 'HOME' ? '/dashboard' :
                                         item.id === 'QUESTOES' ? '/questoes' :
-                                            item.id === 'LIBRARY' ? '/biblioteca' :
-                                                item.id === 'CONFIGURAR' ? '/configurar' : '/';
+                                            item.id === 'CONFIGURAR' ? '/configurar' : '/';
                                     navigate(path);
                                 }}
                                 className={`flex items-center gap-4 p-3 rounded-2xl bg-[hsl(var(--bg-user-block)/0.4)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.3)] transition-all group overflow-hidden relative text-left w-full shadow-[0_4px_20px_-10px_rgba(0,0,0,0.5)]`}

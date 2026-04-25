@@ -55,13 +55,15 @@ export const StudyTimer: React.FC = () => {
         };
     }, [seconds, isRunning, isVisible, mode]);
 
-    // Efeito de contagem
+    // Efeito de contagem de alta precisão
     useEffect(() => {
         let interval: NodeJS.Timeout;
         if (isRunning) {
+            // Verificamos a cada 200ms para garantir fluidez visual,
+            // mas o cálculo no store é baseado no Date.now() real.
             interval = setInterval(() => {
                 tick();
-            }, 1000);
+            }, 200);
         }
         return () => clearInterval(interval);
     }, [isRunning, tick]);
