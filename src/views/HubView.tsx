@@ -51,6 +51,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
     const [isRefreshingNews, setIsRefreshingNews] = useState(false);
     const [rankers, setRankers] = useState<RankerItem[]>([]);
     const [loadingRank, setLoadingRank] = useState(true);
+    const [timeFilter, setTimeFilter] = useState<number | null>(7);
 
     useEffect(() => {
         fetchNews();
@@ -116,9 +117,10 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
     };
 
     const fetchRanking = async () => {
+        setLoadingRank(true);
         try {
             const { data: { user } } = await supabase.auth.getUser();
-            const data = await profilesQueries.getRanking();
+            const data = await profilesQueries.getRankingFiltered(timeFilter);
 
             if (data) {
                 const formatted = data.map((r: any) => {
@@ -146,7 +148,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
     useEffect(() => {
         fetchRanking();
-    }, []);
+    }, [timeFilter]);
 
     const navItems = [
         { id: 'HOME', label: 'Portal do Aluno', desc: 'Edital e Cronômetro', icon: <BookOpen size={24} />, bg: 'from-blue-600/20 to-cyan-600/20', color: 'text-cyan-400' },
@@ -301,9 +303,31 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
                 {/* EMbedded Ranking Widget */}
                 <div className="glass-premium rounded-[2rem] border border-[hsl(var(--border))] shadow-2xl p-5 flex flex-col relative overflow-hidden flex-1 min-h-[300px]">
-                    <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[hsl(var(--text-muted))] mb-4 relative z-10 text-center flex items-center justify-center gap-2">
-                        <Trophy size={14} className="text-yellow-500" /> Global Top
-                    </h3>
+                    <div className="flex flex-col gap-3 mb-4 relative z-10">
+                        <h3 className="text-[10px] font-black uppercase tracking-[0.4em] text-[hsl(var(--text-muted))] text-center flex items-center justify-center gap-2">
+                            <Trophy size={14} className="text-yellow-500" /> Global Top
+                        </h3>
+                        <div className="flex justify-center items-center gap-1 bg-[hsl(var(--bg-user-block)/0.5)] p-1 rounded-xl border border-[hsl(var(--border))]">
+                            {[
+                                { label: '7D', value: 7 },
+                                { label: '15D', value: 15 },
+                                { label: '30D', value: 30 },
+                                { label: 'Total', value: null }
+                            ].map((filter) => (
+                                <button
+                                    key={filter.label}
+                                    onClick={() => setTimeFilter(filter.value)}
+                                    className={`flex-1 py-1.5 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
+                                        timeFilter === filter.value 
+                                        ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-md' 
+                                        : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--accent)/0.1)]'
+                                    }`}
+                                >
+                                    {filter.label}
+                                </button>
+                            ))}
+                        </div>
+                    </div>
 
                     <div className="flex-1 overflow-y-auto custom-scrollbar pr-2 relative z-10 space-y-2">
                         {loadingRank ? (

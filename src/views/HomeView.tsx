@@ -33,7 +33,8 @@ import {
   Cell,
   Legend,
   BarChart,
-  Bar
+  Bar,
+  LabelList
 } from 'recharts';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
@@ -93,7 +94,7 @@ const CustomYAxisTick = (props: any) => {
   return (
     <g transform={`translate(${x},${y})`}>
       <text x={-10} y={0} dy={4} textAnchor="end" fill="hsl(var(--text-muted))" fontSize={9} fontWeight={900} className="uppercase tracking-widest">
-        {payload.value.length > 20 ? `${payload.value.substring(0, 18)}...` : payload.value}
+        {payload.value}
       </text>
     </g>
   );
@@ -108,7 +109,7 @@ const HomeView: React.FC = () => {
   const studyLoading = authLoading || recordsLoading || editaisLoading;
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all'); // 'all', 'today', 'week', 'month'
-  const [analysisTab, setAnalysisTab] = useState<'time' | 'errors'>('time');
+  const [analysisTab, setAnalysisTab] = useState<'time' | 'precision' | 'comparative'>('time');
   const [filterPeriod, setFilterPeriod] = useState<number>(30);
   const [showGlobalStats, setShowGlobalStats] = useState(false);
 
@@ -226,16 +227,20 @@ const HomeView: React.FC = () => {
     return (max - 80) / (max - min);
   }, [evolutionData]);
 
-  const errorData = useMemo(() => {
-    const errorsBySubject = activeRecords.reduce<Record<string, number>>((acc, r) => {
-      const current = Number(acc[r.materia] || 0);
-      const diff = Number(r.total) - Number(r.acertos);
-      acc[r.materia] = current + diff;
+  const precisionData = useMemo(() => {
+    const stats = activeRecords.reduce<Record<string, { correct: number, total: number }>>((acc, r) => {
+      if (!acc[r.materia]) acc[r.materia] = { correct: 0, total: 0 };
+      acc[r.materia].correct += Number(r.acertos);
+      acc[r.materia].total += Number(r.total);
       return acc;
     }, {});
-    return Object.entries(errorsBySubject)
-      .map(([materia, errors]) => ({ materia, errors }))
-      .sort((a, b) => Number(b.errors) - Number(a.errors)).slice(0, 5);
+    return Object.entries(stats)
+      .map(([materia, data]) => ({ 
+        materia, 
+        precision: data.total > 0 ? (data.correct / data.total) * 100 : 0 
+      }))
+      .sort((a, b) => b.precision - a.precision)
+      .slice(0, 8);
   }, [activeRecords]);
 
   const timeData = useMemo(() => {
@@ -244,7 +249,28 @@ const HomeView: React.FC = () => {
       acc[r.materia] = current + Number(r.tempo);
       return acc;
     }, {});
-    return Object.entries(timeBySubject).map(([name, value]) => ({ name, value })).sort((a, b) => Number(b.value) - Number(a.value));
+    return Object.entries(timeBySubject)
+      .map(([materia, tempo]) => ({ materia, tempo }))
+      .sort((a, b) => b.tempo - a.tempo)
+      .slice(0, 8);
+  }, [activeRecords]);
+
+  const comparativeData = useMemo(() => {
+    const stats = activeRecords.reduce<Record<string, { time: number, correct: number, total: number }>>((acc, r) => {
+      if (!acc[r.materia]) acc[r.materia] = { time: 0, correct: 0, total: 0 };
+      acc[r.materia].time += Number(r.tempo);
+      acc[r.materia].correct += Number(r.acertos);
+      acc[r.materia].total += Number(r.total);
+      return acc;
+    }, {});
+    return Object.entries(stats)
+      .map(([materia, data]) => ({ 
+        materia, 
+        tempo: data.time, 
+        precision: data.total > 0 ? (data.correct / data.total) * 100 : 0 
+      }))
+      .sort((a, b) => b.tempo - a.tempo)
+      .slice(0, 8);
   }, [activeRecords]);
 
   const heatmapData = useMemo(() => {
@@ -617,37 +643,73 @@ return (
         </div>
 
         <div className="glass-premium rounded-[2.5rem] p-8 md:p-10 flex flex-col">
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex flex-wrap items-center gap-4 mb-8">
             <button onClick={() => setAnalysisTab('time')} className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'time' ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))]' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}>Distribuição de Tempo</button>
-            <button onClick={() => setAnalysisTab('errors')} className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'errors' ? 'bg-red-500 text-white' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}>Análise de Erros</button>
+            <button onClick={() => setAnalysisTab('precision')} className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'precision' ? 'bg-green-500 text-white' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}>Assertividade</button>
+            <button onClick={() => setAnalysisTab('comparative')} className={`px-5 py-2 rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all ${analysisTab === 'comparative' ? 'bg-[#facc15] text-[hsl(var(--bg-main))]' : 'text-[hsl(var(--text-muted))] hover:text-white'}`}>Comparativo</button>
           </div>
-          <div className="flex-1 w-full min-h-[200px]">
-            {analysisTab === 'time' ? (
+          <div className="flex-1 w-full min-h-[250px]">
+            {analysisTab === 'comparative' ? (
               <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <defs>
-                    {timeData.map((_, i) => (
-                      <linearGradient key={`grad-${i}`} id={`grad-${i}`} x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="0%" stopColor={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 65%)`} />
-                        <stop offset="100%" stopColor={`hsl(${[188, 262, 330, 46, 142][i % 5]} 80% 45%)`} />
-                      </linearGradient>
-                    ))}
-                  </defs>
-                  <Pie data={timeData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={8} dataKey="value">
-                    {timeData.map((e, i) => <Cell key={`c-${i}`} fill={`url(#grad-${i})`} stroke="none" />)}
-                  </Pie>
-                  <Tooltip contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '10px' }} formatter={(v: number) => [`${Math.floor(v / 60)}h ${v % 60}m`, 'TEMPO']} />
-                  <Legend verticalAlign="bottom" height={36} iconType="circle" formatter={(value) => <span className="text-[9px] font-black uppercase tracking-widest text-[hsl(var(--text-muted))] ml-2">{value}</span>} />
-                </PieChart>
+                <BarChart data={comparativeData} layout="vertical" margin={{ left: 10, right: 60, top: 10, bottom: 10 }} barGap={2}>
+                  <XAxis type="number" xAxisId="time" hide />
+                  <XAxis type="number" domain={[0, 100]} xAxisId="precision" hide />
+                  <YAxis dataKey="materia" type="category" stroke="hsl(var(--text-muted))" fontSize={9} width={250} tick={CustomYAxisTick} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }} 
+                    contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} 
+                    itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '12px' }}
+                    labelStyle={{ color: 'hsl(var(--text-muted))', fontSize: '10px', textTransform: 'uppercase' }}
+                    formatter={(value: number, name: string) => {
+                      if (name === 'Tempo') return [`${Math.floor(value / 60)}h ${value % 60}m`, 'TEMPO'];
+                      return [`${value.toFixed(1)}%`, 'ASSERTIVIDADE'];
+                    }}
+                  />
+                  <Legend verticalAlign="top" iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 'bold' }} />
+                  <Bar dataKey="tempo" xAxisId="time" name="Tempo" fill="hsl(var(--accent))" radius={[0, 10, 10, 0]} barSize={8}>
+                     <LabelList dataKey="tempo" position="right" fill="hsl(var(--text-muted))" fontSize={8} fontWeight="bold" formatter={(v: number) => `${Math.floor(v / 60)}h${String(v % 60).padStart(2, '0')}m`} />
+                  </Bar>
+                  <Bar dataKey="precision" xAxisId="precision" name="Assertividade" radius={[0, 10, 10, 0]} barSize={8}>
+                     <LabelList dataKey="precision" position="right" fill="hsl(var(--text-muted))" fontSize={8} fontWeight="bold" formatter={(v: number) => `${v.toFixed(0)}%`} />
+                     {comparativeData.map((e, i) => (
+                       <Cell key={`c-${i}`} fill={e.precision >= 80 ? '#4ade80' : e.precision >= 60 ? '#facc15' : '#ef4444'} />
+                     ))}
+                  </Bar>
+                </BarChart>
+              </ResponsiveContainer>
+            ) : analysisTab === 'time' ? (
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={timeData} layout="vertical" margin={{ left: 10, right: 60, top: 10, bottom: 10 }}>
+                  <XAxis type="number" hide />
+                  <YAxis dataKey="materia" type="category" stroke="hsl(var(--text-muted))" fontSize={9} width={250} tick={CustomYAxisTick} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }} 
+                    contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} 
+                    itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '12px' }} 
+                    formatter={(v: number) => [`${Math.floor(v / 60)}h ${v % 60}m`, 'TEMPO']}
+                  />
+                  <Bar dataKey="tempo" radius={[0, 10, 10, 0]} barSize={12}>
+                    <LabelList dataKey="tempo" position="right" fill="hsl(var(--text-muted))" fontSize={9} fontWeight="bold" formatter={(v: number) => `${Math.floor(v / 60)}h${String(v % 60).padStart(2, '0')}m`} />
+                    {timeData.map((e, i) => <Cell key={`c-${i}`} fill="hsl(var(--accent))" />)}
+                  </Bar>
+                </BarChart>
               </ResponsiveContainer>
             ) : (
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={errorData} layout="vertical" margin={{ left: 10, right: 40, top: 10, bottom: 10 }}>
-                  <XAxis type="number" hide />
-                  <YAxis dataKey="materia" type="category" stroke="hsl(var(--text-muted))" fontSize={9} width={180} tick={CustomYAxisTick} axisLine={false} tickLine={false} />
-                  <Tooltip cursor={{ fill: 'rgba(255,255,255,0.03)' }} contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '12px' }} />
-                  <Bar dataKey="errors" radius={[0, 10, 10, 0]} barSize={12}>
-                    {errorData.map((e, i) => <Cell key={`c-${i}`} fill={i === 0 ? '#EF4444' : '#F59E0B'} />)}
+                <BarChart data={precisionData} layout="vertical" margin={{ left: 10, right: 60, top: 10, bottom: 10 }}>
+                  <XAxis type="number" domain={[0, 100]} hide />
+                  <YAxis dataKey="materia" type="category" stroke="hsl(var(--text-muted))" fontSize={9} width={250} tick={CustomYAxisTick} axisLine={false} tickLine={false} />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.03)' }} 
+                    contentStyle={{ backgroundColor: 'hsl(var(--bg-sidebar)/0.9)', backdropFilter: 'blur(10px)', border: '1px solid hsl(var(--border))', borderRadius: '15px' }} 
+                    itemStyle={{ color: '#fff', fontWeight: '900', fontSize: '12px' }}
+                    formatter={(v: number) => [`${v.toFixed(1)}%`, 'PRECISÃO']}
+                  />
+                  <Bar dataKey="precision" radius={[0, 10, 10, 0]} barSize={12}>
+                    <LabelList dataKey="precision" position="right" fill="hsl(var(--text-muted))" fontSize={9} fontWeight="bold" formatter={(v: number) => `${v.toFixed(0)}%`} />
+                    {precisionData.map((e, i) => (
+                      <Cell key={`c-${i}`} fill={e.precision >= 80 ? '#4ade80' : e.precision >= 60 ? '#facc15' : '#ef4444'} />
+                    ))}
                   </Bar>
                 </BarChart>
               </ResponsiveContainer>

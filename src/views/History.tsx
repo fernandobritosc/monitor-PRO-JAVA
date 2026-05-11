@@ -475,9 +475,6 @@ const History: React.FC = () => {
             const recordsInGroup = groupedRecords[materia];
             const isOpen = openGroups[materia];
 
-            const avgTaxa =
-              recordsInGroup.reduce((acc, r) => acc + r.taxa, 0) /
-              recordsInGroup.length;
             const totalAcertos = recordsInGroup.reduce(
               (acc, r) => acc + (r.acertos || 0),
               0,
@@ -486,6 +483,7 @@ const History: React.FC = () => {
               (acc, r) => acc + (r.total || 0),
               0,
             );
+            const avgTaxa = totalQuestoes > 0 ? (totalAcertos / totalQuestoes) * 100 : 0;
             const totalMinutos = recordsInGroup.reduce(
               (acc, r) => acc + (r.tempo || 0),
               0,

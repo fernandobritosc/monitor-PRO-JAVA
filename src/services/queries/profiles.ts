@@ -53,4 +53,15 @@ export const profilesQueries = {
         if (error) throw error;
         return data ?? [];
     },
+
+    /** Busca o ranking filtrado por período via RPC */
+    async getRankingFiltered(days: number | null) {
+        const { data, error } = await supabase
+            .rpc('get_ranking_by_period', { p_days: days });
+        if (error) {
+            console.error('ERRO NO RPC get_ranking_by_period:', error);
+            throw error;
+        }
+        return data ?? [];
+    },
 };
