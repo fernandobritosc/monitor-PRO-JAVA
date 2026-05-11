@@ -135,7 +135,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                     };
                 });
 
-                formatted.sort((a, b) => b.totalTempo - a.totalTempo);
+                formatted.sort((a: any, b: any) => b.totalTempo - a.totalTempo);
                 setRankers(formatted.slice(0, 15)); // Pega os 15 melhores para exibir na lateral
             }
         } catch (err) {
