@@ -12,8 +12,6 @@ const SimuladosView       = lazy(() => import('../../views/Simulados'));
 const ConfigurarView      = lazy(() => import('../../views/Configurar'));
 const RelatoriosView      = lazy(() => import('../../views/Reports'));
 const ErrorAnalysisView   = lazy(() => import('../../views/ErrorAnalysisView'));
-const PerformanceView     = lazy(() => import('../../views/Performance'));
-const BancoQuestoesView   = lazy(() => import('../../views/QuestionsBank'));
 const FlashcardsView      = lazy(() => import('../../views/Flashcards'));
 const DiscursivaView      = lazy(() => import('../../views/Discursiva'));
 const GabaritoIAView      = lazy(() => import('../../views/GabaritoIA'));
@@ -44,10 +42,6 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
         <Route path="/configurar" element={<ConfigurarView />} />
         <Route path="/relatorios" element={<RelatoriosView />} />
         <Route path="/analise-erros" element={<ErrorAnalysisView />} />
-        <Route path="/performance" element={<PerformanceView />} />
-        <Route path="/questoes" element={<BancoQuestoesView />} />
-        {/* Correção 4: rota /cadastro-questoes estava no menu mas ausente no router */}
-        <Route path="/cadastro-questoes" element={<BancoQuestoesView />} />
         <Route path="/flashcards" element={<FlashcardsView />} />
         <Route path="/discursiva" element={<DiscursivaView />} />
         <Route path="/gabarito-ia" element={<GabaritoIAView />} />

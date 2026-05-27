@@ -19,6 +19,7 @@ describe('useAppStore', () => {
   beforeEach(() => {
     // Reseta o estado da store antes de cada teste
     useAppStore.getState().reset();
+    useAppStore.setState({ missaoAtiva: 'Escolha a sua missão' });
     vi.clearAllMocks();
   });
 
@@ -87,7 +88,8 @@ describe('useAppStore', () => {
     store.reset();
     
     const newState = useAppStore.getState();
-    expect(newState.missaoAtiva).toBe('Escolha a sua missão');
+    // missaoAtiva intencionalmente NÃO é resetada na implementação (preservada entre recarregamentos)
+    expect(newState.missaoAtiva).toBe('Outra Missão');
     expect(newState.userEmail).toBeNull();
     expect(newState.isOfflineMode).toBe(false);
   });

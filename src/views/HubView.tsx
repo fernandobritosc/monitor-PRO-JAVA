@@ -152,7 +152,6 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
     const navItems = [
         { id: 'HOME', label: 'Portal do Aluno', desc: 'Edital e Cronômetro', icon: <BookOpen size={24} />, bg: 'from-blue-600/20 to-cyan-600/20', color: 'text-cyan-400' },
-        { id: 'QUESTOES', label: 'Banco de Provas', desc: 'Simulados e Questões', icon: <Target size={24} />, bg: 'from-purple-600/20 to-indigo-600/20', color: 'text-purple-400' },
         { id: 'CONFIGURAR', label: 'Configurações', desc: 'Ajustes da Conta', icon: <Settings size={24} />, bg: 'from-slate-600/20 to-slate-500/20', color: 'text-slate-400' },
     ];
 

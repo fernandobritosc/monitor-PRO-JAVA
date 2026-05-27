@@ -23,7 +23,6 @@ import {
 import { getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { logger } from '../utils/logger';
-import { questionsQueries } from '../services/queries';
 import { CustomSelector } from '../components/CustomSelector';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
@@ -116,7 +115,6 @@ const History: React.FC = () => {
   const [errorText, setErrorText] = useState('');
   const [isAnalyzing, setIsAnalyzing] = useState(false);
 
-  const [saveToBank, setSaveToBank] = useState(false); // Novo estado para salvar no banco
   const [loading, setLoading] = useState(false);
   const [msg, setMsg] = useState<{
     type: 'success' | 'error';
@@ -303,7 +301,6 @@ const History: React.FC = () => {
 
   const openEditModal = (r: StudyRecord) => {
     setEditingRecord(r);
-    setSaveToBank(false); // Resetar checkbox ao abrir
     setErrorText('');
     setEditForm({
       materia: r.materia,
@@ -361,34 +358,6 @@ const History: React.FC = () => {
     setEditingRecord(null); // Fecha o modal
     setLoading(false);
 
-    // Salvar no banco de questões é uma operação secundária (não precisa ser otimista)
-    if (saveToBank && editingRecord.tipo !== 'Simulado') {
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
-      if (user) {
-        const questionPayload = {
-          user_id: user.id,
-          concurso: missaoAtiva,
-          data: editForm.data_estudo,
-          materia: editForm.materia,
-          assunto: editForm.assunto,
-          anotacoes: editForm.comentarios,
-          status: 'Pendente',
-          tags: [],
-          meta: 3,
-        };
-        try {
-          await questionsQueries.insertRevision(questionPayload);
-        } catch (err) {
-          logger.error(
-            'DATA',
-            'Erro ao inserir questão de revisão',
-            err as Error,
-          );
-        }
-      }
-    }
   };
 
   const isSimuladoEdit = editingRecord?.tipo === 'Simulado';
@@ -1142,37 +1111,7 @@ const History: React.FC = () => {
                 </div>
               )}
 
-              {/* GRUPO 6: OPÇÕES FINAIS (NOVO) */}
-              {!isSimuladoEdit && (
-                <div className="border-t border-white/5 pt-4">
-                  <label className="group flex cursor-pointer items-center gap-4 rounded-xl border border-transparent p-4 transition-all hover:border-cyan-500/30 hover:bg-cyan-500/5">
-                    <div
-                      className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border-2 transition-all ${saveToBank ? 'border-cyan-500 bg-cyan-500' : 'border-slate-600 bg-slate-900/30'}`}
-                    >
-                      {saveToBank && (
-                        <CheckCircle2 size={16} className="text-white" />
-                      )}
-                    </div>
-                    <input
-                      type="checkbox"
-                      className="hidden"
-                      checked={saveToBank}
-                      onChange={(e) => setSaveToBank(e.target.checked)}
-                    />
-                    <div className="flex-1">
-                      <span
-                        className={`block text-sm font-bold ${saveToBank ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'}`}
-                      >
-                        Salvar no Banco de Questões
-                      </span>
-                      <span className="text-xs text-slate-500">
-                        Cria uma cópia desta edição na sua lista de revisão
-                        pendente.
-                      </span>
-                    </div>
-                  </label>
-                </div>
-              )}
+
 
               <button
                 onClick={handleSaveEdit}

@@ -5,7 +5,6 @@
 
 export { studyRecordsQueries } from './studyRecords';
 export { editaisQueries } from './editais';
-export { questionsQueries } from './questions';
 export { gabaritosQueries } from './gabaritos';
 export { discursivasQueries } from './discursivas';
 export { profilesQueries } from './profiles';

@@ -58,63 +58,6 @@ export interface EditalMateria {
   peso?: number; // Novo campo para cálculo ponderado
 }
 
-export interface Question {
-  id: string;
-  user_id: string;
-  concurso: string;
-  data: string;
-  materia: string;
-  assunto: string;
-  simulado?: string;
-  enunciado?: string; // NOVO: Texto rico Tiptap
-  resposta?: string;  // NOVO: Texto rico Tiptap
-  anotacoes?: string;
-  status: 'Pendente' | 'Revisado' | 'Dominado';
-  tags?: string[];
-  meta: number;
-  next_review?: string; // NOVO: SRS
-  interval?: number;    // NOVO: SRS
-  tec_id?: string;      // ID do Tec Concursos
-  banca?: string;       // Ex: CESPE, FCC, FGV
-  ano?: number;
-  tipo?: 'Multipla Escolha' | 'Certo/Errado';
-  alternativas?: {
-    id: string;
-    texto: string;
-    label: string; // A, B, C, D, E ou Certo, Errado
-    is_correct: boolean;
-  }[];
-  images?: string[]; // URLs de imagens no enunciado/alternativas
-  ai_generated_assets?: {
-    explanation?: string;
-    mnemonic?: string;
-    mapa?: string;
-    fluxo?: string;
-    tabela?: string;
-    info?: string;
-    [key: string]: string | undefined;
-  };
-  original_audio_id?: string;
-}
-
-export interface GlobalQuestion extends Omit<Question, 'user_id' | 'status' | 'meta' | 'next_review' | 'interval'> {
-  orgao?: string;
-  cargo?: string;
-  created_by: string; // Admin ID
-}
-
-export interface QuestionAttempt {
-  id?: string;
-  question_id: string;
-  user_id: string;
-  selected_alt: string;
-  is_correct: boolean;
-  attempted_at?: string;
-  materia?: string;
-  assunto?: string;
-  banca?: string;
-}
-
 export interface EditalProgress {
   materia: string;
   total: number;
@@ -195,4 +138,4 @@ export interface Discursiva {
   created_at: string;
 }
 
-export type ViewType = 'HOME' | 'DASHBOARD' | 'EDITAL' | 'QUESTOES' | 'REGISTRAR' | 'REVISOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'RELATORIOS' | 'ONBOARDING' | 'EDITAL_PROGRESS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS' | 'REGISTRAR_SIMULADO' | 'HUB' | 'RANKING' | 'PERFORMANCE' | 'CADASTRO_QUESTOES' | 'LIBRARY';
+export type ViewType = 'HOME' | 'DASHBOARD' | 'EDITAL' | 'REGISTRAR' | 'REVISOES' | 'HISTORICO' | 'SIMULADOS' | 'CONFIGURAR' | 'RELATORIOS' | 'ONBOARDING' | 'EDITAL_PROGRESS' | 'FLASHCARDS' | 'DISCURSIVA' | 'GABARITO_IA' | 'ANALISE_ERROS' | 'REGISTRAR_SIMULADO' | 'HUB' | 'RANKING' | 'LIBRARY';

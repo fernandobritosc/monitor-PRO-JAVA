@@ -10,10 +10,9 @@ import StarterKit from '@tiptap/starter-kit';
 import Underline from '@tiptap/extension-underline';
 import Image from '@tiptap/extension-image';
 import Placeholder from '@tiptap/extension-placeholder';
-import { EditorToolbar } from '../components/QuestionsBank/EditorToolbar';
+import { EditorToolbar } from '../components/ui/EditorToolbar';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
-import { questionsQueries } from '../services/queries';
 import { syncService } from '../services/offline/sync';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
@@ -60,7 +59,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     const [minha_resposta, setMinha_resposta] = useState('');
     const [comentarios, setComentarios] = useState('');
     const [errorText, setErrorText] = useState('');
-    const [saveToBank, setSaveToBank] = useState(false);
     
     // Timer integration
     const timerSeconds = useTimerStore(state => state.seconds);
@@ -512,22 +510,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
                 await syncService.saveAttempt(payload);
 
-                // Opcional: Banco de Questões
-                if (saveToBank) {
-                    const questionPayload = {
-                        user_id: user?.id,
-                        concurso: missaoAtiva,
-                        data: dataEstudo,
-                        materia,
-                        assunto,
-                        anotacoes: comentarios,
-                        status: 'Pendente',
-                        tags: [],
-                        meta: 3
-                    };
-                    await questionsQueries.insertRevision(questionPayload);
-                }
-
                 setMsg({ type: 'success', text: 'Estudo registrado!' });
                 onSaved();
                 // Reset parcial
@@ -536,7 +518,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 setTotal('');
                 setComentarios('');
                 setMeta('');
-                setSaveToBank(false);
                 setTempoHHMM('');
                 setErrorText('');
                 setErrorAnalysis([]);
@@ -959,21 +940,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                             </div>
                         </div>
                     )}
-                    {!isSimulado && (
-                        <div className="pt-4 border-t border-white/5">
-                            <label className="flex items-center gap-4 cursor-pointer group p-3 rounded-xl border border-transparent hover:border-cyan-500/30 hover:bg-cyan-500/5 transition-all">
-                                <div className={`w-5 h-5 rounded-md border-2 flex items-center justify-center transition-all shrink-0 ${saveToBank ? 'bg-cyan-500 border-cyan-500' : 'border-slate-600 bg-slate-900/30'}`}>
-                                    {saveToBank && <CheckCircle2 size={14} className="text-white" />}
-                                </div>
-                                <input type="checkbox" className="hidden" checked={saveToBank} onChange={e => setSaveToBank(e.target.checked)} />
-                                <div className="flex-1">
-                                    <span className={`text-sm font-bold block ${saveToBank ? 'text-cyan-400' : 'text-slate-400 group-hover:text-slate-200'}`}>
-                                        Salvar no Banco de Questões
-                                    </span>
-                                </div>
-                            </label>
-                        </div>
-                    )}
+
 
                     <div className="flex gap-6 pt-6 border-t border-[hsl(var(--border))]">
                         <button

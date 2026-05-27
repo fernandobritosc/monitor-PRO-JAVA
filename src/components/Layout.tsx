@@ -70,15 +70,12 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case '/flashcards': return 'FLASHCARDS';
       case '/discursiva': return 'DISCURSIVA';
       case '/gabarito-ia': return 'GABARITO_IA';
-      case '/questoes': return 'QUESTOES';
-      case '/cadastro-questoes': return 'CADASTRO_QUESTOES';
       case '/registrar': return 'REGISTRAR';
       case '/revisoes': return 'REVISOES';
       case '/historico': return 'HISTORICO';
       case '/simulados': return 'SIMULADOS';
       case '/registrar-simulado': return 'REGISTRAR_SIMULADO';
       case '/analise-erros': return 'ANALISE_ERROS';
-      case '/performance': return 'PERFORMANCE';
       case '/relatorios': return 'RELATORIOS';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
@@ -97,15 +94,12 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'FLASHCARDS': return '/flashcards';
       case 'DISCURSIVA': return '/discursiva';
       case 'GABARITO_IA': return '/gabarito-ia';
-      case 'QUESTOES': return '/questoes';
-      case 'CADASTRO_QUESTOES': return '/cadastro-questoes';
       case 'REGISTRAR': return '/registrar';
       case 'REVISOES': return '/revisoes';
       case 'HISTORICO': return '/historico';
       case 'SIMULADOS': return '/simulados';
       case 'REGISTRAR_SIMULADO': return '/registrar-simulado';
       case 'ANALISE_ERROS': return '/analise-erros';
-      case 'PERFORMANCE': return '/performance';
       case 'RELATORIOS': return '/relatorios';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
@@ -162,21 +156,14 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       ];
 
-      const questionItems = [
-        { id: 'QUESTOES', label: 'Banco de Questões', icon: CheckSquare },
-        { id: 'CADASTRO_QUESTOES', label: 'Gerenciar Banco', icon: PlusCircle },
-      ];
-
       const isStudyModule = [
         'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
         'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
+        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'CONFIGURAR', 'RANKING'
       ].includes(activeView);
 
-      const isQuestionModule = ['QUESTOES', 'CADASTRO_QUESTOES'].includes(activeView);
-
       if (activeView === 'HUB') {
-        return [...hubItems, ...questionItems];
+        return hubItems;
       }
 
       if (isStudyModule) {
@@ -187,16 +174,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         ];
       }
 
-      if (isQuestionModule) {
-        return [
-          { id: 'HUB', label: 'Voltar ao Início', icon: Home },
-          ...questionItems,
-          { id: 'PERFORMANCE', label: 'Performance Alpha', icon: Trophy },
-          { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
-        ];
-      }
-
-      return [...hubItems, ...questionItems];
+      return hubItems;
     };
     return getItems();
   }, [activeView]);
@@ -341,7 +319,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         </header>
 
         {/* Content Area */}
-        <div className={`flex-1 max-w-screen-2xl mx-auto w-full pb-28 relative transition-all duration-300 ${(['QUESTOES', 'PERFORMANCE', 'CADASTRO_QUESTOES'].includes(activeView)) ? 'p-2 lg:p-4' : 'p-4 lg:p-10'}`}>
+        <div className="flex-1 max-w-screen-2xl mx-auto w-full pb-28 relative transition-all duration-300 p-4 lg:p-10">
 
           {(() => {
             const isStudyModule = [
@@ -349,15 +327,14 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
               'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
               'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
             ].includes(activeView);
-            const isQuestionModule = ['QUESTOES'].includes(activeView);
 
             return (
-              <header className={`mb-4 animate-in fade-in slide-in-from-top-4 duration-700 ${isQuestionModule || activeView === 'PERFORMANCE' ? 'mb-2' : 'mb-6'}`}>
+              <header className="mb-4 animate-in fade-in slide-in-from-top-4 duration-700 mb-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
                   <div className="flex items-center gap-3">
                     {activeView === 'HUB' ? null : (
                       <div className="flex items-center gap-4">
-                        <h2 className={`font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none ${isQuestionModule || activeView === 'PERFORMANCE' ? 'text-sm lg:text-base' : 'text-xl lg:text-2xl'}`}>
+                        <h2 className="font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none text-xl lg:text-2xl">
                           {missaoAtiva || 'Selecione uma Missão'}
                         </h2>
                         
