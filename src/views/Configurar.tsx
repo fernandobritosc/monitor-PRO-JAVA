@@ -186,6 +186,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
           peso: 1
         }]);
         
+        queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
         if (mounted) await onUpdated();
       } catch (e) {
         console.error('Erro ao criar Estudo Livre', e);
@@ -266,6 +267,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
         topicos: m.topicos, is_principal: true, data_prova: m.data_prova, peso: m.peso || 1
       }));
       await editaisQueries.upsert(payload, false);
+      queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       setMissaoAtiva(template.title); await onUpdated(); alert(`Edital "${template.title}" importado com sucesso!`); setActiveTab('mission');
     } catch (e: any) {
       logger.error('DATA', 'Erro importando template', e);
@@ -399,6 +401,7 @@ NOTIFY pgrst, 'reload schema';
       if (toUpdate.length > 0) { await editaisQueries.update(toUpdate); }
       if (toInsert.length > 0) { await editaisQueries.upsert(toInsert, true); }
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) { setMissaoAtiva(formConcurso); } else if (!missaoAtiva) { setMissaoAtiva(formConcurso); }
+      queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       await onUpdated(); setIsModalOpen(false);
     } catch (err: any) { logger.error('DATA', 'Erro salvando form de edição', err); if (err.message.includes('duplicate key') || err.message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (err.message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + err.message); } } finally { setLoadingMission(false); }
   };
@@ -406,7 +409,23 @@ NOTIFY pgrst, 'reload schema';
   const handleDeleteMission = async (concurso: string) => {
     if (!window.confirm(`Tem certeza que deseja apagar o edital "${concurso}"?`)) { return; }
     const { data: { user } } = await supabase.auth.getUser(); if (!user) return;
-    try { setRefreshing(true); const idsToDelete = await editaisQueries.getIdsByConcurso(user.id, concurso); if (!idsToDelete || idsToDelete.length === 0) { if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); return; } await editaisQueries.deleteMany(idsToDelete); if (missaoAtiva === concurso) setMissaoAtiva(''); await onUpdated(); } catch (e: any) { alert("Falha na exclusão: " + e.message); } finally { setRefreshing(false); }
+    try { 
+      setRefreshing(true); 
+      const idsToDelete = await editaisQueries.getIdsByConcurso(user.id, concurso); 
+      if (!idsToDelete || idsToDelete.length === 0) { 
+        if (missaoAtiva === concurso) setMissaoAtiva(''); 
+        await onUpdated(); 
+        return; 
+      } 
+      await editaisQueries.deleteMany(idsToDelete); 
+      queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
+      if (missaoAtiva === concurso) setMissaoAtiva(''); 
+      await onUpdated(); 
+    } catch (e: any) { 
+      alert("Falha na exclusão: " + e.message); 
+    } finally { 
+      setRefreshing(false); 
+    }
   };
 
   const filteredUsers = usersList.filter(u => u.email?.toLowerCase().includes(userSearch.toLowerCase()));
