@@ -35,13 +35,17 @@ Object.defineProperty(window, 'location', {
 });
 
 // Mock SpeechSynthesisUtterance
-global.SpeechSynthesisUtterance = vi.fn().mockImplementation((text) => ({
-    text,
-    lang: '',
-    rate: 1,
-    onend: null,
-    onerror: null,
-})) as any;
+class MockSpeechSynthesisUtterance {
+    text: string;
+    lang = '';
+    rate = 1;
+    onend: (() => void) | null = null;
+    onerror: (() => void) | null = null;
+    constructor(text: string) {
+        this.text = text;
+    }
+}
+global.SpeechSynthesisUtterance = MockSpeechSynthesisUtterance as unknown as typeof SpeechSynthesisUtterance;
 
 global.speechSynthesis = {
     speak: vi.fn(),

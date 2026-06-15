@@ -3,13 +3,13 @@ import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { logger } from '../utils/logger';
 import { gabaritosQueries } from '../services/queries';
-import { GoogleGenAI, Type } from "@google/genai";
 import { GabaritoItem, SavedGabarito } from '../types';
-import { PieChart, Pie, Cell, ResponsiveContainer, Legend } from 'recharts';
-import { UploadCloud, Loader2, Sparkles, Download, FileCheck, Check, X, AlertTriangle, ChevronDown, ChevronUp, FileText, Trash2, Save, ArrowLeft, History, BarChart, Type as TypeIcon, PlusCircle, Brain, CheckCircle2, CheckSquare } from 'lucide-react';
-import { CustomSelector } from '../components/CustomSelector';
+import { UploadCloud, Loader2, Sparkles, Download, FileCheck, AlertTriangle, Trash2, Save, ArrowLeft, History, BarChart, Type as TypeIcon, PlusCircle, FileText } from 'lucide-react';
 import { PieChartComponent } from '../components/shared/PieChartComponent';
-import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
+import GabaritoQuestionCard from '../components/features/gabarito/GabaritoQuestionCard';
+import ManualQuestionModal from '../components/features/gabarito/ManualQuestionModal';
+import { useManualQuestion } from '../hooks/useManualQuestion';
+import { generateGabaritoPDF } from '../utils/pdfGenerator';
 
 // Declarações para TypeScript reconhecer as bibliotecas globais
 declare global {
@@ -56,35 +56,9 @@ REGRAS CRÍTICAS:
 SCHEMA: [{ "numero_questao": number, "enunciado": string, "alternativa_correta_ia": string, "justificativa": string }]
 `;
 
-const AI_PROMPT_SINGLE_QUESTION = `
-Você é um examinador especialista em concursos. Sua tarefa é analisar a questão a seguir, determinar a alternativa correta e fornecer uma justificativa técnica detalhada.
-
-**Entrada:**
-- **Enunciado:** {ENUNCIADO}
-- **Alternativas:** {ALTERNATIVAS}
-
-**SAÍDA ESTRITA EM JSON (UM ÚNICO OBJETO):** Sua resposta DEVE ser um objeto JSON válido, usando o schema fornecido.
-`;
-
-const singleResponseSchema = {
-  type: Type.OBJECT,
-  properties: {
-    numero_questao: { type: Type.INTEGER },
-    enunciado: { type: Type.STRING },
-    alternativa_correta_ia: { type: Type.STRING },
-    justificativa: { type: Type.STRING }
-  },
-  required: ["alternativa_correta_ia", "justificativa"]
-};
-
 interface AIAnalysisPageResult {
   numero_questao: number;
   enunciado: string;
-  alternativa_correta_ia: string;
-  justificativa: string;
-}
-
-interface SingleQuestionAnalysisResult {
   alternativa_correta_ia: string;
   justificativa: string;
 }
@@ -107,12 +81,16 @@ const GabaritoIA: React.FC = () => {
   const [expanded, setExpanded] = useState<Record<number, boolean>>({});
   const [error, setError] = useState<string | null>(null);
 
-  const [showManualAddModal, setShowManualAddModal] = useState(false);
-  const [manualQuestionData, setManualQuestionData] = useState({ numero: '', enunciado: '', alternativas: '' });
-  const [manualAddLoading, setManualAddLoading] = useState(false);
-  const [manualAddError, setManualAddError] = useState<string | null>(null);
-
   const geminiKeyAvailable = !!getGeminiKey();
+
+  const manualQuestion = useManualQuestion((newQuestion) => {
+    setSelectedGabarito(prev => {
+      if (!prev) return null;
+      const updatedResults = [...prev.results_json.filter(q => q.numero_questao !== newQuestion.numero_questao), newQuestion]
+        .sort((a, b) => a.numero_questao - b.numero_questao);
+      return { ...prev, results_json: updatedResults };
+    });
+  });
 
   const fetchHistory = async () => {
     setLoadingHistory(true);
@@ -254,51 +232,6 @@ const GabaritoIA: React.FC = () => {
     }
   };
 
-  const handleManualAddAndAnalyze = async () => {
-    if (!manualQuestionData.numero || !manualQuestionData.enunciado) {
-      setManualAddError("O número da questão e o enunciado são obrigatórios.");
-      return;
-    }
-    setManualAddLoading(true);
-    setManualAddError(null);
-
-    try {
-      const prompt = AI_PROMPT_SINGLE_QUESTION
-        .replace('{ENUNCIADO}', manualQuestionData.enunciado)
-        .replace('{ALTERNATIVAS}', manualQuestionData.alternativas);
-
-      const responseText = await generateAIContent(
-        prompt,
-        getGeminiKey(),
-        getGroqKey()
-      );
-
-      const newQuestionPartial = parseAIJSON(responseText) as SingleQuestionAnalysisResult;
-      const newQuestion: GabaritoItem = {
-        numero_questao: parseInt(manualQuestionData.numero),
-        enunciado: manualQuestionData.enunciado,
-        alternativa_correta_ia: newQuestionPartial.alternativa_correta_ia || '?',
-        justificativa: newQuestionPartial.justificativa || 'Análise falhou.'
-      };
-
-      setSelectedGabarito(prev => {
-        if (!prev) return null;
-        const updatedResults = [...prev.results_json.filter(q => q.numero_questao !== newQuestion.numero_questao), newQuestion]
-          .sort((a, b) => a.numero_questao - b.numero_questao);
-        return { ...prev, results_json: updatedResults };
-      });
-
-      setShowManualAddModal(false);
-      setManualQuestionData({ numero: '', enunciado: '', alternativas: '' });
-
-    } catch (err) {
-      const message = err instanceof Error ? err.message : String(err);
-      setManualAddError("Falha na análise da IA: " + message);
-    } finally {
-      setManualAddLoading(false);
-    }
-  };
-
   const scores = useMemo(() => {
     if (!selectedGabarito) return null;
     let scoreAI = 0, totalAI = 0, scoreOfficial = 0, totalOfficial = 0;
@@ -339,123 +272,10 @@ const GabaritoIA: React.FC = () => {
     }
   };
 
-  const generatePDF = async () => {
-    if (!selectedGabarito || !window.jspdf || !scores) return;
-    const { jsPDF } = window.jspdf;
-    const doc = new jsPDF();
-    const { data: { user } } = await (supabase.auth as any).getUser();
-    const pageWidth = doc.internal.pageSize.getWidth();
-    let currentY = 0;
-
-    // --- HEADER ---
-    doc.setFillColor(18, 21, 29); // #12151D
-    doc.rect(0, 0, pageWidth, 30, 'F');
-    doc.setFontSize(22);
-    doc.setFont("helvetica", "bold");
-    doc.setTextColor(255, 255, 255);
-    doc.text("MONITOR", 14, 20);
-    const monitorWidth = doc.getTextWidth("MONITOR");
-    doc.setTextColor(6, 182, 212); // Cyan
-    doc.text("PRO", 14 + monitorWidth + 1, 20);
-
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
-    doc.setTextColor(15, 236, 236);
-    doc.text("Relatório de Análise de Gabarito", 14, 28);
-
-    // --- INFO BLOCK ---
-    currentY = 40;
-    doc.setFontSize(16);
-    doc.setTextColor(40, 40, 40);
-    doc.text("Informações da Análise", 14, currentY);
-    currentY += 5;
-
-    const autoTableDoc = doc as any;
-    autoTableDoc.autoTable({
-      startY: currentY,
-      body: [
-        ['ALUNO(A)', user?.email || 'N/A'],
-        ['PROVA', selectedGabarito.file_name],
-        ['ID REGISTRO', selectedGabarito.id.substring(0, 8).toUpperCase()],
-        ['DATA', new Date(selectedGabarito.created_at).toLocaleString('pt-BR')],
-      ],
-      theme: 'plain',
-      styles: { fontSize: 9, cellPadding: 2 },
-      columnStyles: { 0: { fontStyle: 'bold', textColor: [100, 100, 100] } },
-    });
-    currentY = autoTableDoc.lastAutoTable.finalY + 10;
-
-    // SUMMARY
-    doc.setFontSize(14);
-    doc.text("Resumo de Desempenho", 14, currentY);
-    currentY += 6;
-    (doc as any).autoTable({
-      startY: currentY,
-      head: [['Comparativo', 'Acertos', 'Total', 'Nota']],
-      body: [
-        ['vs. IA', scores.totals.scoreAI, scores.totals.totalAI, `${(scores.totals.totalAI > 0 ? (scores.totals.scoreAI) / scores.totals.totalAI * 100 : 0).toFixed(0)}%`],
-        ['vs. Gabarito Oficial', scores.totals.scoreOfficial, scores.totals.totalOfficial, `${(scores.totals.totalOfficial > 0 ? (scores.totals.scoreOfficial) / scores.totals.totalOfficial * 100 : 0).toFixed(0)}%`]
-      ],
-      theme: 'grid',
-      headStyles: { fillColor: [88, 28, 135] }
-    });
-    currentY = (doc as any).lastAutoTable.finalY + 10;
-
-    // DETAILED TABLE
-    doc.setFontSize(14);
-    doc.text("Gabarito Detalhado", 14, currentY);
-    currentY += 6;
-    (doc as any).autoTable({
-      startY: currentY,
-      head: [['Questão', 'Sua Resposta', 'Gabarito Oficial', 'Gabarito IA', 'Resultado (vs. Oficial)']],
-      body: selectedGabarito.results_json.map(r => [
-        r.numero_questao,
-        userAnswers[r.numero_questao] || '-',
-        officialAnswers[r.numero_questao] || '-',
-        r.alternativa_correta_ia,
-        (userAnswers[r.numero_questao] && officialAnswers[r.numero_questao]) ? (userAnswers[r.numero_questao] === officialAnswers[r.numero_questao] ? 'CORRETO' : 'ERRADO') : '-'
-      ]),
-      didParseCell: (data: any) => {
-        if (data.column.index === 4) {
-          if (data.cell.raw === 'CORRETO') data.cell.styles.textColor = [0, 150, 0];
-          if (data.cell.raw === 'ERRADO') data.cell.styles.textColor = [200, 0, 0];
-        }
-      }
-    });
-    currentY = (doc as any).lastAutoTable.finalY + 15;
-
-    // JUSTIFICATIONS
-    doc.setFontSize(14);
-    doc.text("Análise Detalhada das Questões", 14, currentY);
-    currentY += 8;
-
-    selectedGabarito.results_json.forEach(r => {
-      if (currentY > 260) { doc.addPage(); currentY = 20; }
-      doc.setFontSize(12); doc.setFont("helvetica", "bold"); doc.text(`Questão ${r.numero_questao}`, 14, currentY);
-      currentY += 6;
-
-      doc.setFontSize(10); doc.setFont("helvetica", "bold"); doc.text("Enunciado:", 14, currentY);
-      doc.setFont("helvetica", "normal");
-      const splitEnunciado = doc.splitTextToSize(r.enunciado, 180);
-      doc.text(splitEnunciado, 14, currentY + 4);
-      currentY += (splitEnunciado.length * 4) + 6;
-
-      doc.setFont("helvetica", "bold"); doc.text("Justificativa (IA):", 14, currentY);
-      doc.setFont("helvetica", "normal");
-      const splitJustificativa = doc.splitTextToSize(r.justificativa, 180);
-      doc.text(splitJustificativa, 14, currentY + 4);
-      currentY += (splitJustificativa.length * 4) + 10;
-    });
-
-    // FOOTER
-    const pageCount = doc.internal.getNumberOfPages();
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i);
-      doc.setFontSize(8); doc.setTextColor(150);
-      doc.text(`Gerado em ${new Date().toLocaleString()} via MonitorPro - Página ${i} de ${pageCount}`, pageWidth / 2, doc.internal.pageSize.height - 10, { align: 'center' });
+  const handleGeneratePDF = () => {
+    if (selectedGabarito && scores) {
+      generateGabaritoPDF({ selectedGabarito, scores, userAnswers, officialAnswers });
     }
-
-    doc.save(`analise_gabarito_${selectedGabarito.file_name.replace('.pdf', '')}.pdf`);
   };
 
   if (selectedGabarito) {
@@ -476,10 +296,10 @@ const GabaritoIA: React.FC = () => {
           </div>
 
           <div className="flex flex-wrap gap-4">
-            <button onClick={() => setShowManualAddModal(true)} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
+            <button onClick={() => manualQuestion.setShowModal(true)} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
               <PlusCircle size={16} className="text-emerald-400" /> Adicionar Item
             </button>
-            <button onClick={generatePDF} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
+            <button onClick={handleGeneratePDF} className="px-6 py-4 bg-[hsl(var(--bg-user-block))] hover:bg-white/5 text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 border border-[hsl(var(--border))] transition-all">
               <Download size={16} className="text-blue-400" /> Exportar Dossiê
             </button>
             <button onClick={handleUpdate} className="px-8 py-4 bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] text-[10px] font-black uppercase tracking-widest rounded-2xl flex items-center gap-3 transition-all hover:scale-105 active:scale-95">
@@ -510,156 +330,29 @@ const GabaritoIA: React.FC = () => {
           </div>
         </div>
         <div className="space-y-6">
-          {selectedGabarito.results_json.map(res => {
-            const isCorrectVsOfficial = userAnswers[res.numero_questao] && officialAnswers[res.numero_questao] && userAnswers[res.numero_questao] === officialAnswers[res.numero_questao];
-            const isMatchWithIA = userAnswers[res.numero_questao] && res.alternativa_correta_ia && userAnswers[res.numero_questao] === res.alternativa_correta_ia;
-
-            return (
-              <div key={res.numero_questao} className={`glass-premium bg-[hsl(var(--bg-card))] rounded-[2.5rem] p-8 border-2 transition-all duration-500 relative overflow-hidden group ${userAnswers[res.numero_questao] && officialAnswers[res.numero_questao] ? (isCorrectVsOfficial ? 'border-emerald-500/30' : 'border-red-500/30') : 'border-[hsl(var(--border))]'}`}>
-
-                {/* Indicador de Status Laterial */}
-                <div className={`absolute left-0 top-0 bottom-0 w-2 ${userAnswers[res.numero_questao] && officialAnswers[res.numero_questao] ? (isCorrectVsOfficial ? 'bg-emerald-500' : 'bg-red-500') : 'bg-transparent'}`} />
-
-                <div className="flex flex-col xl:flex-row gap-10">
-
-                  {/* Info da Questão */}
-                  <div className="xl:w-48 shrink-0">
-                    <div className="flex items-center gap-3 mb-4">
-                      <div className="p-2 bg-indigo-500/10 rounded-xl border border-indigo-500/20">
-                        <Brain size={20} className="text-indigo-400" />
-                      </div>
-                      <h4 className="text-2xl font-black text-white uppercase tracking-tighter">Item {res.numero_questao}</h4>
-                    </div>
-
-                    <div className="space-y-4">
-                      <div className="p-4 bg-purple-500/10 rounded-[1.5rem] border border-purple-500/20 shadow-lg shadow-purple-500/5">
-                        <p className="text-[9px] font-black text-purple-400 uppercase tracking-widest mb-2 block">Gabarito IA (Sugestão)</p>
-                        <div className="text-3xl font-black text-white">{res.alternativa_correta_ia}</div>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Interação e Dados */}
-                  <div className="flex-1 space-y-8">
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-8 items-start">
-
-                      {/* Seção Resposta Usuário */}
-                      <div className="space-y-4">
-                        <h5 className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-indigo-400" /> Sua Resposta
-                        </h5>
-                        <div className="flex gap-2">
-                          {['A', 'B', 'C', 'D', 'E'].map(opt => (
-                            <button
-                              key={opt}
-                              onClick={() => setUserAnswers(p => ({ ...p, [res.numero_questao]: opt }))}
-                              className={`w-12 h-12 rounded-2xl text-xs font-black transition-all transform hover:scale-110 active:scale-90 border-2 ${userAnswers[res.numero_questao] === opt ? 'bg-indigo-500 border-indigo-400 text-white shadow-[0_0_20px_rgba(99,102,241,0.4)]' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-indigo-500/50'}`}
-                            >
-                              {opt}
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-
-                      {/* Seção Gabarito Oficial */}
-                      <div className="space-y-4">
-                        <h5 className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] flex items-center gap-2">
-                          <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" /> Gabarito Oficial (Banca)
-                        </h5>
-                        <div className="relative group">
-                          <CustomSelector
-                            label="Gabarito"
-                            value={officialAnswers[res.numero_questao] || ''}
-                            options={['A', 'B', 'C', 'D', 'E']}
-                            onChange={val => setOfficialAnswers(p => ({ ...p, [res.numero_questao]: val }))}
-                            placeholder="Não divulgado"
-                            icon={<CheckCircle2 size={16} />}
-                          />
-                        </div>
-                      </div>
-                    </div>
-
-                    <div className="flex justify-between items-center pt-6 border-t border-[hsl(var(--border))]">
-                      <div className="flex items-center gap-6">
-                        <div className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ${isMatchWithIA ? 'text-indigo-400' : 'text-[hsl(var(--text-muted))]'}`}>
-                          {isMatchWithIA ? <><Sparkles size={12} /> Bate com a IA</> : <><AlertTriangle size={12} /> Diverge da IA</>}
-                        </div>
-                        {officialAnswers[res.numero_questao] && (
-                          <div className={`flex items-center gap-2 text-[9px] font-black uppercase tracking-widest ${isCorrectVsOfficial ? 'text-emerald-400' : 'text-red-400'}`}>
-                            {isCorrectVsOfficial ? <><CheckSquare size={12} /> Acerto Real</> : <><X size={12} /> Erro Real</>}
-                          </div>
-                        )}
-                      </div>
-                      <button
-                        onClick={() => setExpanded(p => ({ ...p, [res.numero_questao]: !p[res.numero_questao] }))}
-                        className="flex items-center gap-3 text-[10px] font-black text-indigo-400 uppercase tracking-widest hover:text-indigo-300 transition-colors group/btn"
-                      >
-                        <FileText size={16} className="group-hover/btn:scale-110 transition-transform" />
-                        {expanded[res.numero_questao] ? 'Ocultar Detalhes' : 'Ver Auditoria Completa'}
-                        {expanded[res.numero_questao] ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-                      </button>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Área Expandida (Auditoria) */}
-                {expanded[res.numero_questao] && (
-                  <div className="mt-10 pt-10 border-t border-[hsl(var(--border))] animate-in fade-in slide-in-from-top-4 duration-500 space-y-10">
-                    <div className="grid grid-cols-1 lg:grid-cols-2 gap-10">
-                      <div className="space-y-4">
-                        <h5 className="text-[10px] font-black text-indigo-400 uppercase tracking-widest flex items-center gap-3">
-                          <div className="w-1 h-3 bg-indigo-500 rounded-full" /> Enunciado Capturado
-                        </h5>
-                        <div className="bg-[hsl(var(--bg-main)/0.5)] p-6 rounded-[1.5rem] border border-[hsl(var(--border))] text-xs leading-relaxed text-[hsl(var(--text-muted))] font-medium">
-                          {res.enunciado}
-                        </div>
-                      </div>
-                      <div className="space-y-4">
-                        <h5 className="text-[10px] font-black text-purple-400 uppercase tracking-widest flex items-center gap-3">
-                          <div className="w-1 h-3 bg-purple-500 rounded-full" /> Justificativa Neural
-                        </h5>
-                        <div className="bg-[hsl(var(--bg-main)/0.5)] p-6 rounded-[1.5rem] border border-[hsl(var(--border))] text-sm leading-relaxed text-indigo-100/80 whitespace-pre-wrap">
-                          <MarkdownRenderer content={res.justificativa} />
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )}
-              </div>
-            )
-          })}
+          {selectedGabarito.results_json.map(res => (
+            <GabaritoQuestionCard
+              key={res.numero_questao}
+              question={res}
+              userAnswer={userAnswers[res.numero_questao]}
+              officialAnswer={officialAnswers[res.numero_questao]}
+              isExpanded={expanded[res.numero_questao]}
+              onUserAnswerChange={(n, v) => setUserAnswers(p => ({ ...p, [n]: v }))}
+              onOfficialAnswerChange={(n, v) => setOfficialAnswers(p => ({ ...p, [n]: v }))}
+              onToggleExpand={(n) => setExpanded(p => ({ ...p, [n]: !p[n] }))}
+            />
+          ))}
         </div>
 
-        {showManualAddModal && (
-          <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-            <div className="glass w-full max-w-2xl rounded-2xl p-6 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10 relative">
-              <button onClick={() => setShowManualAddModal(false)} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X /></button>
-              <h3 className="text-xl font-bold mb-6">Adicionar Questão Manualmente</h3>
-              {manualAddError && <div className="p-3 mb-4 rounded-lg bg-red-500/10 border border-red-500/20 text-red-300 text-xs font-bold flex items-center gap-2"><AlertTriangle size={14} />{manualAddError}</div>}
-              <div className="space-y-4">
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Número da Questão</label>
-                  <input type="number" value={manualQuestionData.numero} onChange={e => setManualQuestionData(p => ({ ...p, numero: e.target.value }))} className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-2 mt-1 text-white" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Enunciado Completo</label>
-                  <textarea value={manualQuestionData.enunciado} onChange={e => setManualQuestionData(p => ({ ...p, enunciado: e.target.value }))} className="w-full h-32 bg-slate-900/50 border border-white/10 rounded-xl p-4 mt-1 text-white custom-scrollbar" />
-                </div>
-                <div>
-                  <label className="text-xs font-bold text-slate-400 uppercase">Alternativas (uma por linha)</label>
-                  <textarea value={manualQuestionData.alternativas} onChange={e => setManualQuestionData(p => ({ ...p, alternativas: e.target.value }))} className="w-full h-24 bg-slate-900/50 border border-white/10 rounded-xl p-4 mt-1 text-white custom-scrollbar" placeholder="A) ...&#10;B) ..." />
-                </div>
-                <div className="flex justify-end gap-4 pt-4 border-t border-white/10">
-                  <button onClick={() => setShowManualAddModal(false)} className="px-4 py-2 bg-slate-800 text-slate-300 rounded-lg font-bold text-sm">Cancelar</button>
-                  <button onClick={handleManualAddAndAnalyze} disabled={manualAddLoading} className="px-6 py-2 bg-cyan-600 text-white rounded-lg font-bold text-sm flex items-center gap-2 disabled:opacity-50">
-                    {manualAddLoading ? <Loader2 className="animate-spin" size={16} /> : <Sparkles size={16} />}
-                    {manualAddLoading ? 'Analisando...' : 'Analisar e Adicionar'}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        )}
+        <ManualQuestionModal
+          show={manualQuestion.showModal}
+          loading={manualQuestion.loading}
+          error={manualQuestion.error}
+          questionData={manualQuestion.questionData}
+          onQuestionDataChange={manualQuestion.setQuestionData}
+          onClose={() => manualQuestion.setShowModal(false)}
+          onSubmit={manualQuestion.handleSubmit}
+        />
       </div>
     );
   }

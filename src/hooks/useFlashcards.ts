@@ -1,115 +1,18 @@
-import { useState, useEffect, useMemo, useRef, useCallback } from 'react';
+import { useState, useEffect, useMemo, useCallback, type MouseEvent } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { streamAIContent, AIProviderName, generatePodcastAudio, handlePlayRevisionAudio, deleteCachedAudio, generateAIContent } from '../services/aiService';
+import { AIProviderName, deleteCachedAudio } from '../services/aiService';
 import { EditalMateria, Flashcard, CommunityDeck } from '../types';
 import { getErrorMessage } from '../utils/error';
+import { normalizeText } from '../utils/text';
+import { findDuplicate as findDuplicateCard } from '../utils/flashcards';
+import { useAIFlashcards } from './useAIFlashcards';
+import { useAudioFlashcards } from './useAudioFlashcards';
+import { useFlashcardsStudy } from './useFlashcardsStudy';
 
 interface FlashcardsProps {
   missaoAtiva: string;
   editais: EditalMateria[];
 }
-
-// SCRIPT SQL COMPLETO: Tabela + Colunas Novas + Storage + Policies + BACKFILL
-const SQL_FLASHCARDS_POLICY = `
--- 1. TABELA DE FLASHCARDS
-CREATE TABLE IF NOT EXISTS public.flashcards (
-  id uuid DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id uuid REFERENCES auth.users NOT NULL,
-  concurso text DEFAULT 'Geral',
-  materia text NOT NULL,
-  assunto text,
-  front text NOT NULL,
-  back text NOT NULL,
-  ai_generated_assets jsonb,
-  original_audio_id text,
-  author_name text,
-  status text DEFAULT 'novo',
-  next_review timestamp with time zone,
-  interval numeric,
-  ease_factor numeric,
-  created_at timestamp with time zone DEFAULT now()
-);
-
--- GARANTIR COLUNAS NOVAS (Para quem já tem a tabela)
-ALTER TABLE flashcards DROP COLUMN IF EXISTS ai_explanation;
-ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS concurso text DEFAULT 'Geral';
-ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS ai_generated_assets jsonb;
-ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS original_audio_id text;
-ALTER TABLE flashcards ADD COLUMN IF NOT EXISTS author_name text;
-
--- 2. STORAGE (PASTA DE ÁUDIO)
-INSERT INTO storage.buckets (id, name, public)
-VALUES ('audio-revisions', 'audio-revisions', true)
-ON CONFLICT (id) DO NOTHING;
-
-DROP POLICY IF EXISTS "Public Access Audio" ON storage.objects;
-CREATE POLICY "Public Access Audio" ON storage.objects FOR SELECT USING ( bucket_id = 'audio-revisions' );
-
-DROP POLICY IF EXISTS "Authenticated Upload Audio" ON storage.objects;
-CREATE POLICY "Authenticated Upload Audio" ON storage.objects FOR INSERT WITH CHECK ( bucket_id = 'audio-revisions' AND auth.role() = 'authenticated' );
-
-DROP POLICY IF EXISTS "Authenticated Delete Audio" ON storage.objects;
-CREATE POLICY "Authenticated Delete Audio" ON storage.objects FOR DELETE USING ( bucket_id = 'audio-revisions' AND auth.role() = 'authenticated' );
-
-DROP POLICY IF EXISTS "Authenticated Update Audio" ON storage.objects;
-CREATE POLICY "Authenticated Update Audio" ON storage.objects FOR UPDATE USING ( bucket_id = 'audio-revisions' AND auth.role() = 'authenticated' );
-
--- 3. POLÍTICAS DE SEGURANÇA DA TABELA (RLS)
-ALTER TABLE flashcards ENABLE ROW LEVEL SECURITY;
-
--- IMPORTANTE: Permitir leitura pública para a aba Comunidade funcionar
-DROP POLICY IF EXISTS "Permitir Leitura Publica Flashcards" ON flashcards;
-CREATE POLICY "Permitir Leitura Publica Flashcards" ON flashcards FOR SELECT USING (true);
-
-DROP POLICY IF EXISTS "Permitir Criacao Propria Flashcards" ON flashcards;
-CREATE POLICY "Permitir Criacao Propria Flashcards" ON flashcards FOR INSERT WITH CHECK (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Permitir Edicao Propria Flashcards" ON flashcards;
-CREATE POLICY "Permitir Edicao Propria Flashcards" ON flashcards FOR UPDATE USING (auth.uid() = user_id);
-
-DROP POLICY IF EXISTS "Permitir Exclusao Propria Flashcards" ON flashcards;
-CREATE POLICY "Permitir Exclusao Propria Flashcards" ON flashcards FOR DELETE USING (auth.uid() = user_id);
-
--- 4. ÍNDICES E LIMPEZA DE DUPLICADOS
--- Remover índice antigo que não considerava o concurso (causador do erro de duplicata entre missões)
-ALTER TABLE IF EXISTS flashcards DROP CONSTRAINT IF EXISTS flashcards_user_materia_front_key;
-DROP INDEX IF EXISTS flashcards_user_materia_front_key;
-
-DELETE FROM flashcards WHERE id IN (SELECT id FROM (SELECT id, ROW_NUMBER() OVER (PARTITION BY user_id, concurso, materia, front ORDER BY created_at DESC) as row_num FROM flashcards) t WHERE t.row_num > 1);
-DROP INDEX IF EXISTS flashcards_user_concurso_materia_front_key;
-CREATE UNIQUE INDEX flashcards_user_concurso_materia_front_key ON flashcards (user_id, concurso, materia, front);
-
--- 5. ATUALIZAR CARDS ANTIGOS (BACKFILL AUTOR)
--- Isso preenche o nome do autor em cards criados antes dessa atualização
-UPDATE flashcards f
-SET author_name = (
-    SELECT split_part(email, '@', 1)
-    FROM auth.users u
-    WHERE u.id = f.user_id
-)
-WHERE author_name IS NULL;
-`;
-
-const normalizeText = (text: string) => text ? text.toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/[.,:;()?!]/g, "").replace(/\s+/g, " ").trim() : '';
-
-const getSimilarity = (s1: string, s2: string): number => {
-  const longer = s1.length > s2.length ? s1 : s2;
-  const shorter = s1.length > s2.length ? s2 : s1;
-  if (longer.length === 0) return 1.0;
-  const editDistance = (a: string, b: string) => {
-    const matrix: number[][] = [];
-    for (let i = 0; i <= b.length; i++) matrix[i] = [i];
-    for (let j = 0; j <= a.length; j++) matrix[0][j] = j;
-    for (let i = 1; i <= b.length; i++) {
-      for (let j = 1; j <= a.length; j++) {
-        if (b.charAt(i - 1) === a.charAt(j - 1)) matrix[i][j] = matrix[i - 1][j - 1];
-        else matrix[i][j] = Math.min(matrix[i - 1][j - 1] + 1, matrix[i][j - 1] + 1, matrix[i - 1][j] + 1);
-      }
-    }
-    return matrix[b.length][a.length];
-  };
-  return (longer.length - editDistance(longer, shorter)) / longer.length;
-};
 
 export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const [activeTab, setActiveTab] = useState<'study' | 'manage' | 'community'>('study');
@@ -121,46 +24,20 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const [previewDeck, setPreviewDeck] = useState<CommunityDeck | null>(null);
   const [importingState, setImportingState] = useState<{ loading: boolean, text: string }>({ loading: false, text: '' });
   const [selectedAI, setSelectedAI] = useState<AIProviderName | 'auto'>('auto');
-  const [studyQueue, setStudyQueue] = useState<Flashcard[]>([]);
-  const [currentCardIndex, setCurrentCardIndex] = useState(0);
-  const [isFlipped, setIsFlipped] = useState(false);
-  const [aiStreamText, setAiStreamText] = useState<string>("");
-  const [followUpQuery, setFollowUpQuery] = useState("");
-  const [aiLoading, setAiLoading] = useState(false);
-  const [mnemonicText, setMnemonicText] = useState<string>("");
-  const [mnemonicLoading, setMnemonicLoading] = useState(false);
-
-  const [extraFormat, setExtraFormat] = useState<'mapa' | 'fluxo' | 'tabela' | 'info' | null>(null);
-  const [extraContent, setExtraContent] = useState<string>('');
-  const [extraLoading, setExtraLoading] = useState<boolean>(false);
-
   const [filterMateria, setFilterMateria] = useState<string>('Todas');
   const [filterAssunto, setFilterAssunto] = useState<string>('Todos');
   const [filterStatus, setFilterStatus] = useState<string>('Todos');
   const [filterPodcast, setFilterPodcast] = useState<string>('Todos');
-
-  const [sessionStats, setSessionStats] = useState({ learned: 0, review: 0, total: 0 });
-  const [showSessionSummary, setShowSessionSummary] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [newCard, setNewCard] = useState({ front: '', back: '', materia: '', assunto: '' });
   const [saveMessage, setSaveMessage] = useState<string | null>(null);
   const [duplicateWarningId, setDuplicateWarningId] = useState<string | null>(null);
   const [similarityThreshold] = useState(0.8);
-  const [isSpeaking, setIsSpeaking] = useState(false);
   const [geminiKeyAvailable, setGeminiKeyAvailable] = useState(false);
   const [groqKeyAvailable, setGroqKeyAvailable] = useState(false);
   const [isGeneratingPdf, setIsGeneratingPdf] = useState(false);
-
   const [podcastCache, setPodcastCache] = useState<Set<string>>(new Set());
   const [isSyncing, setIsSyncing] = useState(false);
-
-  const [isPlayingNeural, setIsPlayingNeural] = useState(false);
-  const [stopNeural, setStopNeural] = useState<(() => void) | null>(null);
-
-  const [isGeneratingPodcast, setIsGeneratingPodcast] = useState(false);
-  const [podcastStatus, setPodcastStatus] = useState("");
-  const [activeAiTool, setActiveAiTool] = useState<'explanation' | 'mnemonic' | 'mapa' | 'fluxo' | 'tabela' | 'info'>('explanation');
-  const lastCardIdRef = useRef<string | null>(null);
 
   useEffect(() => {
     setGeminiKeyAvailable(!!getGeminiKey());
@@ -195,11 +72,8 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const materias = useMemo(() => {
     const m = new Set<string>();
     m.add('Todas');
-    // Matérias do edital atual
     editais.forEach(e => { if (e.concurso === missaoAtiva) m.add(e.materia); });
-    // Matérias já existentes nos cards do usuário (base legada)
     cards.forEach(c => m.add(c.materia));
-    
     const list = Array.from(m).filter(x => x !== 'Todas').sort();
     return ['Todas', ...list];
   }, [editais, missaoAtiva, cards]);
@@ -230,20 +104,16 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     return signatures;
   }, [cards]);
 
-  const currentCard = studyQueue[currentCardIndex];
-
   const loadFlashcards = async () => {
     setLoading(true);
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não logado");
-
       const { data, error } = await supabase.from('flashcards')
         .select('*')
         .eq('user_id', user.id)
         .eq('concurso', missaoAtiva)
         .order('created_at', { ascending: false });
-
       if (error) throw error;
       setCards((data as Flashcard[]) || []);
     } catch (error) { 
@@ -259,7 +129,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const { data, error } = await supabase.from('flashcards')
         .select('materia, assunto, front, back, id, status, created_at, ai_generated_assets, original_audio_id, author_name')
         .not('user_id', 'eq', '00000000-0000-0000-0000-000000000000');
-
       if (error) throw error;
       const decksMap = new Map<string, CommunityDeck>();
       (data as Flashcard[])?.forEach((card) => {
@@ -279,14 +148,61 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     }
   };
 
+  const filteredCards = useMemo(() => {
+    let filtered = [...cards];
+    if (filterMateria !== 'Todas') {
+      const normalizedFilter = normalizeText(filterMateria);
+      filtered = filtered.filter(card => normalizeText(card.materia) === normalizedFilter);
+    }
+    if (filterAssunto !== 'Todos') filtered = filtered.filter(card => card.assunto === filterAssunto);
+    if (filterStatus !== 'Todos') filtered = filtered.filter(card => card.status === filterStatus);
+    if (filterPodcast === 'Com Podcast') { filtered = filtered.filter(card => podcastCache.has(card.original_audio_id || card.id)); }
+    else if (filterPodcast === 'Sem Podcast') { filtered = filtered.filter(card => !podcastCache.has(card.original_audio_id || card.id)); }
+    return filtered;
+  }, [cards, filterMateria, filterAssunto, filterStatus, filterPodcast, podcastCache]);
+
+  const {
+    studyQueue, setStudyQueue,
+    currentCardIndex, setCurrentCardIndex,
+    isFlipped, setIsFlipped,
+    sessionStats, showSessionSummary,
+    currentCard,
+    startStudySession, endSession, handleCardResult,
+  } = useFlashcardsStudy({ filteredCards, onCardResult: loadFlashcards });
+
+  const {
+    aiStreamText,
+    aiLoading,
+    mnemonicText,
+    mnemonicLoading,
+    extraFormat,
+    extraContent,
+    extraLoading,
+    followUpQuery, setFollowUpQuery,
+    activeAiTool, setActiveAiTool,
+    generateAIExplanation,
+    handleGenerateMnemonic,
+    handleGenerateExtraFormat,
+    handleSendFollowUp,
+  } = useAIFlashcards({ currentCard, studyQueue, currentCardIndex, setStudyQueue, selectedAI });
+
+  const {
+    isSpeaking,
+    isPlayingNeural,
+    stopNeural,
+    isGeneratingPodcast,
+    podcastStatus,
+    handleSpeak,
+    handlePlayNeural,
+    handlePodcastDuo,
+  } = useAudioFlashcards({ currentCard, aiStreamText, currentCardIndex, activeTab, onPodcastGenerated: (audioId) => setPodcastCache(prev => new Set(prev).add(audioId)) });
+
   const importCards = async (cardsToImport: Partial<Flashcard>[], type: 'deck' | 'topic' | 'single') => {
     setImportingState({ loading: true, text: type === 'single' ? '' : 'Importando...' });
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error('Usuário não autenticado');
-
       const userName = user.email?.split('@')[0] || 'Eu';
-
       const payload = cardsToImport.map(c => ({
         user_id: user.id,
         concurso: missaoAtiva,
@@ -299,22 +215,16 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         author_name: userName,
         status: 'novo' as Flashcard['status']
       }));
-
-      // Filtro Anti-Duplicados robusto contra variações de caracteres especiais e espaços
       const uniquePayload = payload.filter(p => !userCardSignatures.has(`${normalizeText(p.materia)}||${normalizeText(p.front)}`));
       const skippedCount = payload.length - uniquePayload.length;
-
       if (uniquePayload.length === 0) {
         alert('Todos os cards selecionados já existem no seu inventário.');
         return;
       }
-
       const { error } = await supabase.from('flashcards').insert(uniquePayload);
       if (error) throw error;
-
       const newLocalCards = uniquePayload.map((p, idx) => ({ ...p, id: `temp-${Date.now()}-${idx}`, created_at: new Date().toISOString() })) as Flashcard[];
       setCards(prev => [...prev, ...newLocalCards]);
-
       if (previewDeck) {
         const importedIds = new Set(cardsToImport.map(c => c.id));
         const remainingCards = previewDeck.cards.filter((c) => !importedIds.has(c.id));
@@ -335,7 +245,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     }
   };
 
-  const handleImportDeck = (deckOrEvent?: CommunityDeck | React.MouseEvent) => {
+  const handleImportDeck = (deckOrEvent?: CommunityDeck | MouseEvent) => {
     const targetDeck = (deckOrEvent && (deckOrEvent as CommunityDeck).cards) ? (deckOrEvent as CommunityDeck) : previewDeck;
     if (!targetDeck) return;
     if (!confirm(`Deseja importar TODOS os ${targetDeck.cards.length} cards de ${targetDeck.materia}?`)) return;
@@ -352,114 +262,13 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
 
   const handleImportSingle = (card: Flashcard) => { importCards([card], 'single'); };
 
-  const saveAiAsset = async (assetType: keyof NonNullable<Flashcard['ai_generated_assets']>, content: string) => {
-    if (!currentCard) return;
-
-    const currentAssets = studyQueue[currentCardIndex]?.ai_generated_assets || {};
-    const newAssets = { ...currentAssets, [assetType]: content };
-
-    const updatedQueue = studyQueue.map((c, i) =>
-      i === currentCardIndex ? { ...c, ai_generated_assets: newAssets } : c
-    );
-    setStudyQueue(updatedQueue);
-
-    try {
-      const { error } = await supabase
-        .from('flashcards')
-        .update({ ai_generated_assets: newAssets })
-        .eq('id', currentCard.id);
-      if (error) throw error;
-      // FIX: Explicitly convert assetType to a string to avoid implicit conversion error with symbols.
-      console.log(`✅ Asset '${String(assetType)}' salvo para o card ${currentCard.id}`);
-    } catch (error) {
-      console.error("Erro ao salvar asset de IA:", getErrorMessage(error));
-    }
-  };
-
-  const generateAIExplanation = async () => {
-    if (!currentCard || aiLoading) return;
-
-    setAiLoading(true);
-    setAiStreamText('');
-    setFollowUpQuery('');
-
-    const preferred = selectedAI === 'auto' ? undefined : selectedAI;
-    let accumulatedText = "";
-
-    const prompt = `Pergunta: "${currentCard.front}"\nResposta: "${currentCard.back}"`;
-
-    await streamAIContent(prompt, {
-      onChunk: (text: string) => { setAiStreamText(prev => prev + text); accumulatedText += text; },
-      onComplete: async () => { setAiLoading(false); await saveAiAsset('explanation', accumulatedText); },
-      onError: (error: Error) => {
-        console.error("AI Fatal Error:", error);
-        setAiStreamText('❌ Falha Crítica: Todos os motores de IA falharam.\n\nDetalhes: ' + error.message + '\n\n💡 Tente trocar manualmente para Groq nas configurações ou verifique suas chaves.');
-        setAiLoading(false);
-      }
-    }, getGeminiKey(), getGroqKey(), preferred);
-  };
-
-  const handleGenerateMnemonic = async () => {
-    if (!currentCard || mnemonicLoading) return;
-    setMnemonicLoading(true);
-    setMnemonicText("");
-
-    try {
-      const concept = `PERGUNTA: '${currentCard.front}' / RESPOSTA: '${currentCard.back}'`;
-      const result = await generateAIContent(concept, getGeminiKey(), getGroqKey(), selectedAI === 'auto' ? undefined : selectedAI, 'flashcard');
-      setMnemonicText(result);
-      await saveAiAsset('mnemonic', result);
-    } catch (error) {
-      console.error("Erro ao gerar mnemônico:", getErrorMessage(error));
-      setMnemonicText("Desculpe, não foi possível criar um mnemônico agora.");
-    } finally {
-      setMnemonicLoading(false);
-    }
-  };
-
-  const handleGenerateExtraFormat = async (format: 'mapa' | 'fluxo' | 'tabela' | 'info') => {
-    if (!currentCard || extraLoading) return;
-    setExtraFormat(format);
-    setExtraLoading(true);
-    setExtraContent("");
-
-    try {
-      const concept = `PERGUNTA: '${currentCard.front}' / RESPOSTA: '${currentCard.back}'`;
-
-      const result = await generateAIContent(concept, getGeminiKey(), getGroqKey(), selectedAI === 'auto' ? undefined : selectedAI, format);
-      setActiveAiTool(format);
-
-      if (!result || result.trim() === '') {
-        throw new Error("A IA retornou uma resposta vazia.");
-      }
-
-      setExtraContent(result);
-      await saveAiAsset(format, result);
-    } catch (error) {
-      const msg = getErrorMessage(error);
-      console.error(`Erro ao gerar ${format}:`, msg);
-      setExtraContent(`Desculpe, não foi possível gerar o formato "${format}" para este card. Motivo: ${msg}`);
-    } finally {
-      setExtraLoading(false);
-    }
-  };
-
-  const findDuplicate = (front: string, materia: string) => {
-    const normalizedFront = normalizeText(front);
-    return cards.find(card => {
-      if (editingId && card.id === editingId) return false;
-      if (card.materia !== materia) return false;
-      return getSimilarity(normalizedFront, normalizeText(card.front)) > similarityThreshold;
-    });
-  };
-
   const handleEdit = (card: Flashcard) => { setNewCard({ materia: card.materia, assunto: card.assunto || '', front: card.front, back: card.back }); setEditingId(card.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   const cancelEdit = () => { setNewCard({ front: '', back: '', materia: '', assunto: '' }); setEditingId(null); };
   const clearForm = () => { setNewCard({ front: '', back: '', materia: '', assunto: '' }); setSaveMessage(null); }
 
   const saveOrUpdateCard = async () => {
     if (!newCard.front.trim() || !newCard.back.trim() || !newCard.materia) { alert('Preencha todos os campos obrigatórios'); return; }
-    const duplicate = findDuplicate(newCard.front, newCard.materia);
+    const duplicate = findDuplicateCard(newCard.front, newCard.materia, cards, editingId, similarityThreshold);
     if (duplicate) {
       alert('Flashcard duplicado detectado! Verifique o card destacado abaixo.'); setDuplicateWarningId(duplicate.id);
       setTimeout(() => { const el = document.getElementById(`card-${duplicate.id}`); if (el) el.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 100);
@@ -476,7 +285,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
           ai_generated_assets: null,
           original_audio_id: null
         }).eq('id', editingId);
-
         if (error) throw error;
         cancelEdit();
         alert('Flashcard atualizado!');
@@ -485,9 +293,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       } else {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Usuário não autenticado');
-
         const authorName = user.email?.split('@')[0] || 'Anônimo';
-
         const { error } = await supabase.from('flashcards').insert([{
           user_id: user.id,
           concurso: missaoAtiva,
@@ -509,8 +315,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     }
   };
 
-  const updateCardStatus = async (id: string, status: Flashcard['status']) => { try { const { error } = await supabase.from('flashcards').update({ status }).eq('id', id); if (error) throw error; loadFlashcards(); } catch (error) { console.error(error); } };
-
   const deleteCard = async (id: string) => {
     if (!confirm('Excluir este flashcard?')) return;
     try {
@@ -521,228 +325,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       loadFlashcards();
     } catch (error) { console.error(error); }
   };
-
-  const smartShuffle = (inputCards: Flashcard[]) => {
-    const groups: Record<string, Flashcard[]> = {};
-    inputCards.forEach(c => { if (!groups[c.materia]) groups[c.materia] = []; groups[c.materia].push(c); });
-    Object.keys(groups).forEach(key => { groups[key] = groups[key].sort(() => Math.random() - 0.5); });
-    const result: Flashcard[] = []; let lastMateria: string | null = null; let remainingCount = inputCards.length;
-    while (remainingCount > 0) {
-      const availableMaterias = Object.keys(groups).filter(k => groups[k].length > 0);
-      let candidates = availableMaterias.filter(m => m !== lastMateria);
-      if (candidates.length === 0) candidates = availableMaterias;
-      if (candidates.length === 0) break;
-      const chosenMateria = candidates[Math.floor(Math.random() * candidates.length)];
-      const card = groups[chosenMateria].pop();
-      if (card) { result.push(card); lastMateria = chosenMateria; remainingCount--; }
-    }
-    return result;
-  };
-
-  const startStudySession = () => {
-    // 1. Filtro expandido para incluir todos os status de estudo ativos
-    const studyable = filteredCards.filter(card => 
-      card.status === 'novo' || 
-      card.status === 'aprendendo' || 
-      card.status === 'revisando' || 
-      card.status === 'revisar' || 
-      card.status === 'pendente'
-    );
-
-    if (studyable.length === 0) { 
-      alert('Nenhum card para estudar com os filtros atuais!'); 
-      return; 
-    }
-
-    // 2. Divisão por Grupos de Prioridade
-    // Prioridade 1: Revisar (agendados) e Aprendendo (foco imediato)
-    // Prioridade 2: Novos, Revisando e Pendentes
-    const priorityGroup = studyable.filter(c => c.status === 'revisar' || c.status === 'aprendendo');
-    const normalGroup = studyable.filter(c => c.status === 'novo' || c.status === 'revisando' || c.status === 'pendente');
-
-    // 3. Embaralhamento inteligente dentro de cada grupo para manter a alternância de matérias
-    const shuffledPriority = smartShuffle([...priorityGroup]);
-    const shuffledNormal = smartShuffle([...normalGroup]);
-
-    const finalQueue = [...shuffledPriority, ...shuffledNormal];
-
-    setStudyQueue(finalQueue); 
-    setCurrentCardIndex(0); 
-    setIsFlipped(false); 
-    setAiStreamText(""); 
-    setFollowUpQuery("");
-    setSessionStats({ learned: 0, review: 0, total: finalQueue.length }); 
-    setShowSessionSummary(false);
-  };
-
-  const endSession = () => { setStudyQueue([]); setCurrentCardIndex(0); setIsFlipped(false); setAiStreamText(""); setFollowUpQuery(""); setMnemonicText(""); setShowSessionSummary(false); };
-
-  const handleCardResult = async (rating: 1 | 2 | 3 | 4) => {
-    if (!currentCard) return;
-
-    // SM-2 Algorithm Implementation
-    // rating: 1: Novamente, 2: Difícil, 3: Bom, 4: Fácil
-
-    let newInterval = currentCard.interval || 0;
-    let newEaseFactor = currentCard.ease_factor || 2.5;
-    let newStatus = currentCard.status;
-
-    if (rating === 1) { // Novamente
-      newInterval = 0; // Reinicia o aprendizado
-      newEaseFactor = Math.max(1.3, newEaseFactor - 0.2);
-      newStatus = 'revisando';
-      setSessionStats(prev => ({ ...prev, review: prev.review + 1 }));
-    } else {
-      if (newInterval === 0) {
-        newInterval = 1;
-      } else if (newInterval === 1) {
-        newInterval = 6;
-      } else {
-        const multiplier = rating === 2 ? 1.2 : (rating === 3 ? newEaseFactor : newEaseFactor * 1.5);
-        newInterval = Math.ceil(newInterval * multiplier);
-      }
-
-      if (rating === 2) { // Difícil
-        newEaseFactor = Math.max(1.3, newEaseFactor - 0.15);
-      } else if (rating === 4) { // Fácil
-        newEaseFactor = Math.min(5.0, newEaseFactor + 0.15);
-      }
-
-      newStatus = 'aprendido';
-      setSessionStats(prev => ({ ...prev, learned: prev.learned + 1 }));
-    }
-
-    const nextReview = new Date();
-    nextReview.setDate(nextReview.getDate() + newInterval);
-
-    try {
-      const { error } = await supabase.from('flashcards').update({
-        status: newStatus,
-        interval: newInterval,
-        ease_factor: newEaseFactor,
-        next_review: nextReview.toISOString()
-      }).eq('id', currentCard.id);
-
-      if (error) throw error;
-      loadFlashcards();
-    } catch (error) {
-      console.error('Erro ao atualizar card:', error);
-    }
-
-    const nextIndex = currentCardIndex + 1;
-    if (nextIndex < studyQueue.length) {
-      setCurrentCardIndex(nextIndex);
-    } else {
-      setShowSessionSummary(true);
-    }
-  };
-
-
-  useEffect(() => {
-    if (studyQueue.length > 0 && currentCardIndex < studyQueue.length) {
-      const card = studyQueue[currentCardIndex];
-
-      if (lastCardIdRef.current !== card.id) {
-        setIsFlipped(false);
-        setFollowUpQuery("");
-        setAiStreamText(card.ai_generated_assets?.explanation ?? "");
-        setMnemonicText(card.ai_generated_assets?.mnemonic ?? "");
-        setExtraContent('');
-        setExtraFormat(null);
-        setActiveAiTool('explanation');
-        lastCardIdRef.current = card.id;
-      }
-    }
-  }, [currentCardIndex, studyQueue]);
-
-  // Sincroniza o conteúdo ao trocar de ferramenta
-  useEffect(() => {
-    if (!currentCard) return;
-    const assets = currentCard.ai_generated_assets;
-    if (!assets) return;
-
-    if (activeAiTool === 'explanation') {
-      if (!aiLoading && assets.explanation) setAiStreamText(assets.explanation);
-    } else if (activeAiTool === 'mnemonic') {
-      if (!mnemonicLoading && assets.mnemonic) setMnemonicText(assets.mnemonic);
-    } else if (assets[activeAiTool]) {
-      if (!extraLoading) {
-        setExtraContent(assets[activeAiTool]!);
-        setExtraFormat(activeAiTool as any);
-      }
-    }
-  }, [activeAiTool, currentCard?.id, aiLoading, mnemonicLoading, extraLoading]); // Added loading states to dependencies
-
-  useEffect(() => {
-    setAiStreamText("");
-    setMnemonicText("");
-    setExtraContent('');
-    setExtraFormat(null);
-  }, [selectedAI]);
-
-  const handleSpeak = (text: string, e: React.MouseEvent) => { e.stopPropagation(); if (isSpeaking) { window.speechSynthesis.cancel(); setIsSpeaking(false); return; } const utterance = new SpeechSynthesisUtterance(text); utterance.lang = 'pt-BR'; utterance.rate = 1.2; utterance.onend = () => setIsSpeaking(false); utterance.onerror = () => setIsSpeaking(false); setIsSpeaking(true); window.speechSynthesis.speak(utterance); };
-
-  const handlePlayNeural = async () => {
-    if (isPlayingNeural) { if (stopNeural) stopNeural(); setIsPlayingNeural(false); setStopNeural(null); return; }
-    if (!aiStreamText || !currentCard) return;
-    const key = getGeminiKey();
-    if (!key) { alert("Chave Gemini necessária para o modo Podcast."); return; }
-    setIsPlayingNeural(true);
-    const audioIdToUse = currentCard.original_audio_id || currentCard.id;
-    const cancel = await handlePlayRevisionAudio(aiStreamText, audioIdToUse, key, () => setIsPlayingNeural(true), () => setIsPlayingNeural(false), (err: string) => { alert(err); setIsPlayingNeural(false); });
-    setStopNeural(() => cancel);
-  };
-
-  const handlePodcastDuo = async () => {
-    if (isPlayingNeural || isGeneratingPodcast) { if (stopNeural) stopNeural(); setIsPlayingNeural(false); setIsGeneratingPodcast(false); setPodcastStatus(""); setStopNeural(null); return; }
-    if (!aiStreamText || !currentCard) return;
-    const key = getGeminiKey();
-    if (!key) { alert("Chave Gemini necessária."); return; }
-    setIsGeneratingPodcast(true);
-    const audioIdToUse = currentCard.original_audio_id || currentCard.id;
-    const cancel = await generatePodcastAudio(aiStreamText, audioIdToUse, key, (status: string) => setPodcastStatus(status), () => { setIsPlayingNeural(true); setPodcastStatus("No ar!"); setPodcastCache(prev => new Set(prev).add(audioIdToUse)); }, () => { setIsPlayingNeural(false); setIsGeneratingPodcast(false); setPodcastStatus(""); }, (err: string) => { alert(err); setIsGeneratingPodcast(false); });
-    setStopNeural(() => cancel);
-  };
-
-  useEffect(() => { return () => { if (stopNeural) stopNeural(); setIsPlayingNeural(false); setIsGeneratingPodcast(false); }; }, [currentCardIndex, activeTab]);
-
-  const handleSendFollowUp = async () => {
-    if (!currentCard || !followUpQuery.trim() || !aiStreamText) return;
-    const preferred = selectedAI === 'auto' ? undefined : selectedAI;
-    setAiLoading(true);
-    const questionText = `\n\n🤔 **Você:** ${followUpQuery}\n\n🤖 **Tutor:** `;
-    setAiStreamText(prev => prev + questionText);
-    const queryToSend = followUpQuery;
-    setFollowUpQuery("");
-    const contextPrompt = `ATENÇÃO: Você é um Tutor Especialista.\nCONTEXTO: Matéria: ${currentCard.materia}. Card: "${currentCard.front}" -> "${currentCard.back}".\nHISTÓRICO: ${aiStreamText}\nNOVA PERGUNTA: "${queryToSend}"\nDIRETRIZES: 1. Responda apenas à nova dúvida. 2. Seja didático.`;
-
-    let fullConversation = aiStreamText + questionText;
-
-    await streamAIContent(contextPrompt, {
-      onChunk: (text: string) => {
-        setAiStreamText(prev => prev + text);
-        fullConversation += text;
-      },
-      onComplete: async () => {
-        setAiLoading(false);
-        await saveAiAsset('explanation', fullConversation);
-      },
-      onError: (error: Error) => { setAiStreamText(prev => prev + '\n[Erro na resposta]'); setAiLoading(false); }
-    }, getGeminiKey(), getGroqKey(), preferred);
-  };
-
-  const filteredCards = useMemo(() => {
-    let filtered = [...cards];
-    if (filterMateria !== 'Todas') {
-      const normalizedFilter = normalizeText(filterMateria);
-      filtered = filtered.filter(card => normalizeText(card.materia) === normalizedFilter);
-    }
-    if (filterAssunto !== 'Todos') filtered = filtered.filter(card => card.assunto === filterAssunto);
-    if (filterStatus !== 'Todos') filtered = filtered.filter(card => card.status === filterStatus);
-    if (filterPodcast === 'Com Podcast') { filtered = filtered.filter(card => podcastCache.has(card.original_audio_id || card.id)); }
-    else if (filterPodcast === 'Sem Podcast') { filtered = filtered.filter(card => !podcastCache.has(card.original_audio_id || card.id)); }
-    return filtered;
-  }, [cards, filterMateria, filterAssunto, filterStatus, filterPodcast, podcastCache]);
 
   const previewTopics = useMemo(() => {
     if (!previewDeck) return [];
@@ -793,7 +375,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     if (activeTab === 'community') loadCommunityDecks();
   }, [activeTab]);
 
-  // Recarrega flashcards e reseta filtros quando a missão muda
   useEffect(() => {
     setFilterMateria('Todas');
     setFilterAssunto('Todos');
@@ -809,15 +390,12 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      
       const { data, error } = await supabase
         .from('flashcards')
         .select('concurso')
         .eq('user_id', user.id)
         .not('concurso', 'eq', missaoAtiva);
-      
       if (error) throw error;
-      
       const uniqueMissions = Array.from(new Set(data.map(d => d.concurso))).filter(Boolean) as string[];
       return uniqueMissions.sort();
     } catch (e) {
@@ -830,13 +408,11 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      
       const { data, error } = await supabase
         .from('flashcards')
         .select('*')
         .eq('user_id', user.id)
         .eq('concurso', sourceMission);
-      
       if (error) throw error;
       return data as Flashcard[];
     } catch (e) {
@@ -853,95 +429,61 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const html2canvas = (await import('html2canvas')).default;
       const element = document.getElementById('neural-content-box');
       const viewport = element?.querySelector('.neural-content-viewport') as HTMLElement;
-
       if (!element || !viewport) {
         alert("Erro: Conteúdo do Laboratório não encontrado.");
         return;
       }
-
-      // Preparação para captura total (remover Scroll e Max-Height temporariamente)
       const originalMaxHeight = viewport.style.maxHeight;
       const originalOverflow = viewport.style.overflowY;
-
       viewport.style.maxHeight = 'none';
       viewport.style.overflowY = 'visible';
-
-      // Captura o elemento como canvas com escala 2x
       const canvas = await html2canvas(element, {
         scale: 2,
-        backgroundColor: '#0F172A', // Slate-900 para o fundo do PDF
+        backgroundColor: '#0F172A',
         logging: false,
         useCORS: true,
         windowWidth: element.scrollWidth,
         windowHeight: element.scrollHeight
       });
-
-      // Restaurar estilos originais
       viewport.style.maxHeight = originalMaxHeight;
       viewport.style.overflowY = originalOverflow;
-
       const imgData = canvas.toDataURL('image/png');
       const { jsPDF } = await import('jspdf');
-
-      // Dimensões A4 em pontos (pt)
       const pdfWidth = 595.28;
       const pdfHeight = 841.89;
-
-      // Configuração de Margens
-      const margin = 40; // Margem de segurança em pt
+      const margin = 40;
       const contentWidth = pdfWidth - (margin * 2);
       const contentHeight = pdfHeight - (margin * 2);
-
-      // Proporção do canvas para o PDF (respeitando a largura útil)
       const imgWidth = contentWidth;
       const imgHeight = (canvas.height * imgWidth) / canvas.width;
-
       let heightLeft = imgHeight;
-      let position = margin; // Inicia na margem superior
-
+      let position = margin;
       const doc = new jsPDF('p', 'pt', 'a4');
-      const bgColor = [15, 23, 42]; // RGB para #0F172A
-
-      // Função auxiliar para desenhar o fundo e máscaras (margens limpas)
+      const bgColor = [15, 23, 42];
       const setupPageLayout = () => {
         doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
-        // Fundo total da página para eliminar buracos brancos
         doc.rect(0, 0, pdfWidth, pdfHeight, 'F');
-
-        // Máscaras de margem (topo e base para transição suave)
         doc.rect(0, 0, pdfWidth, margin, 'F');
         doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
       };
-
-      // Adiciona primeira página
       setupPageLayout();
       doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-
-      // Repetir as máscaras no topo da imagem para garantir o respiro
       doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
       doc.rect(0, 0, pdfWidth, margin, 'F');
       doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
-
       heightLeft -= contentHeight;
-
-      // Adiciona páginas subsequentes se necessário
       while (heightLeft > 0) {
         position = (heightLeft - imgHeight) + margin;
         doc.addPage();
         setupPageLayout();
         doc.addImage(imgData, 'PNG', margin, position, imgWidth, imgHeight);
-
-        // Máscaras sobrepostas
         doc.setFillColor(bgColor[0], bgColor[1], bgColor[2]);
         doc.rect(0, 0, pdfWidth, margin, 'F');
         doc.rect(0, pdfHeight - margin, pdfWidth, margin, 'F');
-
         heightLeft -= contentHeight;
       }
-
       const fileName = `Neural_Lab_${activeAiTool}_${currentCard.id.substring(0, 5)}.pdf`;
       doc.save(fileName);
-
       console.log("✅ PDF Multi-página com margens exportado!");
     } catch (err: any) {
       console.error("Erro ao exportar PDF visual:", err);
@@ -963,7 +505,6 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     groqKeyAvailable, isGeneratingPdf, podcastCache, isSyncing, isPlayingNeural,
     stopNeural, isGeneratingPodcast, podcastStatus,
     materias, assuntoOptions, statusOptions, availableTopics, currentCard,
-    SQL_FLASHCARDS_POLICY,
     loadFlashcards, loadCommunityDecks, importCards, handleImportDeck, handleImportTopic,
     handleImportSingle, generateAIExplanation, handleGenerateMnemonic,
     handleGenerateExtraFormat, handleEdit, cancelEdit, clearForm, saveOrUpdateCard,

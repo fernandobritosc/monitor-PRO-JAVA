@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { CheckCircle2, Clock, Target, Zap, List, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle2, Clock, Target, Zap, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { EditalMateria, StudyRecord, ErrorAnalysis } from '../types';
 import { getErrorMessage } from '../utils/error';
 import { EditorView } from '@tiptap/pm/view';
@@ -15,10 +15,13 @@ import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { syncService } from '../services/offline/sync';
 import { useSession } from '../hooks/useSession';
+import ErrorAnalysisBlock from '../components/shared/ErrorAnalysisBlock';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
 import { useTimerStore } from '../stores/useTimerStore';
 import { ESTUDO_LIVRE } from '../constants';
+import { getLocalToday, handleTimeMask, validateAndConvertTime } from '../utils/form';
+import SimuladoFormSection from '../components/features/study/SimuladoFormSection';
 
 interface StudyFormProps {
     editais?: EditalMateria[];
@@ -27,15 +30,6 @@ interface StudyFormProps {
     isSimulado?: boolean;
     onCancel?: () => void;
 }
-
-// Helper para pegar data local YYYY-MM-DD
-const getLocalToday = () => {
-    const now = new Date();
-    const year = now.getFullYear();
-    const month = String(now.getMonth() + 1).padStart(2, '0');
-    const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
-};
 
 export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, missaoAtiva: missaoAtivaProps, onSaved: onSavedProps, isSimulado = false, onCancel }) => {
     const { userId } = useSession();
@@ -328,30 +322,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     // Automatic Difficulty Logic removed as fields were removed
 
     const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-        let value = e.target.value.replace(/\D/g, '');
-        if (value.length > 4) value = value.slice(0, 4);
-        if (value.length >= 3) {
-            value = `${value.slice(0, 2)}:${value.slice(2)}`;
-        }
-        setTempoHHMM(value);
-    };
-
-    const validateAndConvertTime = (val: string) => {
-        const cleaned = val.replace(/\D/g, '');
-        if (cleaned.length === 0) return 0;
-        let hours = 0;
-        let minutes = 0;
-        if (cleaned.length <= 2) {
-            minutes = parseInt(cleaned);
-        } else if (cleaned.length === 3) {
-            hours = parseInt(cleaned.substring(0, 1));
-            minutes = parseInt(cleaned.substring(1));
-        } else if (cleaned.length >= 4) {
-            hours = parseInt(cleaned.substring(0, 2));
-            minutes = parseInt(cleaned.substring(2));
-        }
-        if (minutes > 59) return null;
-        return hours * 60 + minutes;
+        setTempoHHMM(handleTimeMask(e.target.value));
     };
 
     const handleSimuladoScoreChange = (materia: string, field: 'acertos' | 'total', val: string) => {
@@ -562,113 +533,17 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 </div>
 
                 {isSimulado ? (
-                    // --- UI ESPECÍFICA PARA SIMULADO (GRADE DE MATÉRIAS) ---
-                    <>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                                    <Calendar size={14} className="text-[hsl(var(--accent))]" /> Data da Prova
-                                </label>
-                                <input type="date" required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-black uppercase tracking-widest" value={dataEstudo} onChange={(e) => setDataEstudo(e.target.value)} />
-                            </div>
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                                    <List size={14} className="text-[hsl(var(--accent))]" /> Nome do Simulado
-                                </label>
-                                <input type="text" required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-bold placeholder-[hsl(var(--text-muted)/0.5)]" value={assunto} onChange={(e) => setAssunto(e.target.value)} placeholder="Ex: 1º Simulado TJ-SP" />
-                            </div>
-                        </div>
-
-                        <div className="space-y-6">
-                            <div className="flex justify-between items-center px-4">
-                                <label className="text-[11px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] flex items-center gap-2">
-                                    <Layers size={14} className="text-[hsl(var(--accent))]" /> Desempenho por Matéria
-                                </label>
-                            </div>
-
-                            {/* Header Desktop - Oculto em Mobile */}
-                            <div className="hidden md:grid grid-cols-12 gap-4 px-4 py-2 text-[10px] font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest border-b border-[hsl(var(--border))]">
-                                <div className="col-span-6">Matéria / Peso</div>
-                                <div className="col-span-3 text-center">Acertos</div>
-                                <div className="col-span-3 text-center">Total</div>
-                            </div>
-
-                            <div className="glass-premium rounded-3xl p-2 border border-[hsl(var(--border))] space-y-1 max-h-[400px] overflow-y-auto custom-scrollbar">
-                                {materiasDisponiveis.map(mat => {
-                                    const score = simuladoScores[mat.materia] || { acertos: '', total: '' };
-                                    const a = parseInt(score.acertos || '0');
-                                    const t = parseInt(score.total || '0');
-                                    const isInvalid = t > 0 && a > t;
-
-                                    return (
-                                        <div key={mat.materia} className="grid grid-cols-2 md:grid-cols-12 gap-2 md:gap-4 items-center p-3 md:p-2 hover:bg-white/5 rounded-lg transition-colors border-b border-white/5 md:border-0 last:border-0">
-                                            {/* Matéria (Ocupa linha inteira no mobile, ou 6 cols no desktop) */}
-                                            <div className="col-span-2 md:col-span-6 flex justify-between md:block items-center mb-1 md:mb-0">
-                                                <div className="font-bold text-sm text-[hsl(var(--text-main))] truncate" title={mat.materia}>{mat.materia}</div>
-                                                <div className="text-[10px] text-[hsl(var(--text-muted))] font-bold uppercase bg-[hsl(var(--bg-user-block))] px-2 py-0.5 rounded md:bg-transparent md:px-0">Peso {mat.peso || 1}</div>
-                                            </div>
-
-                                            {/* Inputs (Lado a lado no mobile) */}
-                                            <div className="col-span-1 md:col-span-3 relative">
-                                                <label className="md:hidden text-[9px] text-slate-500 font-bold uppercase mb-1 block">Acertos</label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="0"
-                                                    className={`w-full bg-[hsl(var(--bg-user-block))] border ${isInvalid ? 'border-red-500 text-red-400' : 'border-[hsl(var(--border))] text-green-500 dark:text-green-400'} rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none`}
-                                                    value={score.acertos}
-                                                    onChange={e => handleSimuladoScoreChange(mat.materia, 'acertos', e.target.value)}
-                                                />
-                                            </div>
-                                            <div className="col-span-1 md:col-span-3 relative">
-                                                <label className="md:hidden text-[9px] text-slate-500 font-bold uppercase mb-1 block">Total</label>
-                                                <input
-                                                    type="number"
-                                                    placeholder="0"
-                                                    className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-lg px-2 py-2 md:py-1.5 text-center text-sm font-bold text-[hsl(var(--text-bright))] focus:outline-none focus:ring-1 focus:ring-purple-500/50 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
-                                                    value={score.total}
-                                                    onChange={e => handleSimuladoScoreChange(mat.materia, 'total', e.target.value)}
-                                                />
-                                            </div>
-                                        </div>
-                                    );
-                                })}
-                            </div>
-
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-3">
-                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                                        <Clock size={14} className="text-[hsl(var(--accent))]" /> Tempo Total de Prova
-                                    </label>
-                                    <input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} />
-                                </div>
-
-                                <div className="glass-premium bg-gradient-to-r from-[hsl(var(--bg-user-block))] to-[hsl(var(--bg-card))] p-6 rounded-3xl border border-[hsl(var(--border))] flex flex-col justify-center shadow-2xl gap-2">
-                                    <div className="flex justify-between items-center">
-                                        <div>
-                                            <div className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-1">Aproveitamento</div>
-                                            <div className={`text-2xl font-black uppercase tracking-tighter ${simuladoStats.perc >= 80 ? 'text-green-400' : simuladoStats.perc >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                                {simuladoStats.perc.toFixed(1)}%
-                                            </div>
-                                        </div>
-                                        <div className="text-right">
-                                            <div className="text-2xl font-black text-[hsl(var(--text-bright))] leading-none tracking-tighter">
-                                                {simuladoStats.acertos} <span className="text-base text-[hsl(var(--text-muted))] font-medium">/ {simuladoStats.total}</span>
-                                            </div>
-                                            <div className="text-[9px] text-[hsl(var(--text-muted))] uppercase font-black tracking-widest mt-1">Questões Totais</div>
-                                        </div>
-                                    </div>
-                                    {simuladoStats.maxWeighted > 0 && (
-                                        <div className="pt-3 border-t border-[hsl(var(--border))] flex justify-between items-center">
-                                            <div className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-widest">Pontuação Ponderada</div>
-                                            <div className="text-base font-black text-[hsl(var(--text-bright))] tracking-tighter">
-                                                {simuladoStats.weighted.toFixed(1)} <span className="text-[hsl(var(--text-muted))] text-xs">/ {simuladoStats.maxWeighted}</span>
-                                            </div>
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-                    </>
+                    <SimuladoFormSection
+                        materiasDisponiveis={materiasDisponiveis}
+                        dataEstudo={dataEstudo}
+                        onDataEstudoChange={setDataEstudo}
+                        assunto={assunto}
+                        onAssuntoChange={setAssunto}
+                        tempoHHMM={tempoHHMM}
+                        onTimeChange={handleTimeChange}
+                        simuladoScores={simuladoScores}
+                        onSimuladoScoreChange={handleSimuladoScoreChange}
+                    />
                 ) : (
                     // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
@@ -886,41 +761,14 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                                     <EditorContent editor={errorTextEditor} />
                                 </div>
 
-                                {errorAnalysis.length > 0 && (
-                                    <div className="space-y-4 animate-in fade-in slide-in-from-top-4 duration-500">
-                                        {errorAnalysis.map((err, idx) => (
-                                            <div key={idx} className="bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl p-5 space-y-3 relative overflow-hidden group">
-                                                <div className={`absolute left-0 top-0 bottom-0 w-1 ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500' :
-                                                    err.tipo_erro === 'Interpretação' ? 'bg-blue-500' : 'bg-red-500'
-                                                    }`} />
-                                                <div className="flex justify-between items-start">
-                                                    <span className={`px-3 py-1 rounded-full text-[8px] font-black uppercase tracking-tighter ${err.tipo_erro === 'Atenção' ? 'bg-yellow-500/10 text-yellow-500' :
-                                                        err.tipo_erro === 'Interpretação' ? 'bg-blue-500/10 text-blue-500' : 'bg-red-500/10 text-red-500'
-                                                        }`}>
-                                                        {err.tipo_erro}
-                                                    </span>
-                                                    <span className="text-[9px] text-[hsl(var(--text-muted))] font-bold italic truncate flex-1 ml-3">
-                                                        "{(err.questao_preview || '').replace(/<[^>]*>?/gm, '')}..."
-                                                    </span>
-                                                    {(err.gabarito || err.minha_resposta) && (
-                                                        <div className="flex gap-2 ml-auto shrink-0">
-                                                            {err.gabarito && <span className="text-[8px] font-black bg-green-500/20 text-green-400 px-2 py-0.5 rounded border border-green-500/30">GAB: {err.gabarito}</span>}
-                                                            {err.minha_resposta && <span className="text-[8px] font-black bg-purple-500/20 text-purple-400 px-2 py-0.5 rounded border border-purple-500/30">EU: {err.minha_resposta}</span>}
-                                                        </div>
-                                                    )}
-                                                </div>
-                                                <div className="space-y-1">
-                                                    <p className="text-[10px] text-[hsl(var(--text-bright))] font-bold tracking-tight">
-                                                        <span className="text-[hsl(var(--accent))] mr-2">🎯 GATILHO:</span> {err.gatilho}
-                                                    </p>
-                                                    <p className="text-[10px] text-[hsl(var(--text-muted))] font-bold leading-relaxed">
-                                                        <span className="text-green-400 mr-2">💡 AÇÃO:</span> {err.sugestao}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        ))}
-                                    </div>
-                                )}
+                                 <ErrorAnalysisBlock
+                                   analyses={errorAnalysis}
+                                   onRemove={(idx) => {
+                                     const filtered = [...errorAnalysis];
+                                     filtered.splice(idx, 1);
+                                     setErrorAnalysis(filtered);
+                                   }}
+                                 />
                             </div>
                         </div>
                     </>

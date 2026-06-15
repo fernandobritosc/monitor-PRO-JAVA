@@ -3,7 +3,7 @@ import { supabase, saveAppConfig } from '../services/supabase';
 import { EditalMateria, UserProfile, StudyRecord } from '../types';
 import { logger } from '../utils/logger';
 import { editaisQueries, profilesQueries } from '../services/queries';
-import { PlusCircle, Shield, Search, Loader2, Edit, Trash2, Save, X, RefreshCw, Calendar, BookOpen, CheckCircle2, AlertTriangle, Terminal, Database, Copy, Activity, FileText, DownloadCloud, Users, ArrowRight, Briefcase, Calculator, Settings, Key, Link, Sparkles, Zap, Check, AlertCircle, Target, Clock, Smartphone, HardDriveDownload } from 'lucide-react';
+import { Target, DownloadCloud, Settings, Activity, Shield } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
@@ -12,6 +12,14 @@ import { useAppStore } from '../stores/useAppStore';
 import { ESTUDO_LIVRE } from '../constants';
 import { syncService } from '../services/offline/sync';
 import { useQueryClient } from '@tanstack/react-query';
+import SystemConfigPanel from '../components/features/configurar/SystemConfigPanel';
+import GoalsPanel from '../components/features/configurar/GoalsPanel';
+import MissionsPanel from '../components/features/configurar/MissionsPanel';
+import ImportPanel from '../components/features/configurar/ImportPanel';
+import DiagnosticsPanel from '../components/features/configurar/DiagnosticsPanel';
+import AdminPanel from '../components/features/configurar/AdminPanel';
+import SqlScriptModal from '../components/features/configurar/SqlScriptModal';
+import MissionFormModal from '../components/features/configurar/MissionFormModal';
 
 interface ConfigurarProps {
   editais?: EditalMateria[];
@@ -27,62 +35,6 @@ interface SubjectDraft {
   topicos: string[];
   peso: number;
 }
-
-const KeyStatusIndicator: React.FC<{ value: string; type: 'url' | 'supabase' | 'gemini' | 'groq' }> = ({ value, type }) => {
-  let status: 'ok' | 'warn' | 'error' = 'error';
-  let message = 'Vazio';
-
-  if (!value) {
-    status = 'error';
-    message = 'Não configurado';
-  } else {
-    switch (type) {
-      case 'url':
-        if (value.startsWith('https://') && value.includes('supabase.co')) {
-          status = 'ok'; message = 'OK';
-        } else {
-          status = 'warn'; message = 'Formato inválido';
-        }
-        break;
-      case 'supabase':
-        if (value.startsWith('ey')) {
-          status = 'ok'; message = 'OK';
-        } else {
-          status = 'warn'; message = 'Formato inválido';
-        }
-        break;
-      case 'gemini':
-        if (value.startsWith('AIza')) {
-          status = 'ok'; message = 'OK';
-        } else {
-          status = 'warn'; message = 'Formato inválido';
-        }
-        break;
-      case 'groq':
-        if (value.startsWith('gsk_')) {
-          status = 'ok'; message = 'OK';
-        } else {
-          status = 'warn'; message = 'Formato inválido';
-        }
-        break;
-    }
-  }
-
-  const colors = {
-    ok: 'text-green-400',
-    warn: 'text-yellow-400',
-    error: 'text-red-400',
-  };
-
-  const Icon = status === 'ok' ? Check : AlertCircle;
-
-  return (
-    <div className={`flex items-center gap-1.5 text-[10px] font-bold ${colors[status]}`}>
-      <Icon size={12} />
-      <span>{message}</span>
-    </div>
-  );
-};
 
 const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records: recordsProps, missaoAtiva: missaoAtivaProps, onUpdated: onUpdatedProps, setMissaoAtiva: setMissaoAtivaProps }) => {
   const { userId } = useSession();
@@ -428,8 +380,7 @@ NOTIFY pgrst, 'reload schema';
     }
   };
 
-  const filteredUsers = usersList.filter(u => u.email?.toLowerCase().includes(userSearch.toLowerCase()));
-  const filteredTemplates = communityTemplates.filter(t => t.title.toLowerCase().includes(importSearch.toLowerCase()));
+  const filteredTemplates = useMemo(() => communityTemplates.filter(t => t.title.toLowerCase().includes(importSearch.toLowerCase())), [communityTemplates, importSearch]);
 
   const handleSaveSystemConfig = async () => {
     setSysLoading(true);
@@ -437,6 +388,25 @@ NOTIFY pgrst, 'reload schema';
       saveAppConfig(sysUrl, sysKey, sysAiKey, sysGroqKey);
     } finally {
       setSysLoading(false);
+    }
+  };
+
+  const handleForceResync = async () => {
+    if (!window.confirm(
+      '⚠️ FORCE RE-SYNC\n\n' +
+      'Isso vai:\n' +
+      '1. Apagar TODO o cache local do navegador\n' +
+      '2. Baixar dados frescos do Supabase\n\n' +
+      'Registros pendentes (não sincronizados) serão PERDIDOS.\n\n' +
+      'Continuar?'
+    )) return;
+    setResyncLoading(true);
+    setResyncResult(null);
+    const result = await syncService.safeRefresh(userId || '');
+    setResyncResult(result);
+    setResyncLoading(false);
+    if (result.success) {
+      queryClient.invalidateQueries();
     }
   };
 
@@ -467,307 +437,89 @@ NOTIFY pgrst, 'reload schema';
       </div>
 
       {activeTab === 'system' && (
-        <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 max-w-2xl mx-auto space-y-8">
-          <div>
-            <h3 className="text-2xl font-bold flex items-center gap-3 mb-2"><Settings className="text-orange-400" /> Configuração do Sistema</h3>
-            <p className="text-slate-400 text-sm">Gerencie suas chaves de API e conexões. Essas informações ficam salvas apenas no seu navegador.</p>
-          </div>
-
-          <div className="space-y-4">
-            <div className="space-y-2">
-              <div className="flex justify-between items-center"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Link size={12} /> Supabase URL</label><KeyStatusIndicator value={sysUrl} type="url" /></div>
-              <input type="text" className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs focus:ring-2 focus:ring-orange-500/50 outline-none" value={sysUrl} onChange={e => setSysUrl(e.target.value)} placeholder="https://..." />
-            </div>
-            <div className="space-y-2">
-              <div className="flex justify-between items-center"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Key size={12} /> Supabase Anon Key</label><KeyStatusIndicator value={sysKey} type="supabase" /></div>
-              <input type="password" className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs focus:ring-2 focus:ring-orange-500/50 outline-none" value={sysKey} onChange={e => setSysKey(e.target.value)} />
-            </div>
-
-            <div className="pt-4 border-t border-white/5 space-y-4">
-              <div className="space-y-2">
-                <div className="flex justify-between items-center"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Sparkles size={12} className="text-yellow-400" /> Google Gemini API Key</label><KeyStatusIndicator value={sysAiKey} type="gemini" /></div>
-                <input
-                  type="password"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs focus:ring-2 focus:ring-yellow-500/50 outline-none"
-                  value={sysAiKey}
-                  onChange={e => setSysAiKey(e.target.value)}
-                  placeholder="AIza..."
-                />
-              </div>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Zap size={12} className="text-orange-400" /> Groq API Key</label><KeyStatusIndicator value={sysGroqKey} type="groq" /></div>
-                <input
-                  type="password"
-                  className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-mono text-xs focus:ring-2 focus:ring-orange-500/50 outline-none"
-                  value={sysGroqKey}
-                  onChange={e => setSysGroqKey(e.target.value)}
-                  placeholder="gsk_..."
-                />
-              </div>
-              <p className="text-[10px] text-slate-500 px-1">Chaves de IA são opcionais. Se preenchidas, ativam explicações automáticas nos Flashcards.</p>
-            </div>
-          </div>
-
-          <button
-            onClick={handleSaveSystemConfig}
-            disabled={sysLoading}
-            className="w-full bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white font-bold py-4 rounded-xl shadow-lg shadow-orange-500/20 flex items-center justify-center gap-2 transition-all disabled:opacity-50"
-          >
-            {sysLoading ? <Loader2 className="animate-spin" /> : <Save size={20} />}
-            Salvar e Recarregar
-          </button>
-
-          {isInstallable && (
-            <div className="pt-6 border-t border-white/10 animate-in slide-in-from-bottom-2">
-              <div className="p-5 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 flex flex-col gap-4">
-                <div className="flex items-center gap-3">
-                  <Smartphone className="text-indigo-400" size={24} />
-                  <div>
-                    <h4 className="text-sm font-black text-white uppercase tracking-widest">App no Dispositivo</h4>
-                    <p className="text-[10px] text-slate-400">Instale como um aplicativo para acesso rápido e offline.</p>
-                  </div>
-                </div>
-                <button
-                  onClick={installApp}
-                  className="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-black py-3 rounded-xl text-xs uppercase tracking-[0.2em] transition-all active:scale-95 shadow-lg shadow-indigo-500/20"
-                >
-                  Instalar Agora
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
+        <SystemConfigPanel
+          sysUrl={sysUrl} sysKey={sysKey} sysAiKey={sysAiKey} sysGroqKey={sysGroqKey}
+          sysLoading={sysLoading} isInstallable={isInstallable}
+          onUrlChange={setSysUrl} onKeyChange={setSysKey}
+          onAiKeyChange={setSysAiKey} onGroqKeyChange={setSysGroqKey}
+          onSave={handleSaveSystemConfig} onInstallApp={installApp}
+        />
       )}
 
       {activeTab === 'goals' && (
-        <div className="space-y-8 animate-in slide-in-from-right-2">
-          <div className="glass p-8 rounded-3xl border border-white/5">
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold flex items-center gap-2">
-                <Target className="text-green-500" size={24} />
-                Projeção Inteligente de Metas
-              </h3>
-            </div>
-
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-8">
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Horas Líquidas (Semana)</span>
-                    <div className="text-2xl font-bold">{statsSemana.horas.toFixed(1)}h <span className="text-slate-600 text-lg">/ {metaHoras}h</span></div>
-                  </div>
-                  <Clock className="text-slate-700" size={32} />
-                </div>
-
-                <div className="h-4 bg-slate-800 rounded-full overflow-hidden relative">
-                  <div
-                    className={`h-full rounded-full transition-all duration-1000 ${statsSemana.horas >= metaHoras ? 'bg-green-500' : 'bg-blue-500'}`}
-                    style={{ width: `${Math.min((statsSemana.horas / metaHoras) * 100, 100)}%` }}
-                  />
-                  <div
-                    className="absolute top-0 bottom-0 w-1 bg-white/50 z-10"
-                    style={{ left: `${Math.min((statsSemana.projecao / metaHoras) * 100, 100)}%` }}
-                    title={`Projeção: ${statsSemana.projecao.toFixed(1)}h`}
-                  />
-                </div>
-                <div className="flex justify-between text-[10px] text-slate-500 font-bold uppercase">
-                  <span>Atual</span>
-                  <span>Projeção: {statsSemana.projecao.toFixed(1)}h</span>
-                </div>
-              </div>
-
-              <div className="space-y-4">
-                <div className="flex justify-between items-end">
-                  <div className="space-y-1">
-                    <span className="text-xs font-bold text-slate-500 uppercase tracking-widest">Total Questões</span>
-                    <div className="text-2xl font-bold">{statsSemana.questoes} <span className="text-slate-600 text-lg">/ {metaQuestoes}</span></div>
-                  </div>
-                  <Target className="text-slate-700" size={32} />
-                </div>
-
-                <div className="h-4 bg-slate-800 rounded-full overflow-hidden">
-                  <div
-                    className={`h-full rounded-full transition-all duration-1000 ${statsSemana.questoes >= metaQuestoes ? 'bg-green-500' : 'bg-purple-500'}`}
-                    style={{ width: `${Math.min((statsSemana.questoes / metaQuestoes) * 100, 100)}%` }}
-                  />
-                </div>
-                <div className="text-right text-[10px] text-slate-500 font-bold uppercase">
-                  {Math.round((statsSemana.questoes / metaQuestoes) * 100)}% da meta batida
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-8 border-t border-white/5 space-y-6">
-              <h4 className="font-bold text-white flex items-center gap-2"><Settings size={16} /> Ajustar Metas Semanais</h4>
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase">Meta de Horas Líquidas</label>
-                  <input
-                    type="number"
-                    value={metaHoras}
-                    onChange={(e) => setMetaHoras(Number(e.target.value))}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:ring-2 focus:ring-green-500/30 transition-all"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <label className="text-xs font-bold text-slate-400 uppercase">Meta de Questões</label>
-                  <input
-                    type="number"
-                    value={metaQuestoes}
-                    onChange={(e) => setMetaQuestoes(Number(e.target.value))}
-                    className="w-full bg-slate-900/50 border border-white/10 rounded-xl px-4 py-3 text-white font-bold outline-none focus:ring-2 focus:ring-green-500/30 transition-all"
-                  />
-                </div>
-              </div>
-              <button
-                onClick={saveMetas}
-                className="bg-green-600 hover:bg-green-500 text-white px-8 py-3 rounded-xl text-sm font-black uppercase tracking-widest shadow-lg shadow-green-500/20 transition-all active:scale-95"
-              >
-                Salvar Metas
-              </button>
-              <p className="text-[10px] text-slate-500 italic">Essas metas são usadas para calcular seu progresso semanal no dashboard e nos estudos diários.</p>
-            </div>
-          </div>
-        </div>
+        <GoalsPanel
+          statsSemana={statsSemana}
+          metaHoras={metaHoras} metaQuestoes={metaQuestoes}
+          onMetaHorasChange={setMetaHoras} onMetaQuestoesChange={setMetaQuestoes}
+          onSave={saveMetas}
+        />
       )}
 
       {activeTab === 'mission' && (
-        <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2">
-          <div className="flex justify-between items-center mb-8">
-            <div className="flex items-center gap-4">
-              <h3 className="text-2xl font-black tracking-tight">Suas Missões</h3>
-              <button onClick={handleManualRefresh} disabled={refreshing} className="p-2.5 rounded-xl bg-slate-800 text-slate-400 hover:text-white transition-all disabled:opacity-50" title="Sincronizar Missões"><RefreshCw size={18} className={refreshing ? "animate-spin text-cyan-400" : ""} /></button>
-            </div>
-            <div className="flex gap-2"><button onClick={() => setShowSqlModal(true)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-yellow-400 text-xs font-bold rounded-xl border border-yellow-500/20 flex items-center gap-2 transition-all"><Database size={14} /> Permissões (SQL)</button><button onClick={handleOpenCreate} className="bg-gradient-to-r from-cyan-600 to-blue-600 hover:opacity-90 text-white px-5 py-2.5 rounded-xl font-bold text-xs flex items-center gap-2 shadow-lg shadow-cyan-500/20 transition-all"><PlusCircle size={16} /> Criar Edital</button></div>
-          </div>
-          <div className="space-y-4">
-            {refreshing && groupedMissions.length === 0 ? (<div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-cyan-400" size={40} /><p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Buscando dados no Supabase...</p></div>) : groupedMissions.length === 0 ? (<div className="text-center py-16 border-2 border-dashed border-slate-800 rounded-3xl"><div className="text-5xl mb-4">📭</div><h4 className="text-white font-bold mb-1">Nenhuma missão encontrada</h4><p className="text-slate-500 text-sm mb-6">Crie seu primeiro edital para começar a monitorar.</p><button onClick={handleOpenCreate} className="bg-cyan-600 hover:bg-cyan-500 text-white px-6 py-3 rounded-xl font-bold text-sm shadow-lg shadow-cyan-500/20 transition-all flex items-center gap-2 mx-auto"><PlusCircle size={18} /> Criar Agora</button></div>) : (<div className="grid grid-cols-1 gap-4">{groupedMissions.map(m => { const isActive = m.concurso === missaoAtiva; let provaFormatada = 'Data não definida'; if (m.dataProva) { const [ano, mes, dia] = m.dataProva.split('-'); provaFormatada = `${dia}/${mes}/${ano}`; } return (<div key={m.concurso} className={`p-5 rounded-xl border transition-all flex flex-col md:flex-row md:items-center justify-between gap-4 ${isActive ? 'bg-cyan-500/5 border-cyan-500/30' : 'bg-slate-900/40 border-white/5 hover:border-white/10'}`}><div className="flex items-center gap-5"><div className={`w-3 h-3 rounded-full ${m.isPrincipal ? 'bg-green-400 shadow-[0_0_12px_rgba(74,222,128,0.4)]' : 'bg-slate-700'}`} /><div><h4 className="font-black text-xl text-white tracking-tight">{m.concurso}</h4><div className="flex items-center gap-3 mt-1"><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{m.cargo}</p><span className="w-1 h-1 bg-slate-600 rounded-full"></span><p className="text-xs text-slate-500 font-bold uppercase tracking-widest flex items-center gap-1"><Calendar size={10} /> {provaFormatada}</p><span className="w-1 h-1 bg-slate-600 rounded-full"></span><p className="text-xs text-slate-500 font-bold uppercase tracking-widest">{m.materiasCount} matérias</p></div></div></div><div className="flex items-center gap-2"><button onClick={() => setMissaoAtiva(m.concurso)} className={`px-5 py-2 rounded-xl text-[10px] font-black uppercase tracking-[0.1em] border transition-all ${isActive ? 'bg-cyan-500 text-white border-cyan-500 shadow-lg shadow-cyan-500/20' : 'bg-slate-800 text-slate-400 border-white/5 hover:bg-white/5 hover:text-white'}`}>{isActive ? 'Missão Ativa' : 'Ativar Missão'}</button><div className="w-px h-8 bg-white/5 mx-2" /><button onClick={() => handleOpenEdit(m.concurso)} className="p-2.5 text-slate-500 hover:text-cyan-400 bg-slate-800/50 rounded-xl hover:bg-cyan-400/10 transition-all" title="Editar Edital"><Edit size={16} /></button><button onClick={() => handleDeleteMission(m.concurso)} className="p-2.5 text-slate-500 hover:text-red-400 bg-slate-800/50 rounded-xl hover:bg-red-400/10 transition-all" title="Apagar Edital"><Trash2 size={16} /></button></div></div>) })}</div>)}</div>
-        </div>
+        <MissionsPanel
+          groupedMissions={groupedMissions} missaoAtiva={missaoAtiva} refreshing={refreshing}
+          onRefresh={handleManualRefresh} onOpenCreate={handleOpenCreate}
+          onOpenEdit={handleOpenEdit} onDeleteMission={handleDeleteMission}
+          onShowSql={() => setShowSqlModal(true)}
+        />
       )}
 
       {activeTab === 'import' && (
-        <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 space-y-6">
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-            <div><h3 className="text-xl font-bold flex items-center gap-2"><DownloadCloud className="text-blue-400" /> Banco Comunitário de Editais</h3><p className="text-slate-400 text-sm mt-1">Navegue e clone editais criados por outros usuários. Compartilhamento livre.</p></div>
-            <div className="relative w-full md:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} /><input type="text" placeholder="Buscar concurso..." className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-xs" value={importSearch} onChange={e => setImportSearch(e.target.value)} /></div>
-          </div>
-          {loadingTemplates ? (<div className="flex flex-col items-center justify-center py-20 gap-4"><Loader2 className="animate-spin text-blue-400" size={40} /><p className="text-slate-500 text-sm font-bold uppercase tracking-widest">Carregando banco de dados...</p></div>) : filteredTemplates.length === 0 ? (<div className="text-center py-16 text-slate-500 italic">Nenhum edital encontrado. Tente outro termo de busca.</div>) : (<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">{filteredTemplates.map(tmpl => (<div key={tmpl.id} className="bg-slate-900/30 border border-white/5 rounded-2xl p-6 hover:border-blue-500/50 transition-all group hover:bg-slate-900/50 relative"><div className="absolute top-4 right-4 text-slate-600 group-hover:text-blue-400"><Users size={18} /></div><h4 className="text-lg font-bold text-white mb-2 pr-6 truncate">{tmpl.title}</h4><div className="space-y-1 mb-6"><p className="text-xs text-slate-400 font-bold uppercase tracking-widest">{tmpl.cargo}</p><p className="text-xs text-slate-500">{tmpl.stats}</p></div><button onClick={() => handleImportTemplate(tmpl)} disabled={importingId === tmpl.id} className="w-full bg-slate-800 hover:bg-blue-600 hover:text-white text-slate-300 py-3 rounded-xl text-xs font-bold uppercase tracking-widest transition-all flex items-center justify-center gap-2">{importingId === tmpl.id ? <Loader2 className="animate-spin" size={14} /> : <DownloadCloud size={14} />}{importingId === tmpl.id ? 'Importando...' : 'Clonar Edital'}</button></div>))}</div>)}
-        </div>
+        <ImportPanel
+          filteredTemplates={filteredTemplates} loadingTemplates={loadingTemplates}
+          importSearch={importSearch} importingId={importingId}
+          onSearchChange={setImportSearch} onImportTemplate={handleImportTemplate}
+        />
       )}
 
       {activeTab === 'diagnostics' && (
-        <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 space-y-6">
-          <div className="flex justify-between items-start">
-            <div><h3 className="text-xl font-bold flex items-center gap-2"><Activity className="text-purple-400" /> Central de Diagnóstico</h3><p className="text-slate-400 text-sm mt-1">Use esta ferramenta se você estiver tendo problemas para salvar ou visualizar dados.</p></div>
-            <button onClick={runDiagnostics} disabled={diagLoading} className="bg-purple-600 hover:bg-purple-500 text-white px-6 py-2 rounded-xl font-bold text-sm shadow-lg shadow-purple-500/20 flex items-center gap-2">{diagLoading ? <Loader2 className="animate-spin" size={16} /> : "Executar Teste Completo"}</button>
-          </div>
-          <div className="bg-black/50 rounded-xl border border-white/10 p-4 font-mono text-xs text-green-400 h-64 overflow-y-auto custom-scrollbar relative">{diagLog.length === 0 ? (<div className="absolute inset-0 flex items-center justify-center text-slate-600 italic pointer-events-none">Clique em "Executar Teste Completo" para ver os logs.</div>) : (diagLog.map((log, i) => <div key={i} className="mb-1 border-b border-white/5 pb-1 last:border-0">{log}</div>))}</div>
-
-          {/* FORCE RE-SYNC */}
-          <div className="bg-red-500/5 border border-red-500/20 p-6 rounded-2xl space-y-4">
-            <div className="flex items-start gap-4">
-              <div className="p-3 bg-red-500/10 rounded-xl shrink-0">
-                <HardDriveDownload size={24} className="text-red-400" />
-              </div>
-              <div className="flex-1">
-                <h4 className="font-black text-white text-sm uppercase tracking-widest">Force Re-sync</h4>
-                <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-                  Limpa <strong className="text-slate-300">todo o cache local (IndexedDB)</strong> e re-baixa os dados diretamente do Supabase.
-                  Use quando os números estiverem inflados, duplicados ou divergentes da realidade.
-                </p>
-              </div>
-            </div>
-            {resyncResult && (
-              <div className={`p-4 rounded-xl text-xs font-bold flex items-center gap-3 animate-in slide-in-from-bottom-2 ${
-                resyncResult.success 
-                  ? 'bg-green-500/10 border border-green-500/20 text-green-400' 
-                  : 'bg-red-500/10 border border-red-500/20 text-red-400'
-              }`}>
-                {resyncResult.success ? <CheckCircle2 size={16} /> : <AlertCircle size={16} />}
-                {resyncResult.message}
-              </div>
-            )}
-            <button
-              onClick={async () => {
-                if (!window.confirm(
-                  '⚠️ FORCE RE-SYNC\n\n' +
-                  'Isso vai:\n' +
-                  '1. Apagar TODO o cache local do navegador\n' +
-                  '2. Baixar dados frescos do Supabase\n\n' +
-                  'Registros pendentes (não sincronizados) serão PERDIDOS.\n\n' +
-                  'Continuar?'
-                )) return;
-                setResyncLoading(true);
-                setResyncResult(null);
-                const result = await syncService.safeRefresh(userId || '');
-                setResyncResult(result);
-                setResyncLoading(false);
-                if (result.success) {
-                  queryClient.invalidateQueries();
-                }
-              }}
-              disabled={resyncLoading}
-              className="w-full bg-gradient-to-r from-red-600 to-orange-600 hover:from-red-500 hover:to-orange-500 text-white font-black py-4 rounded-xl shadow-lg shadow-red-500/20 flex items-center justify-center gap-3 transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-xs uppercase tracking-[0.2em]"
-            >
-              {resyncLoading ? (
-                <><Loader2 className="animate-spin" size={18} /> Limpando cache e re-sincronizando...</>
-              ) : (
-                <><HardDriveDownload size={18} /> Executar Force Re-sync</>
-              )}
-            </button>
-          </div>
-
-          <div className="bg-yellow-500/10 border border-yellow-500/20 p-4 rounded-xl flex gap-4 items-start"><AlertTriangle className="text-yellow-500 shrink-0 mt-1" /><div><h4 className="font-bold text-yellow-200 text-sm">Problemas com Permissões?</h4><p className="text-xs text-yellow-200/70 mt-1 mb-3">Se o log mostrar erros "42501" ou "Permission denied", você precisa rodar o script de correção no Supabase.</p><button onClick={() => setShowSqlModal(true)} className="bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-200 px-4 py-2 rounded-lg text-xs font-bold uppercase tracking-widest border border-yellow-500/20">Ver Script de Correção</button></div></div>
-        </div>
+        <DiagnosticsPanel
+          diagLog={diagLog} diagLoading={diagLoading}
+          resyncLoading={resyncLoading} resyncResult={resyncResult}
+          onRunDiagnostics={runDiagnostics} onForceResync={handleForceResync}
+          onShowSql={() => setShowSqlModal(true)}
+        />
       )}
 
       {activeTab === 'admin' && isAdmin && (
-        <div className="glass rounded-2xl p-6 border border-purple-500/30 relative overflow-hidden animate-in slide-in-from-right-2">
-          {approvalMsg && (<div className="absolute top-0 left-0 right-0 bg-green-500 text-white text-xs font-bold text-center py-2 animate-in slide-in-from-top-4 z-50">{approvalMsg}</div>)}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-6 gap-4">
-            <h3 className="text-xl font-bold flex items-center gap-2"><Shield size={20} className="text-purple-400" /> Administração de Usuários</h3>
-            <div className="flex items-center gap-3 w-full md:w-auto"><button onClick={() => setShowSqlModal(true)} className="px-4 py-2 bg-slate-800 hover:bg-slate-700 text-cyan-400 text-xs font-bold rounded-xl border border-cyan-500/20 flex items-center gap-2 transition-all"><Database size={14} /> Permissões (SQL)</button><div className="relative flex-1 md:w-64"><Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" size={14} /><input type="text" placeholder="Filtrar usuários..." className="w-full bg-slate-900/30 border border-white/5 rounded-xl pl-9 pr-4 py-2 text-xs" value={userSearch} onChange={e => setUserSearch(e.target.value)} /></div></div>
-          </div>
-          <div className="space-y-2 max-h-48 overflow-y-auto custom-scrollbar">{loadingUsers ? <Loader2 className="animate-spin mx-auto text-purple-400" /> : filteredUsers.map(u => (<div key={u.id} className="bg-slate-950/30 p-3 rounded-xl border border-white/5 flex items-center justify-between"><span className="text-xs font-mono">{u.email} {u.email === currentUserEmail && '(Você)'}</span><button onClick={() => toggleUserApproval(u.id, u.approved)} className={`px-3 py-1 rounded-lg text-[10px] font-bold uppercase transition-all flex items-center gap-1 ${u.approved ? 'bg-white/5 text-slate-500' : 'bg-green-600 text-white shadow-lg shadow-green-600/20'}`}>{u.approved ? 'Bloquear' : <><CheckCircle2 size={12} /> Aprovar</>}</button></div>))}</div>
-        </div>
+        <AdminPanel
+          usersList={usersList} currentUserEmail={currentUserEmail}
+          loadingUsers={loadingUsers} userSearch={userSearch}
+          approvalMsg={approvalMsg}
+          onUserSearchChange={setUserSearch} onToggleApproval={toggleUserApproval}
+          onShowSql={() => setShowSqlModal(true)}
+        />
       )}
 
-      {(permissionError || showSqlModal) && (
-        <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-[110] flex items-center justify-center p-4">
-          <div className="bg-slate-950 border border-slate-700 w-full max-w-3xl rounded-2xl p-8 relative shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <button onClick={() => { setPermissionError(false); setShowSqlModal(false); }} className="absolute top-4 right-4 text-slate-500 hover:text-white"><X size={24} /></button>
-            <div className="flex items-center gap-3 mb-4 text-cyan-400">{permissionError ? <AlertTriangle size={32} className="text-red-500" /> : <Database size={32} />}<h3 className="text-xl font-bold">{permissionError ? 'Banco de Dados Desatualizado' : 'Script de Correção do Banco'}</h3></div>
-            <p className="text-slate-300 text-sm mb-4">Para que o sistema funcione corretamente, o banco precisa estar atualizado. O script abaixo cria a coluna de peso e corrige duplicatas.<br /><br /><strong className="text-white">COPIE O CÓDIGO ABAIXO E EXECUTE NO SUPABASE (SQL EDITOR):</strong></p>
-            <div className="relative bg-slate-900 rounded-xl border border-white/10 flex-1 overflow-hidden flex flex-col"><div className="p-4 overflow-y-auto custom-scrollbar flex-1 text-slate-200 text-[11px] font-mono"><pre className="whitespace-pre-wrap">{sqlScript}</pre></div><div className="p-4 border-t border-white/5 bg-slate-900/50 flex justify-end"><button onClick={copyToClipboard} className="px-4 py-2 bg-blue-600 hover:bg-blue-500 text-white text-xs font-bold rounded-xl flex items-center gap-2"><Copy size={14} /> Copiar SQL</button></div></div>
-          </div>
-        </div>
-      )}
+      <SqlScriptModal
+        show={permissionError || showSqlModal}
+        permissionError={permissionError}
+        sqlScript={sqlScript}
+        onClose={() => { setPermissionError(false); setShowSqlModal(false); }}
+        onCopy={copyToClipboard}
+      />
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="glass w-full max-w-4xl rounded-2xl p-8 relative animate-in zoom-in-95 max-h-[90vh] overflow-y-auto custom-scrollbar border border-white/10">
-            <button onClick={() => { setIsModalOpen(false); setLoadingMission(false); }} className="absolute top-6 right-6 text-slate-500 hover:text-white"><X size={24} /></button>
-            <h3 className="text-2xl font-bold mb-8 flex items-center gap-3"><PlusCircle className="text-cyan-400" /> {editingOldName ? `Editar Edital: ${editingOldName}` : 'Criar Novo Edital'}</h3>
-            <form onSubmit={(e) => { e.preventDefault(); handleSaveMission(); }} className="space-y-6">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Terminal size={12} /> Concurso</label><input type="text" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium" value={formConcurso} onChange={e => setFormConcurso(e.target.value)} placeholder="Ex: TJSP Escrevente" required /></div>
-                <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Briefcase size={12} /> Cargo</label><input type="text" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium" value={formCargo} onChange={e => setFormCargo(e.target.value)} placeholder="Ex: Escrevente Técnico Judiciário" required /></div>
-              </div>
-              <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2"><Calendar size={12} /> Data da Prova (Opcional)</label><input type="date" className="w-full bg-slate-900/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-white font-medium" value={formDataProva} onChange={e => setFormDataProva(e.target.value)} /></div>
-              <div className="bg-slate-900/30 p-6 rounded-2xl border border-white/5 space-y-4">
-                <h4 className="text-lg font-bold flex items-center gap-2 text-white"><BookOpen size={20} /> Matérias do Edital</h4>
-                <div className="space-y-2">{formSubjects.map((sub, index) => (<div key={index} className="flex items-center gap-3 bg-slate-950/30 p-3 rounded-lg border border-white/5"><span className="flex-1 text-sm font-medium text-slate-300">{sub.materia} <span className="text-slate-500 text-xs ml-2">({sub.topicos.length} tópicos)</span><span className="text-xs font-bold bg-slate-800 text-yellow-400 px-2 py-0.5 rounded ml-2">Peso {sub.peso}</span></span><div className="flex gap-2"><button type="button" onClick={() => handleEditSubject(index)} className="p-2 text-slate-500 hover:text-cyan-400"><Edit size={16} /></button><button type="button" onClick={() => handleRemoveSubject(index)} className="p-2 text-slate-500 hover:text-red-400"><Trash2 size={16} /></button></div></div>))}</div>
-                <div className="flex flex-col gap-4">
-                  <div className="flex gap-4"><div className="flex-1 space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Nome da Matéria</label><input type="text" className="w-full bg-slate-950/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all text-white font-medium" value={newSubjectName} onChange={e => setNewSubjectName(e.target.value)} placeholder="Ex: Língua Portuguesa" /></div><div className="w-24 space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1"><Calculator size={10} /> Peso</label><input type="number" min="0.1" step="0.1" className="w-full bg-slate-950/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all text-white font-medium text-center" value={newSubjectWeight} onChange={e => setNewSubjectWeight(Number(e.target.value))} /></div></div>
-                  <div className="space-y-2"><label className="text-xs font-bold text-slate-400 uppercase tracking-widest ml-1">Tópicos (separar por ; ou quebra de linha)</label><textarea className="w-full bg-slate-950/30 border border-white/5 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-cyan-500/50 transition-all text-white font-medium h-24" value={newSubjectTopics} onChange={e => setNewSubjectTopics(e.target.value)} placeholder="Ex: Sintaxe; Crase; Pontuação; Interpretação de Texto"></textarea></div>
-                  <div className="flex gap-2 justify-end">{editingSubjectIndex !== null && (<button type="button" onClick={handleCancelSubjectEdit} className="p-3 bg-slate-800 hover:bg-slate-700 text-slate-400 rounded-xl flex items-center gap-2"><X size={16} /> Cancelar</button>)}<button type="button" onClick={handleAddSubject} className="p-3 bg-cyan-600 hover:bg-cyan-500 text-white rounded-xl flex items-center gap-2 shadow-lg shadow-cyan-500/20 px-6 font-bold">{editingSubjectIndex !== null ? <><Save size={16} /> Salvar Matéria</> : <><PlusCircle size={16} /> Adicionar Matéria</>}</button></div>
-                </div>
-              </div>
-              <div className="flex gap-4 pt-4 border-t border-white/5"><button type="button" onClick={() => setIsModalOpen(false)} className="flex-1 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-white font-bold py-4 rounded-xl transition-all border border-white/5">CANCELAR</button><button type="submit" disabled={loadingMission} className="flex-1 bg-gradient-to-r from-purple-600 to-cyan-600 hover:from-purple-500 hover:to-cyan-500 text-white font-extrabold py-4 rounded-xl shadow-lg shadow-purple-500/20 transition-all transform hover:-translate-y-1 active:translate-y-0 disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-3">{loadingMission ? <Loader2 className="animate-spin" size={20} /> : <><Save size={20} /> Salvar Edital</>}</button></div>
-            </form>
-          </div>
-        </div>
-      )}
+      <MissionFormModal
+        isOpen={isModalOpen}
+        editingOldName={editingOldName}
+        formConcurso={formConcurso} formCargo={formCargo}
+        formDataProva={formDataProva} formSubjects={formSubjects}
+        newSubjectName={newSubjectName} newSubjectTopics={newSubjectTopics}
+        newSubjectWeight={newSubjectWeight} editingSubjectIndex={editingSubjectIndex}
+        loading={loadingMission}
+        onClose={() => { setIsModalOpen(false); setLoadingMission(false); }}
+        onFormConcursoChange={setFormConcurso}
+        onFormCargoChange={setFormCargo}
+        onFormDataProvaChange={setFormDataProva}
+        onNewSubjectNameChange={setNewSubjectName}
+        onNewSubjectTopicsChange={setNewSubjectTopics}
+        onNewSubjectWeightChange={setNewSubjectWeight}
+        onAddSubject={handleAddSubject}
+        onEditSubject={handleEditSubject}
+        onCancelSubjectEdit={handleCancelSubjectEdit}
+        onRemoveSubject={handleRemoveSubject}
+        onSubmit={handleSaveMission}
+      />
     </div>
   );
 };

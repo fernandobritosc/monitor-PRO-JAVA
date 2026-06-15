@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useMemo, useRef } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { useFlashcards } from '../hooks/useFlashcards';
 import {
   Zap, Plus, Trash2, Layers, Brain, CheckCircle2, RotateCcw,
   Loader2, Filter, BookOpen, Edit2, Save, X, DownloadCloud, Eye,
   Globe, Database, Copy, ChevronDown, Sparkles, Volume2, Lock, ChevronLeft, ChevronRight, Trophy, Tag, Send, MessageSquarePlus, ChevronUp, Headphones, Mic2, RefreshCw, User, Music, FileText, ArrowRightLeft, Table, Map as MapIcon
 } from 'lucide-react';
-import { EditalMateria, Flashcard, CommunityDeck } from '../types';
+import { EditalMateria } from '../types';
 import { CustomSelector } from '../components/CustomSelector';
-import { MarkdownRenderer } from '../components/shared/MarkdownRenderer';
 import { AIContentBox } from '../components/shared/AIContentBox';
 import { CustomFilterDropdown } from '../components/shared/CustomFilterDropdown';
+import ImportTxtModal from '../components/features/flashcards/ImportTxtModal';
+import MissionImportModal from '../components/features/flashcards/MissionImportModal';
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
@@ -21,7 +22,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
   const editais = editaisProps ?? editaisQuery ?? [];
   const missaoAtiva = missaoAtivaProps ?? missaoAtivaStore ?? '';
   const {
-    activeTab, setActiveTab, cards, loading, loadingCommunity, communityDecks,
+    activeTab, setActiveTab, loadingCommunity, communityDecks,
     showSqlModal, setShowSqlModal, previewDeck, setPreviewDeck, importingState,
     selectedAI, setSelectedAI, studyQueue, currentCardIndex, setCurrentCardIndex,
     isFlipped, setIsFlipped, aiStreamText, followUpQuery, setFollowUpQuery,
@@ -31,10 +32,9 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
     sessionStats, showSessionSummary, editingId, newCard, setNewCard,
     saveMessage, duplicateWarningId, isSpeaking, geminiKeyAvailable,
     groqKeyAvailable, isGeneratingPdf, podcastCache, isSyncing, isPlayingNeural,
-    stopNeural, isGeneratingPodcast, podcastStatus, activeAiTool, setActiveAiTool,
+    isGeneratingPodcast, podcastStatus, activeAiTool, setActiveAiTool,
     materias, assuntoOptions, statusOptions, availableTopics, currentCard,
-    SQL_FLASHCARDS_POLICY,
-    loadFlashcards, loadCommunityDecks, importCards, handleImportDeck, handleImportTopic,
+    importCards, handleImportDeck, handleImportTopic,
     handleImportSingle, generateAIExplanation, handleGenerateMnemonic,
     handleGenerateExtraFormat, handleEdit, cancelEdit, clearForm, saveOrUpdateCard,
     deleteCard, startStudySession, endSession, handleCardResult, handleSpeak,
@@ -43,139 +43,21 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
     otherMissionsWithCards, fetchCardsFromMission,
   } = useFlashcards({ missaoAtiva, editais });
 
-  // Mission Import State
-  const [showMissionImportModal, setShowMissionImportModal] = useState(false);
-  const [availableMissions, setAvailableMissions] = useState<string[]>([]);
-  const [selectedSourceMission, setSelectedSourceMission] = useState('');
-  const [missionCards, setMissionCards] = useState<Flashcard[]>([]);
-  const [missionLoading, setMissionLoading] = useState(false);
-
-  // Modal Specific Filters
-  const [missionFilterMateria, setMissionFilterMateria] = useState('Todas');
-  const [missionFilterAssunto, setMissionFilterAssunto] = useState('Todos');
-
-  const sourceMissionMaterias = useMemo(() => {
-    const list = new Set<string>();
-    missionCards.forEach(c => list.add(c.materia));
-    return ['Todas', ...Array.from(list).sort()];
-  }, [missionCards]);
-
-  const sourceMissionAssuntos = useMemo(() => {
-    const list = new Set<string>();
-    const source = missionFilterMateria === 'Todas' ? missionCards : missionCards.filter(c => c.materia === missionFilterMateria);
-    source.forEach(c => { if (c.assunto) list.add(c.assunto); });
-    return ['Todos', ...Array.from(list).sort()];
-  }, [missionCards, missionFilterMateria]);
-
-  const filteredMissionCards = useMemo(() => {
-    return missionCards.filter(card => {
-      const matchMateria = missionFilterMateria === 'Todas' || card.materia === missionFilterMateria;
-      const matchAssunto = missionFilterAssunto === 'Todos' || card.assunto === missionFilterAssunto;
-      return matchMateria && matchAssunto;
-    });
-  }, [missionCards, missionFilterMateria, missionFilterAssunto]);
-
   const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
 
   const [showImportTxtModal, setShowImportTxtModal] = useState(false);
-  const [rawImportText, setRawImportText] = useState('');
-  const [txtPreviewCards, setTxtPreviewCards] = useState<Partial<Flashcard>[]>([]);
-  const [importMateria, setImportMateria] = useState('');
-  const [importAssunto, setImportAssunto] = useState('');
-
-  const [showImportTopicsDropdown, setShowImportTopicsDropdown] = useState(false);
-  const importDropdownRef = useRef<HTMLDivElement>(null);
-
-  const availableImportTopics = useMemo(() => {
-    if (!importMateria || importMateria === 'Todas') return [];
-    const edital = editais.find(e => e.concurso === missaoAtiva && e.materia === importMateria);
-    return edital ? [...edital.topicos].sort((a, b) => a.localeCompare(b, undefined, { numeric: true, sensitivity: 'base' })) : [];
-  }, [editais, missaoAtiva, importMateria]);
+  const [showMissionImportModal, setShowMissionImportModal] = useState(false);
 
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
         setShowTopicsDropdown(false);
       }
-      if (importDropdownRef.current && !importDropdownRef.current.contains(event.target as Node)) {
-        setShowImportTopicsDropdown(false);
-      }
     };
     document.addEventListener("mousedown", handleClickOutside);
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
-
-  useEffect(() => {
-    if (!rawImportText) {
-      setTxtPreviewCards([]);
-      return;
-    }
-    const lines = rawImportText.split('\n').filter(line => line.trim().length > 0);
-    const parsedCards = lines.map((line, idx) => {
-      const parts = line.split(';');
-      if (parts.length >= 2) {
-        return {
-          id: `txt-temp-${idx}`,
-          front: parts[0].trim(),
-          back: parts.slice(1).join(';').trim()
-        };
-      }
-      return null;
-    }).filter(c => c !== null);
-    setTxtPreviewCards(parsedCards);
-  }, [rawImportText]);
-
-  const handleConfirmTxtImport = () => {
-    if (!importMateria) {
-      alert("Por favor, selecione ou digite a matéria.");
-      return;
-    }
-    if (txtPreviewCards.length === 0) {
-      alert("Nenhum flashcard válido detectado para importar.");
-      return;
-    }
-
-    const finalCards = txtPreviewCards.map(c => ({
-      ...c,
-      materia: importMateria,
-      assunto: importAssunto,
-    }));
-
-    importCards(finalCards, 'deck');
-    setShowImportTxtModal(false);
-    setTxtPreviewCards([]);
-    setRawImportText('');
-    setImportMateria('');
-    setImportAssunto('');
-  };
-
-  const openMissionImport = async () => {
-    const missions = await otherMissionsWithCards();
-    setAvailableMissions(missions);
-    setShowMissionImportModal(true);
-  };
-
-  const handleSelectMission = async (missionName: string) => {
-    setSelectedSourceMission(missionName);
-    setMissionLoading(true);
-    try {
-      const cardsFetched = await fetchCardsFromMission(missionName);
-      setMissionCards(cardsFetched);
-    } finally {
-      setMissionLoading(false);
-    }
-  };
-
-  const handleImportFromMission = () => {
-    if (filteredMissionCards.length === 0) return;
-    importCards(filteredMissionCards, 'deck');
-    setShowMissionImportModal(false);
-    setSelectedSourceMission('');
-    setMissionCards([]);
-    setMissionFilterMateria('Todas');
-    setMissionFilterAssunto('Todos');
-  };
 
   return (
     <div className="min-h-screen p-4 md:p-8 space-y-10 animate-in fade-in slide-in-from-bottom-4 duration-700 pb-20">
@@ -652,7 +534,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                   <span>Exportar PDF ({filteredCards.length})</span>
                 </button>
                 <button
-                  onClick={openMissionImport}
+                  onClick={() => setShowMissionImportModal(true)}
                   className="w-full sm:w-auto px-6 py-4 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl text-[10px] font-black uppercase tracking-widest text-[hsl(var(--accent))] hover:text-white hover:bg-[hsl(var(--accent)/0.1)] flex items-center justify-center gap-3 transition-all active:scale-95 shadow-lg"
                 >
                   <Copy size={16} />
@@ -918,262 +800,24 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
         )
       }
 
-      {showImportTxtModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[120] flex items-center justify-center p-4">
-          <div className="glass-premium bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] w-full max-w-4xl rounded-2xl p-6 relative shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 border-b border-[hsl(var(--border))] pb-4">
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-tight text-[hsl(var(--text-bright))] flex items-center gap-2">
-                  <DownloadCloud className="text-[hsl(var(--accent))]" /> Importar Flashcards em Lote
-                </h3>
-                <p className="text-[hsl(var(--text-muted))] text-[10px] font-bold uppercase tracking-widest mt-1">Cole o texto no formato: Pergunta;Resposta (uma por linha)</p>
-              </div>
-              <button onClick={() => { setShowImportTxtModal(false); setTxtPreviewCards([]); setRawImportText(''); }} className="p-2 bg-[hsl(var(--bg-user-block))] rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] border border-[hsl(var(--border))] transition-all">
-                <X size={20} />
-              </button>
-            </div>
+      <ImportTxtModal
+        isOpen={showImportTxtModal}
+        onClose={() => { setShowImportTxtModal(false); }}
+        materias={materias}
+        editais={editais}
+        missaoAtiva={missaoAtiva}
+        importingState={importingState}
+        importCards={importCards}
+      />
 
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
-              <div>
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Matéria (Obrigatório)</label>
-                <div className="bg-[hsl(var(--bg-main))] rounded-2xl border border-[hsl(var(--border))]">
-                  <CustomSelector
-                    label="Matéria"
-                    value={importMateria}
-                    options={materias.filter((m) => m !== 'Todas' && m !== 'Todos')}
-                    onChange={setImportMateria}
-                    placeholder="Selecione ou digite..."
-                  />
-                </div>
-              </div>
-              <div ref={importDropdownRef} className="relative">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1 flex justify-between items-center">
-                  Assunto (Opcional)
-                  {importAssunto && <span className="text-[9px] text-green-500 bg-green-500/10 px-2.5 py-1 rounded-full border border-green-500/20 flex items-center gap-1.5 animate-pulse"><Lock size={10} /> Parâmetro Fixado</span>}
-                </label>
-                <div className="relative">
-                  <input
-                    type="text"
-                    value={importAssunto}
-                    onChange={(e) => setImportAssunto(e.target.value)}
-                    onClick={() => { if (availableImportTopics.length > 0) setShowImportTopicsDropdown(true); }}
-                    className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-4 py-3.5 text-sm text-[hsl(var(--text-bright))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] placeholder-[hsl(var(--text-muted)/0.5)]"
-                    placeholder="Ex: Lei 8.112/90"
-                  />
-                  {availableImportTopics.length > 0 && (
-                    <button
-                      type="button"
-                      onClick={() => setShowImportTopicsDropdown(!showImportTopicsDropdown)}
-                      className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] rounded-lg transition-colors"
-                    >
-                      {showImportTopicsDropdown ? <ChevronUp size={18} /> : <ChevronDown size={18} />}
-                    </button>
-                  )}
-                  {showImportTopicsDropdown && availableImportTopics.length > 0 && (
-                    <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-60 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-2">
-                      <div
-                        onClick={() => { setImportAssunto(''); setShowImportTopicsDropdown(false); }}
-                        className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--bg-user-block))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
-                      >
-                        Limpar Seleção
-                      </div>
-                      {availableImportTopics.map((t, idx) => (
-                        <div
-                          key={idx}
-                          onClick={() => {
-                            setImportAssunto(t);
-                            setShowImportTopicsDropdown(false);
-                          }}
-                          className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 hover:bg-[hsl(var(--bg-user-block))] cursor-pointer flex items-center gap-3 ${importAssunto === t ? 'bg-[hsl(var(--accent)/0.1)] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-muted))]'}`}
-                        >
-                          <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${importAssunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
-                          <span className="flex-1 leading-relaxed truncate">{t}</span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="mb-6">
-              <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Conteúdo Em Lote (Pegue do Excel, Word ou TXT)</label>
-              <textarea
-                value={rawImportText}
-                onChange={(e) => setRawImportText(e.target.value)}
-                className="w-full bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 text-sm text-[hsl(var(--text-bright))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] placeholder-[hsl(var(--text-muted)/0.5)] custom-scrollbar min-h-[120px] resize-y shadow-inner"
-                placeholder="Exemplo:&#10;Quem descobriu o Brasil?;Pedro Álvares Cabral&#10;O que é o Princípio da Legalidade?;Ninguém é obrigado a fazer ou deixar de fazer algo senão em virtude de lei."
-              />
-            </div>
-
-            {txtPreviewCards.length > 0 && (
-              <div className="flex-1 overflow-y-auto custom-scrollbar bg-[hsl(var(--bg-main))] rounded-xl border border-[hsl(var(--border))] p-4 grid grid-cols-1 gap-3">
-                <div className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-widest mb-2 px-2">Pré-visualização ({txtPreviewCards.length} cards detectados)</div>
-                {txtPreviewCards.map((card) => (
-                  <div key={card.id} className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] p-4 rounded-xl flex flex-col gap-2">
-                    <div className="flex gap-2">
-                      <span className="text-xs font-bold text-cyan-500">P:</span>
-                      <p className="text-sm text-[hsl(var(--text-bright))] font-medium">{card.front}</p>
-                    </div>
-                    <div className="h-px bg-[hsl(var(--border))] w-full my-1" />
-                    <div className="flex gap-2">
-                      <span className="text-xs font-bold text-purple-500">R:</span>
-                      <p className="text-xs text-[hsl(var(--text-muted))] whitespace-pre-wrap">{card.back}</p>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-[hsl(var(--border))]">
-              <button onClick={() => { setShowImportTxtModal(false); setTxtPreviewCards([]); setRawImportText(''); }} className="px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] hover:bg-[hsl(var(--bg-user-block))] border border-transparent hover:border-[hsl(var(--border))] transition-all">Cancelar</button>
-              <button
-                onClick={handleConfirmTxtImport}
-                disabled={txtPreviewCards.length === 0 || !importMateria || importingState.loading}
-                className="px-8 py-3 bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--bg-main))] rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-2 transition-all active:scale-95"
-              >
-                {importingState.loading ? <Loader2 className="animate-spin" size={18} /> : <Save size={18} />}
-                Importar {txtPreviewCards.length} Cards
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {showMissionImportModal && (
-        <div className="fixed inset-0 bg-black/80 backdrop-blur-sm z-[130] flex items-center justify-center p-4">
-          <div className="glass-premium bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] w-full max-w-4xl rounded-2xl p-6 relative shadow-2xl flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center mb-6 border-b border-[hsl(var(--border))] pb-4">
-              <div>
-                <h3 className="text-xl font-black uppercase tracking-tight text-[hsl(var(--text-bright))] flex items-center gap-3">
-                  <RotateCcw className="text-[hsl(var(--accent))]" /> Reciclar Flashcards de Outra Missão
-                </h3>
-                <p className="text-[hsl(var(--text-muted))] text-[10px] font-bold uppercase tracking-widest mt-1">Copie seu material de concursos anteriores para a missão atual</p>
-              </div>
-              <button 
-                onClick={() => { setShowMissionImportModal(false); setSelectedSourceMission(''); setMissionCards([]); }} 
-                className="p-2 bg-[hsl(var(--bg-user-block))] rounded-lg text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] border border-[hsl(var(--border))] transition-all"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            {!selectedSourceMission ? (
-              <div className="space-y-6">
-                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest block ml-1">Selecione a Missão de Origem</label>
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {availableMissions.length === 0 ? (
-                    <div className="col-span-full py-12 text-center bg-[hsl(var(--bg-user-block))] rounded-2xl border border-dashed border-[hsl(var(--border))] text-[hsl(var(--text-muted))] uppercase font-black text-[10px] tracking-widest">
-                      Nenhuma missão encontrada com flashcards
-                    </div>
-                  ) : (
-                    availableMissions.map((mission) => (
-                      <button
-                        key={mission}
-                        onClick={() => handleSelectMission(mission)}
-                        className="p-6 bg-[hsl(var(--bg-user-block))] hover:bg-[hsl(var(--accent)/0.1)] border border-[hsl(var(--border))] hover:border-[hsl(var(--accent)/0.5)] rounded-2xl text-left transition-all group"
-                      >
-                        <div className="flex items-center gap-3 mb-2">
-                          <Database size={16} className="text-[hsl(var(--accent))] group-hover:scale-110 transition-transform" />
-                          <span className="text-xs font-bold text-[hsl(var(--text-bright))] uppercase tracking-tight">{mission}</span>
-                        </div>
-                        <p className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">Clique para espiar os cards</p>
-                      </button>
-                    ))
-                  )}
-                </div>
-              </div>
-            ) : (
-              <div className="flex flex-col flex-1 overflow-hidden">
-                <div className="flex items-center justify-between mb-4 px-2">
-                  <button 
-                    onClick={() => setSelectedSourceMission('')} 
-                    className="flex items-center gap-2 text-[9px] font-black text-[hsl(var(--accent))] uppercase tracking-widest hover:text-white transition-colors"
-                  >
-                    <ChevronLeft size={14} /> Voltar para lista de missões
-                  </button>
-                  <span className="text-[10px] font-bold text-[hsl(var(--text-bright))] uppercase tracking-widest">
-                    Fonte: <span className="text-[hsl(var(--accent))]">{selectedSourceMission}</span> ({missionCards.length} cards)
-                  </span>
-                </div>
-
-                {missionLoading ? (
-                  <div className="flex-1 flex flex-col items-center justify-center">
-                    <Loader2 size={40} className="text-[hsl(var(--accent))] animate-spin mb-4" />
-                    <p className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em]">Escaneando base neural...</p>
-                  </div>
-                ) : (
-                  <>
-                    {/* Filtros Internos do Modal */}
-                    <div className="flex flex-col md:flex-row gap-4 mb-6 px-2">
-                      <div className="flex-1">
-                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Matéria na Origem</label>
-                        <CustomFilterDropdown
-                          label="Matéria"
-                          value={missionFilterMateria}
-                          options={sourceMissionMaterias}
-                          onChange={(val) => {
-                            setMissionFilterMateria(val);
-                            setMissionFilterAssunto('Todos');
-                          }}
-                          icon={<BookOpen size={14} />}
-                        />
-                      </div>
-                      <div className="flex-1">
-                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest mb-2 block ml-1">Assunto na Origem</label>
-                        <CustomFilterDropdown
-                          label="Assunto"
-                          value={missionFilterAssunto}
-                          options={sourceMissionAssuntos}
-                          onChange={setMissionFilterAssunto}
-                          icon={<Tag size={14} />}
-                        />
-                      </div>
-                    </div>
-
-                    <div className="flex-1 overflow-y-auto custom-scrollbar bg-[hsl(var(--bg-main))] rounded-xl border border-[hsl(var(--border))] p-4 grid grid-cols-1 md:grid-cols-2 gap-3">
-                      {filteredMissionCards.length === 0 ? (
-                        <div className="col-span-full py-20 text-center text-[hsl(var(--text-muted))] uppercase font-black text-[10px] tracking-widest">
-                          Nenhum card corresponde aos filtros
-                        </div>
-                      ) : (
-                        filteredMissionCards.map((card) => (
-                          <div key={card.id} className="bg-[hsl(var(--bg-card))] border border-[hsl(var(--border))] p-6 rounded-2xl shadow-inner group transition-all hover:border-[hsl(var(--accent)/0.3)]">
-                            <div className="flex justify-between items-start mb-4">
-                              <span className="px-3 py-1 bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-full text-[8px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">
-                                {card.materia}
-                              </span>
-                              {card.assunto && (
-                                <span className="text-[8px] font-bold text-[hsl(var(--accent))] uppercase tracking-widest truncate max-w-[150px]">
-                                  {card.assunto}
-                                </span>
-                              )}
-                            </div>
-                            <h4 className="text-xs font-black text-[hsl(var(--text-bright))] uppercase tracking-tight mb-2 line-clamp-2">{card.front}</h4>
-                            <p className="text-[10px] text-[hsl(var(--text-muted))] line-clamp-2">{card.back}</p>
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </>
-                )}
-
-                <div className="mt-6 flex justify-end gap-3 pt-6 border-t border-[hsl(var(--border))]">
-                  <button onClick={() => { setSelectedSourceMission(''); setMissionFilterMateria('Todas'); setMissionFilterAssunto('Todos'); }} className="px-6 py-3 rounded-xl font-bold text-[10px] uppercase tracking-widest text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))] transition-all">Cancelar</button>
-                  <button
-                    onClick={handleImportFromMission}
-                    disabled={filteredMissionCards.length === 0 || missionLoading || importingState.loading}
-                    className="px-8 py-3 bg-[hsl(var(--accent))] hover:brightness-110 disabled:opacity-50 disabled:cursor-not-allowed text-[hsl(var(--bg-main))] rounded-xl font-black text-[10px] uppercase tracking-widest shadow-lg flex items-center gap-3 transition-all active:scale-95"
-                  >
-                    {importingState.loading ? <Loader2 className="animate-spin" size={18} /> : <Zap size={18} />}
-                    Clonar {filteredMissionCards.length} Flashcards
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
+      <MissionImportModal
+        isOpen={showMissionImportModal}
+        onClose={() => { setShowMissionImportModal(false); }}
+        otherMissionsWithCards={otherMissionsWithCards}
+        fetchCardsFromMission={fetchCardsFromMission}
+        importingState={importingState}
+        importCards={importCards}
+      />
       <style>{`.perspective-1000 { perspective: 1000px; } .transform-style-3d { transform-style: preserve-3d; } .backface-hidden { backface-visibility: hidden; } .rotate-y-180 { transform: rotateY(180deg); }`}</style>
     </div >
   );
