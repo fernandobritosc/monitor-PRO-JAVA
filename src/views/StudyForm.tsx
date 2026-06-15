@@ -1,27 +1,24 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
-import { CheckCircle2, Clock, Target, Zap, Layers, X, FileText, Calendar, ChevronDown, ChevronUp } from 'lucide-react';
 import { EditalMateria, StudyRecord, ErrorAnalysis } from '../types';
 import { getErrorMessage } from '../utils/error';
-import { EditorView } from '@tiptap/pm/view';
-import { CustomSelector } from '../components/CustomSelector';
-import { useEditor, EditorContent } from '@tiptap/react';
-import StarterKit from '@tiptap/starter-kit';
-import Underline from '@tiptap/extension-underline';
-import Image from '@tiptap/extension-image';
-import Placeholder from '@tiptap/extension-placeholder';
-import { EditorToolbar } from '../components/ui/EditorToolbar';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
 import { syncService } from '../services/offline/sync';
 import { useSession } from '../hooks/useSession';
-import ErrorAnalysisBlock from '../components/shared/ErrorAnalysisBlock';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
 import { useTimerStore } from '../stores/useTimerStore';
 import { ESTUDO_LIVRE } from '../constants';
 import { getLocalToday, handleTimeMask, validateAndConvertTime } from '../utils/form';
 import SimuladoFormSection from '../components/features/study/SimuladoFormSection';
+import { StudyFormHeader } from '../components/features/study-form/StudyFormHeader';
+import { IdentificationSection } from '../components/features/study-form/IdentificationSection';
+import { PerformanceSection } from '../components/features/study-form/PerformanceSection';
+import { AnalysisSection } from '../components/features/study-form/AnalysisSection';
+import { FormMessageBanner } from '../components/shared/FormMessageBanner';
+import { SubmitButton } from '../components/shared/SubmitButton';
+import { RichTextEditor } from '../components/shared/RichTextEditor';
 
 interface StudyFormProps {
     editais?: EditalMateria[];
@@ -53,7 +50,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     const [minha_resposta, setMinha_resposta] = useState('');
     const [comentarios, setComentarios] = useState('');
     const [errorText, setErrorText] = useState('');
-    
+
     // Timer integration
     const timerSeconds = useTimerStore(state => state.seconds);
 
@@ -69,7 +66,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     // UI States
     const [loading, setLoading] = useState(false);
     const [isAnalyzing, setIsAnalyzing] = useState(false);
-    const [msg, setMsg] = useState<{ type: 'success' | 'error' | null, text: string }>({ type: null, text: '' });
+    const [msg, setMsg] = useState<{ type: 'success' | 'error' | 'info' | null, text: string }>({ type: null, text: '' });
 
     // New Meta State
     const [meta, setMeta] = useState('');
@@ -77,20 +74,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
     // Error Algorithm States (moved up)
     const [errorAnalysis, setErrorAnalysis] = useState<ErrorAnalysis[]>([]);
-
-    // Custom Dropdown State
-    const [showTopicsDropdown, setShowTopicsDropdown] = useState(false);
-    const dropdownRef = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const handleClickOutside = (event: MouseEvent) => {
-            if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
-                setShowTopicsDropdown(false);
-            }
-        };
-        document.addEventListener("mousedown", handleClickOutside);
-        return () => document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
 
     const materiasDisponiveis = useMemo(() => {
         return editais.filter(e => e.concurso === missaoAtiva).sort((a, b) => a.materia.localeCompare(b.materia));
@@ -109,7 +92,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     useEffect(() => {
         if (isFirstMount.current) {
             isFirstMount.current = false;
-            return; // não reseta no mount inicial
+            return;
         }
         setMateria('');
         setAssunto('');
@@ -157,11 +140,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 'analise_erros'
             );
 
-            // Tentar parsear o JSON retornado pela IA
             const parsed: ErrorAnalysis[] = parseAIJSON(result);
 
-            // Adicionar gabarito e resposta do aluno aos objetos antes de salvar
-            // Prioriza o que a IA detectou no texto (Ex: #GABARITO B)
             const enriched: ErrorAnalysis[] = parsed.map(p => ({
                 ...p,
                 gabarito: (p.gabarito || gabarito || "").toString().replace(/#GABARITO|#ERREI|#ERRO|#RESPOSTA/gi, "").trim() || undefined,
@@ -170,9 +150,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
             setErrorAnalysis(prev => [...prev, ...enriched]);
 
-            // Limpar campos para a próxima questão
             setErrorText('');
-            errorTextEditor?.commands.setContent('');
             setGabarito('');
             setMinha_resposta('');
             setMsg({ type: 'success', text: 'Questão analisada e adicionada!' });
@@ -206,78 +184,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             return null;
         }
     };
-
-    const createEditorProps = (minHeight: string) => ({
-        attributes: {
-            class: `prose prose-invert prose-sm max-w-none focus:outline-none ${minHeight} p-5 text-xs text-[hsl(var(--text-bright))]`
-        },
-        handlePaste: (_view: EditorView, event: ClipboardEvent) => {
-            const items = Array.from(event.clipboardData?.items || []);
-            const imageItem = items.find(item => item.type.startsWith('image'));
-            if (imageItem) {
-                const file = imageItem.getAsFile();
-                if (file) {
-                    handleImageUpload(file).then(url => {
-                        if (url) {
-                            if (minHeight === 'min-h-[160px]') errorTextEditor?.chain().focus().setImage({ src: url }).run();
-                            else comentariosEditor?.chain().focus().setImage({ src: url }).run();
-                        }
-                    });
-                    return true;
-                }
-            }
-            return false;
-        },
-        handleDrop: (_view: EditorView, event: DragEvent) => {
-            const files = Array.from(event.dataTransfer?.files || []);
-            const imageFile = files.find(file => file.type.startsWith('image'));
-            if (imageFile) {
-                handleImageUpload(imageFile).then(url => {
-                    if (url) {
-                        if (minHeight === 'min-h-[160px]') errorTextEditor?.chain().focus().setImage({ src: url }).run();
-                        else comentariosEditor?.chain().focus().setImage({ src: url }).run();
-                    }
-                });
-                return true;
-            }
-            return false;
-        }
-    });
-
-    const errorTextEditor = useEditor({
-        extensions: [
-            StarterKit.configure({ underline: false }),
-            Underline,
-            Image,
-            Placeholder.configure({ placeholder: 'Cole aqui o texto da questão e seu erro (ou use a barra de ferramentas para inserir imagem)...' })
-        ],
-        content: errorText,
-        onUpdate: ({ editor }) => setErrorText(editor.getHTML()),
-        editorProps: createEditorProps('min-h-[160px]'),
-    });
-
-    const comentariosEditor = useEditor({
-        extensions: [
-            StarterKit.configure({ underline: false }),
-            Underline,
-            Image,
-            Placeholder.configure({ placeholder: 'Pontos chave, links, impressões...' })
-        ],
-        content: comentarios,
-        onUpdate: ({ editor }) => setComentarios(editor.getHTML()),
-        editorProps: createEditorProps('min-h-[120px]'),
-    });
-
-    // Resetar editor externo se o estado mudar externamente
-    useEffect(() => {
-        if (comentarios === '') comentariosEditor?.commands.setContent('');
-    }, [comentarios, comentariosEditor?.commands]);
-
-    useEffect(() => {
-        if (errorText === '') errorTextEditor?.commands.setContent('');
-    }, [errorText, errorTextEditor?.commands]);
-
-    // Removal of handleFileUpload as per user request (removing upload .txt)
 
     // Stats do Simulado (Live)
     const simuladoStats = useMemo(() => {
@@ -319,8 +225,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
         return { percentage, numericAcertos, numericTotal };
     }, [acertos, total]);
 
-    // Automatic Difficulty Logic removed as fields were removed
-
     const handleTimeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         setTempoHHMM(handleTimeMask(e.target.value));
     };
@@ -335,11 +239,18 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
         }));
     };
 
+    const handleAnalyze = (text: string) => {
+        if (text.trim()) {
+            handleAnalyzeErrors(text);
+        } else {
+            setMsg({ type: 'error', text: 'Cole o texto do erro primeiro.' });
+        }
+    };
+
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
         setMsg({ type: null, text: '' });
 
-        // --- VALIDAÇÃO TEMPO ---
         const minutes = validateAndConvertTime(tempoHHMM);
         if (minutes === null) {
             setMsg({ type: 'error', text: 'Tempo inválido. Use formato HH:MM.' });
@@ -352,12 +263,10 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
         }
 
         setLoading(true);
-        // Otimização de Delay: Usar o getSession (frequentemente em cache) em vez do getUser (requisição HTTP obrigatória)
         const { data: { session } } = await supabase.auth.getSession();
         const user = session?.user;
 
         if (isSimulado) {
-            // --- MODO SIMULADO (MÚLTIPLOS REGISTROS) ---
             if (minutes === 0) {
                 setLoading(false);
                 setMsg({ type: 'error', text: 'Informe o tempo total de prova.' });
@@ -369,8 +278,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 return;
             }
 
-            // Validação: Acertos > Total para cada matéria
-            // Fix: Explicitly type the score object in find
             const invalidEntry = (Object.entries(simuladoScores) as [string, { acertos: string, total: string }][]).find(([_, score]) => {
                 const a = parseInt(score.acertos || '0');
                 const t = parseInt(score.total || '0');
@@ -388,7 +295,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 const t = parseInt(score.total || '0');
                 if (t === 0) return null;
 
-                // Distribuição Proporcional do Tempo
                 const weight = t / simuladoStats.total;
                 const subTime = Math.round(minutes * weight);
 
@@ -396,12 +302,12 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     user_id: user?.id,
                     concurso: missaoAtiva,
                     materia: mat,
-                    assunto: assunto, // Nome do Simulado igual para todos
+                    assunto: assunto,
                     data_estudo: dataEstudo,
                     acertos: a,
                     total: t,
                     taxa: (a / t) * 100,
-                    tempo: subTime || 1, // Evita 0
+                    tempo: subTime || 1,
                     comentarios: comentarios,
                     rev_24h: false,
                     rev_07d: false,
@@ -409,14 +315,12 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                     rev_30d: false,
                     tipo: 'Simulado'
                 };
-            }).filter((p): p is NonNullable<typeof p> => p !== null); // Remove nulos
+            }).filter((p): p is NonNullable<typeof p> => p !== null);
 
             try {
-                // Sincroniza em série ou paralelo (saveAttempt lida com local-first)
                 await Promise.all(payloads.map(p => syncService.saveAttempt(p)));
                 setMsg({ type: 'success', text: navigator.onLine ? 'Simulado registrado com sucesso!' : 'Simulado salvo localmente (modo offline)' });
                 onSaved();
-                // Reset
                 setComentarios('');
                 setTempoHHMM('');
                 setSimuladoScores({});
@@ -425,7 +329,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             }
 
         } else {
-            // --- MODO ESTUDO (ÚNICO REGISTRO) ---
             if (minutes === 0) {
                 setLoading(false);
                 setMsg({ type: 'error', text: 'Informe o tempo de estudo.' });
@@ -436,15 +339,12 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                 setMsg({ type: 'error', text: 'Selecione uma matéria.' });
                 return;
             }
-            // Permite total = 0 para estudos teóricos (sem questões)
-            // Valida apenas se acertos > total quando há questões
             if (singleStats.numericTotal > 0 && singleStats.numericAcertos > singleStats.numericTotal) {
                 setLoading(false);
                 setMsg({ type: 'error', text: 'Acertos não podem ser maiores que o total.' });
                 return;
             }
 
-            // Validar e tipar o payload para StudyRecord
             const payload: Partial<StudyRecord> = {
                 user_id: user?.id,
                 concurso: missaoAtiva,
@@ -466,7 +366,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             };
 
             try {
-                // Adicionar tópico automaticamente no Estudo Livre (se não existir)
                 if (isEstudoLivre && assunto && assunto.trim()) {
                     try {
                         await addTopicoToMateria({
@@ -483,7 +382,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
                 setMsg({ type: 'success', text: 'Estudo registrado!' });
                 onSaved();
-                // Reset parcial
                 setAssunto('');
                 setAcertos('');
                 setTotal('');
@@ -503,34 +401,10 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
     return (
         <div className="max-w-4xl mx-auto animate-in fade-in zoom-in-95 duration-500 pb-20">
-
-            {msg.type && (
-                <div className={`mb-8 p-6 rounded-2xl flex items-center gap-4 text-sm font-black border animate-in slide-in-from-top-4 ${msg.type === 'success' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-red-500/10 border-red-500/20 text-red-400'}`}>
-                    {msg.type === 'success' ? <CheckCircle2 size={24} /> : <div className="text-xl">⚠️</div>}
-                    <span className="uppercase tracking-widest">{msg.text}</span>
-                </div>
-            )}
+            <FormMessageBanner msg={msg.type ? { type: msg.type, text: msg.text } : null} />
 
             <form onSubmit={handleSubmit} className="space-y-6">
-                <div className="flex items-center justify-between mb-10">
-                    <h3 className="text-2xl font-black flex items-center gap-5 relative z-10 text-[hsl(var(--text-bright))] uppercase tracking-tighter">
-                        <div className={`w-14 h-14 rounded-2xl flex items-center justify-center text-2xl shadow-2xl transition-transform duration-500 hover:scale-110 ${isSimulado ? 'bg-gradient-to-br from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] shadow-[hsl(var(--accent)/0.3)]' : 'bg-gradient-to-br from-purple-600 to-indigo-600 shadow-purple-500/30'}`}>
-                            {isSimulado ? '🏆' : '📝'}
-                        </div>
-                        <span className="text-gradient leading-tight">
-                            {isSimulado ? 'Novo Simulado' : 'Novo Estudo'}
-                        </span>
-                    </h3>
-                    {isSimulado && onCancel && (
-                        <button
-                            type="button"
-                            onClick={onCancel}
-                            className="flex items-center gap-2 bg-[hsl(var(--bg-user-block))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--bg-main))] text-[hsl(var(--text-muted))] font-black px-6 py-2.5 rounded-2xl transition-all border border-[hsl(var(--border))] text-[10px] uppercase tracking-widest active:scale-95"
-                        >
-                            <X size={14} /> VOLTAR
-                        </button>
-                    )}
-                </div>
+                <StudyFormHeader isSimulado={isSimulado} onCancel={onCancel} />
 
                 {isSimulado ? (
                     <SimuladoFormSection
@@ -545,269 +419,73 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                         onSimuladoScoreChange={handleSimuladoScoreChange}
                     />
                 ) : (
-                    // --- UI PADRÃO (MATÉRIA ÚNICA) ---
                     <>
-                        {/* PASSO 1: IDENTIFICAÇÃO */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-8 relative z-20">
-                            <div className="absolute top-0 right-0 w-32 h-32 bg-gradient-to-br from-purple-600/10 to-transparent rounded-bl-full pointer-events-none" />
-                            
-                            <div className="flex flex-col md:flex-row gap-8">
-                                {/* Seletor de Tipo (Novo) */}
-                                <div className="md:w-1/3 space-y-3">
-                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                                        <Layers size={14} className="text-[hsl(var(--accent))]" /> Tipo de Registro
-                                    </label>
-                                    <div className="flex bg-[hsl(var(--bg-user-block))] p-1.5 rounded-2xl border border-[hsl(var(--border))]">
-                                        {(['Estudo', 'Revisão'] as const).map((t) => (
-                                            <button
-                                                key={t}
-                                                type="button"
-                                                onClick={() => setTipo(t)}
-                                                className={`flex-1 py-3 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all ${tipo === t ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg shadow-[hsl(var(--accent)/0.2)]' : 'text-[hsl(var(--text-muted))] hover:text-[hsl(var(--text-bright))]'}`}
-                                            >
-                                                {t}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
+                        <IdentificationSection
+                            tipo={tipo}
+                            setTipo={setTipo}
+                            dataEstudo={dataEstudo}
+                            setDataEstudo={setDataEstudo}
+                            materia={materia}
+                            setMateria={setMateria}
+                            materiasDisponiveis={materiasDisponiveis}
+                            assunto={assunto}
+                            setAssunto={setAssunto}
+                            topicosDisponiveis={topicosDisponiveis}
+                        />
 
-                                <div className="flex-1 space-y-3">
-                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-[0.2em] ml-2 flex items-center gap-2">
-                                        <Calendar size={14} className="text-[hsl(var(--accent))]" /> Data da Atividade
-                                    </label>
-                                    <input type="date" required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-black uppercase tracking-widest" value={dataEstudo} onChange={(e) => setDataEstudo(e.target.value)} />
-                                </div>
-                            </div>
+                        <PerformanceSection
+                            acertos={acertos}
+                            setAcertos={setAcertos}
+                            total={total}
+                            setTotal={setTotal}
+                            tempoHHMM={tempoHHMM}
+                            setTempoHHMM={setTempoHHMM}
+                            meta={meta}
+                            setMeta={setMeta}
+                            taxa={singleStats.percentage}
+                            timerSeconds={timerSeconds}
+                            onFillFromTimer={handleFillFromTimer}
+                        />
 
-                            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-                                <div className="space-y-2">
-                                    <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Matéria</label>
-                                    <CustomSelector
-                                        label="Matéria"
-                                        value={materia}
-                                        options={materiasDisponiveis.map(m => m.materia)}
-                                        onChange={(val) => setMateria(val)}
-                                        placeholder="Selecione a disciplina..."
-                                    />
-                                </div>
-                            </div>
-                            <div className="space-y-2" ref={dropdownRef}>
-                                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Assunto / Tópico</label>
-                                <div className="relative">
-                                    <input
-                                        type="text"
-                                        required
-                                        className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 pr-12 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] transition-all text-[hsl(var(--text-bright))] font-bold placeholder-[hsl(var(--text-muted)/0.5)]"
-                                        value={assunto}
-                                        onChange={(e) => {
-                                            setAssunto(e.target.value);
-                                        }}
-                                        onClick={() => {
-                                            if (materia && topicosDisponiveis.length > 0) setShowTopicsDropdown(true);
-                                        }}
-                                        placeholder="Ex: Crase"
-                                    />
-                                    {materia && topicosDisponiveis.length > 0 && (
-                                        <button
-                                            type="button"
-                                            onClick={() => setShowTopicsDropdown(!showTopicsDropdown)}
-                                            className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))] rounded-lg transition-colors"
-                                            title="Ver lista completa de tópicos"
-                                        >
-                                            {showTopicsDropdown ? <ChevronUp size={20} /> : <ChevronDown size={20} />}
-                                        </button>
-                                    )}
-                                    {showTopicsDropdown && materia && topicosDisponiveis.length > 0 && (
-                                        <div className="absolute top-full left-0 right-0 mt-3 bg-[hsl(var(--bg-sidebar))] border border-[hsl(var(--border))] rounded-2xl shadow-2xl z-50 max-h-64 overflow-y-auto custom-scrollbar animate-in fade-in slide-in-from-top-4 backdrop-blur-3xl">
-                                            <div
-                                                onClick={() => { setAssunto(''); setShowTopicsDropdown(false); }}
-                                                className="px-6 py-4 text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest hover:bg-[hsl(var(--accent-glow))] hover:text-[hsl(var(--accent))] cursor-pointer border-b border-[hsl(var(--border))] transition-all"
-                                            >
-                                                Limpar Seleção
-                                            </div>
-                                            {topicosDisponiveis.map((t, index) => (
-                                                <div
-                                                    key={index}
-                                                    onClick={() => {
-                                                        setAssunto(t);
-                                                        setShowTopicsDropdown(false);
-                                                    }}
-                                                    className={`px-6 py-4 text-xs font-bold transition-all border-b border-[hsl(var(--border))] last:border-0 cursor-pointer flex items-center gap-3 ${assunto === t ? 'bg-[hsl(var(--accent-glow))] text-[hsl(var(--accent))]' : 'text-[hsl(var(--text-main))] hover:bg-[hsl(var(--bg-user-block))] hover:text-[hsl(var(--text-bright))]'}`}
-                                                >
-                                                    <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${assunto === t ? 'bg-[hsl(var(--accent))] animate-pulse' : 'bg-[hsl(var(--text-muted))]'}`} />
-                                                    <span className="flex-1 leading-relaxed truncate">{t}</span>
-                                                </div>
-                                            ))}
-                                        </div>
-                                    )}
-                                </div>
-                            </div>
-                        </div>
-
-                        {/* PASSO 2: PERFORMANCE */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6 relative z-10">
-                            <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><Target size={18} className="text-[hsl(var(--accent))]" /> Performance</h4>
-                            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                                <div className="space-y-2">
-                                    <div className="flex justify-between items-center ml-1">
-                                        <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest">Tempo (HH:MM)</label>
-                                        {timerSeconds > 0 && (
-                                            <button 
-                                                type="button" 
-                                                onClick={handleFillFromTimer}
-                                                className="text-[9px] font-black text-[hsl(var(--accent))] uppercase flex items-center gap-1 hover:underline"
-                                            >
-                                                <Clock size={10} /> Usar Timer
-                                            </button>
-                                        )}
-                                    </div>
-                                    <input type="text" placeholder="HH:MM" maxLength={5} required className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={tempoHHMM} onChange={handleTimeChange} />
-                                </div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Acertos</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-green-500/50 text-green-400 font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={acertos} onChange={(e) => setAcertos(e.target.value)} /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Total Questões</label><input type="number" min="0" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none" value={total} onChange={(e) => setTotal(e.target.value)} /></div>
-                                <div className="space-y-2"><label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Nº da Meta</label><input type="text" placeholder="Ex: Meta 05" className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl px-5 py-4 focus:outline-none focus:ring-2 focus:ring-[hsl(var(--accent)/0.5)] text-[hsl(var(--text-bright))] font-black text-center text-lg" value={meta} onChange={(e) => setMeta(e.target.value)} /></div>
-                            </div>
-                            {singleStats.numericTotal > 0 && <div className={`flex flex-col items-center justify-center bg-[hsl(var(--bg-user-block))] rounded-2xl p-6 border transition-all duration-500 ${singleStats.percentage >= 80 ? 'border-green-500/30 shadow-[0_0_20px_rgba(34,197,94,0.1)]' : singleStats.percentage >= 60 ? 'border-yellow-500/30 shadow-[0_0_20px_rgba(234,179,8,0.1)]' : 'border-red-500/30 shadow-[0_0_20px_rgba(239,68,68,0.1)]'}`}><span className="text-[10px] text-[hsl(var(--text-muted))] font-black uppercase tracking-[0.2em] mb-2">Taxa de Aproveitamento</span><div className={`text-4xl font-black tracking-tighter ${singleStats.percentage >= 80 ? 'text-green-400' : singleStats.percentage >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>{singleStats.percentage.toFixed(0)}%</div></div>}
-                        </div>
-
-                        {/* PASSO 3: ANÁLISE */}
-                        <div className="glass-premium p-8 rounded-3xl border border-[hsl(var(--border))] space-y-6">
-                            <h4 className="text-xs font-black text-[hsl(var(--text-muted))] flex items-center gap-3 uppercase tracking-[0.2em]"><FileText size={18} className="text-[hsl(var(--accent))]" /> Análise Qualitativa</h4>
-                            <div className="space-y-3">
-                                <label className="text-[10px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações / Observações</label>
-                                <div className="bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
-                                    <EditorToolbar
-                                        editor={comentariosEditor}
-                                        onImageUpload={(file) => handleImageUpload(file).then(url => url && comentariosEditor?.chain().focus().setImage({ src: url }).run())}
-                                    />
-                                    <EditorContent editor={comentariosEditor} />
-                                </div>
-                            </div>
-
-                            {/* NOVO: ALGORITMO DE ERROS IA */}
-                            <div className="pt-6 border-t border-[hsl(var(--border))] space-y-6">
-                                <div className="flex items-center justify-between">
-                                    <h5 className="text-[10px] font-black text-[hsl(var(--accent))] uppercase tracking-[0.2em] flex items-center gap-2">
-                                        <Zap size={14} /> Algoritmo de Erros (IA)
-                                    </h5>
-                                    <div className="flex gap-2">
-                                        {errorAnalysis.length > 0 && (
-                                            <button
-                                                type="button"
-                                                onClick={() => setErrorAnalysis([])}
-                                                className="bg-red-500/10 hover:bg-red-500/20 text-red-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-red-500/20 active:scale-95"
-                                            >
-                                                Limpar Análises ({errorAnalysis.length})
-                                            </button>
-                                        )}
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                if (errorText.trim()) handleAnalyzeErrors(errorText);
-                                                else setMsg({ type: 'error', text: 'Cole o texto do erro primeiro.' });
-                                            }}
-                                            disabled={isAnalyzing}
-                                            className="bg-purple-600/20 hover:bg-purple-600/30 text-purple-400 px-4 py-2 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all border border-purple-600/20 active:scale-95"
-                                        >
-                                            Analisar Texto Colado
-                                        </button>
-                                    </div>
-                                </div>
-
-                                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 bg-[hsl(var(--bg-main))] p-4 rounded-2xl border border-[hsl(var(--border))]">
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest flex justify-between items-center">
-                                            <span>Gabarito Oficial</span>
-                                            {gabarito && <span className="text-green-400 animate-pulse">Selecionado</span>}
-                                        </label>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
-                                                <button
-                                                    key={opt}
-                                                    type="button"
-                                                    onClick={() => setGabarito(opt)}
-                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${gabarito === opt ? 'bg-green-500 border-green-400 text-white shadow-lg shadow-green-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-green-500/50'}`}
-                                                >
-                                                    {opt}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                    <div className="space-y-3">
-                                        <label className="text-[9px] font-black text-[hsl(var(--text-muted))] uppercase tracking-widest flex justify-between items-center">
-                                            <span>Minha Resposta</span>
-                                            {minha_resposta && <span className="text-purple-400 animate-pulse">Selecionado</span>}
-                                        </label>
-                                        <div className="flex flex-wrap gap-1.5">
-                                            {['A', 'B', 'C', 'D', 'E', 'Certo', 'Errado'].map(opt => (
-                                                <button
-                                                    key={opt}
-                                                    type="button"
-                                                    onClick={() => setMinha_resposta(opt)}
-                                                    className={`px-3 py-2 rounded-lg text-[10px] font-black transition-all border ${minha_resposta === opt ? 'bg-purple-600 border-purple-400 text-white shadow-lg shadow-purple-500/20' : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))] text-[hsl(var(--text-muted))] hover:border-purple-500/50'}`}
-                                                >
-                                                    {opt}
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-                                </div>
-
-                                <div className="bg-[hsl(var(--bg-main))] border border-[hsl(var(--border))] rounded-2xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
-                                    <EditorToolbar
-                                        editor={errorTextEditor}
-                                        onImageUpload={(file) => handleImageUpload(file).then(url => url && errorTextEditor?.chain().focus().setImage({ src: url }).run())}
-                                    />
-                                    <EditorContent editor={errorTextEditor} />
-                                </div>
-
-                                 <ErrorAnalysisBlock
-                                   analyses={errorAnalysis}
-                                   onRemove={(idx) => {
-                                     const filtered = [...errorAnalysis];
-                                     filtered.splice(idx, 1);
-                                     setErrorAnalysis(filtered);
-                                   }}
-                                 />
-                            </div>
-                        </div>
+                        <AnalysisSection
+                            gabarito={gabarito}
+                            setGabarito={setGabarito}
+                            minha_resposta={minha_resposta}
+                            setMinha_resposta={setMinha_resposta}
+                            comentarios={comentarios}
+                            setComentarios={setComentarios}
+                            errorText={errorText}
+                            setErrorText={setErrorText}
+                            isAnalyzing={isAnalyzing}
+                            handleAnalyze={handleAnalyze}
+                            errorAnalysis={errorAnalysis}
+                            onClearAnalyses={() => setErrorAnalysis([])}
+                            onRemoveAnalysis={(idx) => {
+                                const filtered = [...errorAnalysis];
+                                filtered.splice(idx, 1);
+                                setErrorAnalysis(filtered);
+                            }}
+                            onImageUpload={handleImageUpload}
+                            onError={(text) => setMsg({ type: 'error', text })}
+                        />
                     </>
                 )}
 
-                {/* ANOTAÇÕES GERAIS (Simulado) & AÇÕES FINAIS */}
                 <div className="space-y-4">
                     {isSimulado && (
                         <div className="space-y-2">
                             <label className="text-xs font-bold text-[hsl(var(--text-muted))] uppercase tracking-widest ml-1">Anotações Gerais / Observações</label>
-                            <div className="w-full bg-[hsl(var(--bg-user-block))] border border-[hsl(var(--border))] rounded-xl overflow-hidden focus-within:border-[hsl(var(--accent)/0.5)] transition-all shadow-inner">
-                                <EditorToolbar
-                                    editor={comentariosEditor}
-                                    onImageUpload={(file) => handleImageUpload(file).then(url => url && comentariosEditor?.chain().focus().setImage({ src: url }).run())}
-                                />
-                                <EditorContent editor={comentariosEditor} />
-                            </div>
+                            <RichTextEditor
+                                content={comentarios}
+                                onChange={setComentarios}
+                                placeholder="Pontos chave, links, impressões..."
+                                minHeight="min-h-[120px]"
+                                onImageUpload={handleImageUpload}
+                            />
                         </div>
                     )}
 
-
-                    <div className="flex gap-6 pt-6 border-t border-[hsl(var(--border))]">
-                        <button
-                            type="submit"
-                            disabled={loading}
-                            className={`w-full bg-gradient-to-r from-purple-600 to-[hsl(var(--accent))] hover:scale-[1.02] active:scale-95 text-[hsl(var(--bg-main))] font-black py-5 rounded-2xl shadow-2xl shadow-purple-500/20 transition-all disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-4 text-xs uppercase tracking-[0.2em] ${loading ? 'opacity-70 cursor-wait' : ''}`}
-                        >
-                            {loading ? (
-                                <>
-                                    <div className="w-5 h-5 border-2 border-[hsl(var(--bg-main))/0.3] border-t-[hsl(var(--bg-main))] rounded-full animate-spin"></div>
-                                    <span>Salvando Registro...</span>
-                                </>
-                            ) : (
-                                <>
-                                    <span>Finalizar e Salvar Estudo</span>
-                                </>
-                            )}
-                        </button>
-                    </div>
+                    <SubmitButton loading={loading} />
                 </div>
             </form>
         </div>
