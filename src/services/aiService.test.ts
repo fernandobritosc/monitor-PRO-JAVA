@@ -63,20 +63,20 @@ describe('parseAIJSON', () => {
 
         it('deve parsear Objeto JSON simples', () => {
             const json = '{"tipo_erro": "Atenção", "sugestao": "Revise o conceito"}';
-            const result = parseAIJSON<any>(json);
+            const result = parseAIJSON<Record<string, string>>(json);
             expect(result.tipo_erro).toBe('Atenção');
         });
 
         it('deve extrair JSON de resposta com texto adicional', () => {
             const json = 'Aqui está a análise: [{"tipo_erro": "Lacuna"}] Espero que ajude!';
-            const result = parseAIJSON<any[]>(json);
+            const result = parseAIJSON<Record<string, string>[]>(json);
             expect(Array.isArray(result)).toBe(true);
             expect(result[0].tipo_erro).toBe('Lacuna');
         });
 
         it('deve extrair JSON de bloco de código markdown', () => {
             const json = '```json\n[{"questao": "Qual é..."}]\n```';
-            const result = parseAIJSON<any[]>(json);
+            const result = parseAIJSON<Record<string, string>[]>(json);
             expect(Array.isArray(result)).toBe(true);
             expect(result[0].questao).toBe('Qual é...');
         });
@@ -88,7 +88,7 @@ describe('parseAIJSON', () => {
                 sugestao: 'Ação',
                 sugestao_mentor: 'Dica',
             }]);
-            const result = parseAIJSON<any[]>(json);
+            const result = parseAIJSON<Record<string, string>[]>(json);
             expect(result[0].tipo_erro).toBe('Atenção');
         });
     });
@@ -103,7 +103,7 @@ describe('parseAIJSON', () => {
             const truncated = '[{"tipo_erro": "Atenção", "sugestao": "Revise';
             // Pode rejeitar ou recuperar — o importante é não crashar silenciosamente
             try {
-                const result = parseAIJSON<any[]>(truncated);
+                const result = parseAIJSON<Record<string, string>[]>(truncated);
                 // Se recuperou, deve ser um array
                 expect(Array.isArray(result)).toBe(true);
             } catch (e) {

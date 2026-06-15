@@ -2,6 +2,11 @@ import { supabase } from '../services/supabase';
 import { Discursiva as DiscursivaType, SavedGabarito } from '../types';
 import { logger } from '../utils/logger';
 
+interface JsPDFWithAutoTable {
+  autoTable: (opts: Record<string, unknown>) => void;
+  lastAutoTable: { finalY: number };
+}
+
 export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
   if (!window.jspdf) {
     alert("Biblioteca PDF não carregada. Recarregue a página.");
@@ -9,11 +14,12 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
   }
 
   try {
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const { data: { user } } = await supabase.auth.getUser();
     const userIdentifier = user?.email || 'N/A';
 
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
+    const doc_ = doc as unknown as JsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
     let currentY = 0;
 
@@ -38,7 +44,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
     doc.text("Informações da Análise", 14, currentY);
     currentY += 5;
 
-    (doc as any).autoTable({
+    doc_.autoTable({
       startY: currentY,
       body: [
         ['ALUNO(A)', userIdentifier],
@@ -50,7 +56,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
       styles: { fontSize: 9, cellPadding: 2 },
       columnStyles: { 0: { fontStyle: 'bold', textColor: [100, 100, 100] } },
     });
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    currentY = doc_.lastAutoTable.finalY + 10;
 
     const text = analysis.analysis_text;
     const criteriaRegex = /###\s*\d+\.\s*(.*?)\n\*\*Nota:\*\*\s*(.*?)\n\*\*Justificativa:\*\*\s*(.*?)\n\*\*Melhoria Sugerida:\*\*\s*(.*?)(?=\n###|\n---)/gs;
@@ -66,7 +72,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
     while ((match = criteriaRegex.exec(text)) !== null) {
       criteriaData.push([match[1].trim(), match[2].trim(), `${match[3].trim()}\n\nMelhoria: ${match[4].trim()}`]);
     }
-    (doc as any).autoTable({
+    doc_.autoTable({
       startY: currentY,
       head: [['Critério', 'Nota', 'Justificativa & Sugestão']],
       body: criteriaData,
@@ -75,7 +81,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
       styles: { fontSize: 8, cellPadding: 3, valign: 'middle' },
       columnStyles: { 0: { cellWidth: 40 }, 1: { cellWidth: 20, halign: 'center' }, 2: { cellWidth: 'auto' } },
     });
-    currentY = (doc as any).lastAutoTable.finalY + 10;
+    currentY = doc_.lastAutoTable.finalY + 10;
 
     const grammarMatch = text.match(grammarTableRegex);
     if (grammarMatch && (grammarMatch[1] || '').trim()) {
@@ -84,7 +90,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
       doc.text("Tabela de Desvios Gramaticais", 14, currentY);
       currentY += 6;
       const grammarBody = (grammarMatch[1] || '').trim().split('\n').map(row => row.split('|').slice(1, -1).map(cell => cell.trim()));
-      (doc as any).autoTable({
+      doc_.autoTable({
         startY: currentY,
         head: [['Linha (Aprox.)', 'Trecho com Desvio', 'Sugestão de Correção']],
         body: grammarBody,
@@ -92,7 +98,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
         headStyles: { fillColor: [75, 85, 99] },
         styles: { fontSize: 8 },
       });
-      currentY = (doc as any).lastAutoTable.finalY + 10;
+      currentY = doc_.lastAutoTable.finalY + 10;
     }
 
     const planMatch = text.match(improvementPlanRegex);
@@ -113,7 +119,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
         planBody.push([categoryName, actions]);
       }
 
-      (doc as any).autoTable({
+      doc_.autoTable({
         startY: currentY,
         head: [['Critério de Melhoria', 'Plano de Ação Sugerido']],
         body: planBody,
@@ -122,13 +128,13 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
         styles: { fontSize: 8, cellPadding: 3, valign: 'top' },
         columnStyles: { 0: { fontStyle: 'bold', cellWidth: 50 }, 1: { cellWidth: 'auto' } },
       });
-      currentY = (doc as any).lastAutoTable.finalY + 10;
+      currentY = doc_.lastAutoTable.finalY + 10;
     }
 
     const finalMatch = text.match(finalScoreRegex);
     if (finalMatch) {
       if (currentY > 250) { doc.addPage(); currentY = 20; }
-      (doc as any).autoTable({
+      doc_.autoTable({
         startY: currentY,
         body: [
           [{ content: 'Nota Final', styles: { fontStyle: 'bold' } }, { content: finalMatch[1].trim(), styles: { fontStyle: 'bold', fontSize: 14, halign: 'center' } }],
@@ -148,9 +154,10 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
     }
 
     doc.save(`Analise_Discursiva_${analysis.id.substring(0, 8)}.pdf`);
-  } catch (err: any) {
-    logger.error('DATA', 'Erro ao gerar PDF', err);
-    alert("Erro ao gerar PDF: " + err.message);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    logger.error('DATA', 'Erro ao gerar PDF', error);
+    alert("Erro ao gerar PDF: " + error.message);
   }
 };
 
@@ -172,7 +179,8 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
   try {
     const { jsPDF } = window.jspdf;
     const doc = new jsPDF();
-    const { data: { user } } = await (supabase.auth as any).getUser();
+    const doc_ = doc as unknown as JsPDFWithAutoTable;
+    const { data: { user } } = await supabase.auth.getUser();
     const pageWidth = doc.internal.pageSize.getWidth();
     let currentY = 0;
 
@@ -197,8 +205,7 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
     doc.text("Informações da Análise", 14, currentY);
     currentY += 5;
 
-    const autoTableDoc = doc as any;
-    autoTableDoc.autoTable({
+    doc_.autoTable({
       startY: currentY,
       body: [
         ['ALUNO(A)', user?.email || 'N/A'],
@@ -210,12 +217,12 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
       styles: { fontSize: 9, cellPadding: 2 },
       columnStyles: { 0: { fontStyle: 'bold', textColor: [100, 100, 100] } },
     });
-    currentY = autoTableDoc.lastAutoTable.finalY + 10;
+    currentY = doc_.lastAutoTable.finalY + 10;
 
     doc.setFontSize(14);
     doc.text("Resumo de Desempenho", 14, currentY);
     currentY += 6;
-    autoTableDoc.autoTable({
+    doc_.autoTable({
       startY: currentY,
       head: [['Comparativo', 'Acertos', 'Total', 'Nota']],
       body: [
@@ -225,12 +232,12 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
       theme: 'grid',
       headStyles: { fillColor: [88, 28, 135] }
     });
-    currentY = autoTableDoc.lastAutoTable.finalY + 10;
+    currentY = doc_.lastAutoTable.finalY + 10;
 
     doc.setFontSize(14);
     doc.text("Gabarito Detalhado", 14, currentY);
     currentY += 6;
-    autoTableDoc.autoTable({
+    doc_.autoTable({
       startY: currentY,
       head: [['Questão', 'Sua Resposta', 'Gabarito Oficial', 'Gabarito IA', 'Resultado (vs. Oficial)']],
       body: selectedGabarito.results_json.map(r => [
@@ -240,14 +247,14 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
         r.alternativa_correta_ia,
         (userAnswers[r.numero_questao] && officialAnswers[r.numero_questao]) ? (userAnswers[r.numero_questao] === officialAnswers[r.numero_questao] ? 'CORRETO' : 'ERRADO') : '-'
       ]),
-      didParseCell: (data: any) => {
+      didParseCell: (data: { column: { index: number }; cell: { raw: string; styles: { textColor: [number, number, number] } } }) => {
         if (data.column.index === 4) {
           if (data.cell.raw === 'CORRETO') data.cell.styles.textColor = [0, 150, 0];
           if (data.cell.raw === 'ERRADO') data.cell.styles.textColor = [200, 0, 0];
         }
       }
     });
-    currentY = autoTableDoc.lastAutoTable.finalY + 15;
+    currentY = doc_.lastAutoTable.finalY + 15;
 
     doc.setFontSize(14);
     doc.text("Análise Detalhada das Questões", 14, currentY);
@@ -279,8 +286,9 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
     }
 
     doc.save(`analise_gabarito_${selectedGabarito.file_name.replace('.pdf', '')}.pdf`);
-  } catch (err: any) {
-    logger.error('DATA', 'Erro ao gerar PDF', err);
-    alert("Erro ao gerar PDF: " + err.message);
+  } catch (err: unknown) {
+    const error = err instanceof Error ? err : new Error(String(err));
+    logger.error('DATA', 'Erro ao gerar PDF', error);
+    alert("Erro ao gerar PDF: " + error.message);
   }
 };

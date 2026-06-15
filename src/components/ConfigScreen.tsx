@@ -83,9 +83,9 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
         saveAppConfig(trimmedUrl, trimmedKey, trimmedAiKey, trimmedGroqKey);
       }, 800);
 
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Connection Test Failed:", err);
-      setError(err.message || 'Falha ao conectar. Verifique os dados.');
+      setError(err instanceof Error ? err.message : 'Falha ao conectar. Verifique os dados.');
       setTestStatus('error');
       setLoading(false);
     }

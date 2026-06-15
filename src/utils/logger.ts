@@ -6,7 +6,7 @@
 
 import * as Sentry from "@sentry/react";
 
-const IS_DEV = (import.meta as any).env.DEV;
+const IS_DEV = import.meta.env.DEV;
 
 type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
 type LogCategory =
@@ -18,7 +18,7 @@ interface LogEntry {
     level: LogLevel;
     category: LogCategory;
     message: string;
-    data?: any;
+    data?: unknown;
     userId?: string;
     stackTrace?: string;
 }
@@ -53,7 +53,7 @@ class MonitorProLogger {
         level: LogLevel,
         category: LogCategory,
         message: string,
-        data?: any,
+        data?: unknown,
         userId?: string
     ): LogEntry {
         return {
@@ -110,19 +110,19 @@ class MonitorProLogger {
     }
 
     // —— Métodos Públicos ——
-    info(category: LogCategory, message: string, data?: any, userId?: string) {
+    info(category: LogCategory, message: string, data?: unknown, userId?: string) {
         this.log(this.createEntry('INFO', category, message, data, userId));
     }
 
-    warn(category: LogCategory, message: string, data?: any, userId?: string) {
+    warn(category: LogCategory, message: string, data?: unknown, userId?: string) {
         this.log(this.createEntry('WARN', category, message, data, userId));
     }
 
-    error(category: LogCategory, message: string, data?: any, userId?: string) {
+    error(category: LogCategory, message: string, data?: unknown, userId?: string) {
         this.log(this.createEntry('ERROR', category, message, data, userId));
     }
 
-    debug(category: LogCategory, message: string, data?: any, userId?: string) {
+    debug(category: LogCategory, message: string, data?: unknown, userId?: string) {
         this.log(this.createEntry('DEBUG', category, message, data, userId));
     }
 
@@ -227,7 +227,7 @@ export const logger = new MonitorProLogger();
 
 // Expor globalmente para debug (apenas em DEV no console, sempre em window)
 if (typeof window !== 'undefined') {
-    (window as any).monitorProLogger = logger;
+    (window as unknown as { monitorProLogger: MonitorProLogger }).monitorProLogger = logger;
     if (IS_DEV) {
         // eslint-disable-next-line no-console
         console.log('💡 Logger: window.monitorProLogger (.printSummary / .downloadLogs / .clearLogs)');

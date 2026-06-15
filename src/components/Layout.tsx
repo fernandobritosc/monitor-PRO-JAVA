@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import type { LucideIcon } from 'lucide-react';
 import {
   Home,
   BookOpen,
@@ -112,7 +113,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       setUserEmail(propEmail);
       return;
     }
-    (supabase.auth as any).getSession().then(({ data: { session } }: any) => {
+    supabase.auth.getSession().then(({ data: { session } }) => {
       if (session) setUserEmail(session.user.email || '');
     });
   }, [propEmail]);
@@ -123,7 +124,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       return;
     }
 
-    await (supabase.auth as any).signOut();
+    await supabase.auth.signOut();
     preserveMissaoOnClear();
     window.location.reload();
   };
@@ -131,7 +132,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
   interface MenuItem {
     id: string;
     label: string;
-    icon: any;
+    icon: LucideIcon;
     isNew?: boolean;
   }
 
@@ -202,7 +203,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
             width: isCollapsed ? 64 : 240,
             x: sidebarOpen || typeof window !== 'undefined' && window.innerWidth >= 1024 ? 0 : -240
           }}
-          transition={{ type: 'spring', stiffness: 300, damping: 24 } as any}
+          transition={{ type: 'spring' as const, stiffness: 300, damping: 24 }}
           className={`
             fixed lg:sticky top-0 left-0 h-screen 
             bg-[hsl(var(--bg-sidebar)/0.8)] backdrop-blur-[var(--glass-blur)]

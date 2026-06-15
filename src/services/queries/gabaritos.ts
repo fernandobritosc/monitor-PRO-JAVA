@@ -28,7 +28,7 @@ export const gabaritosQueries = {
     },
 
     /** Atualiza respostas de um gabarito */
-    async updateAnswers(id: string, updates: { user_answers_json?: any; official_answers_json?: any; results_json?: any }) {
+    async updateAnswers(id: string, updates: { user_answers_json?: Record<string, unknown>; official_answers_json?: Record<string, unknown>; results_json?: unknown }) {
         const { error } = await supabase
             .from('gabaritos_salvos')
             .update(updates)

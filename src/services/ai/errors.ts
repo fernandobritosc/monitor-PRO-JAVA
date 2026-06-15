@@ -1,8 +1,9 @@
 import { logger } from '../../utils/logger';
 
-export const processAIError = (error: any, provider: 'Gemini' | 'Groq'): Error => {
-  logger.error('AI', `Erro no ${provider}`, { error: error?.message });
-  let friendlyMessage = error.message || `Erro desconhecido na API ${provider}`;
+export const processAIError = (error: unknown, provider: 'Gemini' | 'Groq'): Error => {
+  const errorMessage = error instanceof Error ? error.message : String(error);
+  logger.error('AI', `Erro no ${provider}`, { error: errorMessage });
+  let friendlyMessage = errorMessage || `Erro desconhecido na API ${provider}`;
 
   if (typeof friendlyMessage === 'string') {
     if (provider === 'Gemini' && (friendlyMessage.includes('API key expired') || friendlyMessage.includes('API_KEY_INVALID'))) {

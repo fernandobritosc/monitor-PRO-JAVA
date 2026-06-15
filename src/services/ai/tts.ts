@@ -58,7 +58,8 @@ export const handlePlayRevisionAudio = async (
     const base64Audio = response.candidates?.[0]?.content?.parts?.[0]?.inlineData?.data;
     if (!base64Audio) throw new Error("Audio generation failed");
 
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    const AC: typeof AudioContext = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)!;
+    audioContext = new AC({ sampleRate: 24000 });
     const audioBytes = decodeBase64(base64Audio);
     const audioBuffer = await decodeAudioData(audioBytes, audioContext);
     source = audioContext.createBufferSource();
@@ -84,7 +85,7 @@ export const handlePlayRevisionAudio = async (
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
-  } catch (error: any) {
+  } catch (error: unknown) {
     onError(processAIError(error, 'Gemini').message);
     onEnd();
     return () => { };

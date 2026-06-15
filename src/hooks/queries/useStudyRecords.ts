@@ -74,7 +74,7 @@ export const useStudyRecords = (userId: string | undefined) => {
             const remoteToStore: OfflineAttempt[] = remoteData.map((r: StudyRecord) => ({
               ...r,
               syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
-              lastModified: (r as any).lastModified || Date.now()
+              lastModified: (r as OfflineAttempt).lastModified || Date.now()
             }));
             
             const result = await db.studyRecords.bulkPut(remoteToStore);

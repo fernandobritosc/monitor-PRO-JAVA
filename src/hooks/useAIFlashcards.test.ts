@@ -1,10 +1,12 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act } from '@testing-library/react';
-import { useAIFlashcards } from './useAIFlashcards';
-import type { Flashcard, AIProviderName } from '../types';
+import { useAIFlashcards, type UseAIFlashcardsProps } from './useAIFlashcards';
+import type { Flashcard } from '../types';
+import type { AIProviderName } from '../services/aiService';
 
 const mockCard: Flashcard = {
   id: 'card-1',
+  concurso: 'Geral',
   materia: 'Direito Constitucional',
   assunto: 'Direitos Fundamentais',
   front: 'O que é o princípio da dignidade da pessoa humana?',
@@ -12,9 +14,6 @@ const mockCard: Flashcard = {
   status: 'novo',
   interval: 0,
   ease_factor: 2.5,
-  next_review: null,
-  ai_generated_assets: null,
-  original_audio_id: null,
   author_name: 'test',
   created_at: '2024-01-01T00:00:00Z',
   user_id: 'user-1',
@@ -35,7 +34,6 @@ vi.mock('../services/supabase', () => ({
 vi.mock('../services/aiService', () => ({
   streamAIContent: vi.fn(),
   generateAIContent: vi.fn(),
-  AIProviderName: {} as Record<string, AIProviderName>,
 }));
 
 describe('useAIFlashcards', () => {
@@ -201,7 +199,11 @@ describe('useAIFlashcards', () => {
   it('handleSendFollowUp: não deve enviar sem followUpQuery', async () => {
     const { streamAIContent } = await import('../services/aiService');
 
-    const { result } = renderHook(() => useAIFlashcards({ ...defaultProps, aiStreamText: 'algum texto' }));
+    const { result } = renderHook(() => useAIFlashcards(defaultProps));
+
+    act(() => {
+      result.current.setAiStreamText('algum texto');
+    });
 
     await act(async () => {
       await result.current.handleSendFollowUp();
@@ -236,8 +238,8 @@ describe('useAIFlashcards', () => {
 
   it('deve resetar states ao trocar selectedAI', () => {
     const { result, rerender } = renderHook(
-      (props) => useAIFlashcards(props),
-      { initialProps: defaultProps }
+      (props: UseAIFlashcardsProps) => useAIFlashcards(props as UseAIFlashcardsProps),
+      { initialProps: defaultProps as UseAIFlashcardsProps }
     );
 
     act(() => {
@@ -245,7 +247,7 @@ describe('useAIFlashcards', () => {
       result.current.setMnemonicText('mnemônico');
     });
 
-    rerender({ ...defaultProps, selectedAI: 'gemini' });
+    rerender({ ...defaultProps, selectedAI: 'gemini' } as UseAIFlashcardsProps);
 
     expect(result.current.aiStreamText).toBe('');
     expect(result.current.mnemonicText).toBe('');
@@ -253,10 +255,10 @@ describe('useAIFlashcards', () => {
     expect(result.current.extraContent).toBe('');
   });
 
-  it('deve resetar AI texts quando studyQueue muda de vazio para preenchido', () => {
+    it('deve resetar AI texts quando studyQueue muda de vazio para preenchido', () => {
     const { result, rerender } = renderHook(
-      (props) => useAIFlashcards(props),
-      { initialProps: { ...defaultProps, studyQueue: [] } }
+      (props: UseAIFlashcardsProps) => useAIFlashcards(props),
+      { initialProps: { ...defaultProps, studyQueue: [] } as UseAIFlashcardsProps }
     );
 
     act(() => {
@@ -264,7 +266,7 @@ describe('useAIFlashcards', () => {
       result.current.setFollowUpQuery('pergunta');
     });
 
-    rerender({ ...defaultProps, studyQueue: [mockCard] });
+    rerender({ ...defaultProps, studyQueue: [mockCard] } as UseAIFlashcardsProps);
 
     expect(result.current.aiStreamText).toBe('');
     expect(result.current.followUpQuery).toBe('');

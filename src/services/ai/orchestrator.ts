@@ -43,21 +43,23 @@ export const streamAIContent = async (
       try {
         const isFlashcard = prompt.toLowerCase().includes('flashcard') || prompt.toLowerCase().includes('mnemônico');
         await streamWithGemini(config.apiKey, prompt, callbacks, isFlashcard ? 'flashcard' : 'general');
-      } catch (err: any) {
-        logger.error('AI', 'Falha crítica no Gemini', { error: (err as any)?.message });
-        captureAIError(err, 'Gemini', 'stream', prompt.length);
+      } catch (err: unknown) {
+        const geminiErr = err instanceof Error ? err : new Error(String(err));
+        logger.error('AI', 'Falha crítica no Gemini', { error: geminiErr.message });
+        captureAIError(geminiErr, 'Gemini', 'stream', prompt.length);
         if (groqKey && groqKey.length > 10) {
-          callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou (${err.message}). Ativando Groq automaticamente...]\n\n`);
+          callbacks.onChunk(`\n\n🔄 [Aviso: Gemini falhou (${geminiErr.message}). Ativando Groq automaticamente...]\n\n`);
           await streamWithGroq(groqKey, prompt, callbacks);
         } else {
-          throw err;
+          throw geminiErr;
         }
       }
     } else {
       try {
         await streamWithGroq(config.apiKey, prompt, callbacks);
-      } catch (err: any) {
-        captureAIError(err, 'Groq', 'stream', prompt.length);
+      } catch (err: unknown) {
+        const groqErr = err instanceof Error ? err : new Error(String(err));
+        captureAIError(groqErr, 'Groq', 'stream', prompt.length);
         if (geminiKey && geminiKey.length > 10) {
           callbacks.onChunk("\n\n🔄 [Aviso: Groq falhou. Ativando Gemini automaticamente...]\n\n");
           await streamWithGemini(geminiKey, prompt, callbacks);
@@ -74,7 +76,7 @@ export const streamAIContent = async (
 };
 
 export const generateAIContent = async (
-  prompt: string | { content: string; stats?: any },
+  prompt: string | { content: string; stats?: unknown },
   geminiKey?: string,
   groqKey?: string,
   preferredProvider?: AIProviderName,
@@ -90,7 +92,7 @@ export const generateAIContent = async (
   let finalPrompt = "";
 
   if (context === 'analise_erros') {
-    const stats = (typeof prompt !== 'string' ? prompt.stats || {} : {}) as any;
+    const stats = (typeof prompt !== 'string' ? prompt.stats || {} : {}) as { gabarito?: string; minha_resposta?: string };
     const additionalContext = (stats.gabarito && stats.minha_resposta)
       ? `\nCONTEXTO DO ERRO:\n- Gabarito Oficial: ${stats.gabarito}\n- Resposta do Aluno: ${stats.minha_resposta}\n`
       : "";
@@ -202,7 +204,7 @@ export const generateAIContent = async (
         throw err;
       }
     }
-  } catch (err: any) {
+  } catch (err: unknown) {
     throw err;
   }
 };

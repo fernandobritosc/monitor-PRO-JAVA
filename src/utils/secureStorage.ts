@@ -1,4 +1,78 @@
 const KEY_STORAGE_KEY = '_mp_ek';
+const SALT_STORAGE_KEY = '_mp_pbkdf2_salt';
+const USER_KEY_FLAG = '_mp_user_key';
+
+let apiKeyCache: { gemini?: string; groq?: string } = {};
+
+export function getApiKeyCache() {
+  return apiKeyCache;
+}
+
+function clearApiKeyCache() {
+  apiKeyCache = {};
+}
+
+async function preDecryptApiKeys(): Promise<void> {
+  const geminiStored = localStorage.getItem('monitorpro_ai_key');
+  const groqStored = localStorage.getItem('monitorpro_groq_key');
+  const cache: typeof apiKeyCache = {};
+
+  if (geminiStored) {
+    const decrypted = await decryptValue(geminiStored);
+    if (decrypted !== geminiStored) cache.gemini = decrypted;
+  }
+  if (groqStored) {
+    const decrypted = await decryptValue(groqStored);
+    if (decrypted !== groqStored) cache.groq = decrypted;
+  }
+
+  apiKeyCache = cache;
+}
+
+export async function deriveKeyFromUserId(userId: string): Promise<CryptoKey> {
+  const encoder = new TextEncoder();
+  let salt = localStorage.getItem(SALT_STORAGE_KEY);
+  if (!salt) {
+    const bytes = crypto.getRandomValues(new Uint8Array(16));
+    salt = Array.from(bytes, b => b.toString(16).padStart(2, '0')).join('');
+    localStorage.setItem(SALT_STORAGE_KEY, salt);
+  }
+
+  const keyMaterial = await crypto.subtle.importKey(
+    'raw',
+    encoder.encode(userId),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+
+  const key = await crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt: encoder.encode(salt),
+      iterations: 600000,
+      hash: 'SHA-256',
+    },
+    keyMaterial,
+    { name: 'AES-GCM', length: 256 },
+    true,
+    ['encrypt', 'decrypt']
+  );
+
+  const exportedKey = await crypto.subtle.exportKey('raw', key);
+  sessionStorage.setItem(KEY_STORAGE_KEY, JSON.stringify(Array.from(new Uint8Array(exportedKey))));
+  sessionStorage.setItem(USER_KEY_FLAG, 'true');
+
+  preDecryptApiKeys().catch(() => {});
+
+  return key;
+}
+
+export function clearUserKey(): void {
+  clearApiKeyCache();
+  sessionStorage.removeItem(KEY_STORAGE_KEY);
+  sessionStorage.removeItem(USER_KEY_FLAG);
+}
 
 async function getEncryptionKey(): Promise<CryptoKey> {
   const storedKey = sessionStorage.getItem(KEY_STORAGE_KEY);

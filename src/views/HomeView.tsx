@@ -89,7 +89,7 @@ const KPICard: React.FC<KPICardProps> = ({ label, value, percentage, icon, color
   );
 };
 
-const CustomYAxisTick = (props: any) => {
+const CustomYAxisTick = (props: { x: number; y: number; payload: { value: string | number } }) => {
   const { x, y, payload } = props;
   return (
     <g transform={`translate(${x},${y})`}>

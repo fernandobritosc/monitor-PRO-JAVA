@@ -30,11 +30,12 @@ import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useEditais } from '../hooks/queries/useEditais';
+import DOMPurify from 'dompurify';
 
 const renderHTML = (html: string) => (
   <span
     className="[&_a:hover:text-cyan-300 [&_a]:text-cyan-400 [&_a]:underline [&_br]:block [&_em]:italic [&_p]:my-1 [&_strong]:text-slate-200 [&_u]:underline"
-    dangerouslySetInnerHTML={{ __html: html }}
+    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
   />
 );
 

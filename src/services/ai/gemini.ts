@@ -51,7 +51,7 @@ export const streamWithGemini = async (
   callbacks: AIStreamCallback,
   context: AIContext = 'general'
 ): Promise<void> => {
-  let lastError: any = null;
+  let lastError: unknown = null;
   const finalPrompt = getStreamPrompt(prompt, context);
 
   for (const modelId of GEMINI_STREAM_MODELS) {
@@ -78,10 +78,11 @@ export const streamWithGemini = async (
       logger.info('AI', `Streaming Gemini (${modelId}) completo`);
       callbacks.onComplete();
       return;
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      logger.warn('AI', `Falha no modelo ${modelId}: ${error.message}`);
-      if (error.message?.includes('API_KEY') || error.message?.includes('quota')) break;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      logger.warn('AI', `Falha no modelo ${modelId}: ${errMsg}`);
+      if (errMsg.includes('API_KEY') || errMsg.includes('quota')) break;
     }
   }
 
@@ -92,7 +93,7 @@ export const runGemini = async (
   apiKey: string,
   finalPrompt: string
 ): Promise<string> => {
-  let lastError: any = null;
+  let lastError: unknown = null;
 
   for (const modelId of GEMINI_GENERATE_MODELS) {
     try {
@@ -104,7 +105,7 @@ export const runGemini = async (
           temperature: 0.1,
           maxOutputTokens: 8192,
         }
-      }) as any;
+      }) as { text?: string | (() => string); response?: { text?: () => string }; candidates?: Array<{ content?: { parts?: Array<{ text?: string }> } }> };
 
       let resultText = "";
       try {
@@ -122,9 +123,10 @@ export const runGemini = async (
       }
 
       return resultText || '';
-    } catch (error: any) {
+    } catch (error: unknown) {
       lastError = error;
-      if (error.message?.includes('API_KEY')) break;
+      const errMsg = error instanceof Error ? error.message : String(error);
+      if (errMsg.includes('API_KEY')) break;
     }
   }
   throw processAIError(lastError, 'Gemini');

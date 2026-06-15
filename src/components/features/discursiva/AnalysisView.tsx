@@ -5,9 +5,7 @@ import {
   Sparkles, Download, ChevronUp, ChevronDown, List,
   ImageIcon, MessageSquare, CheckCircle2
 } from 'lucide-react';
-import * as DOMPurifyNamespace from 'dompurify';
-
-const DOMPurify = (DOMPurifyNamespace as any).default || DOMPurifyNamespace;
+import DOMPurify from 'dompurify';
 
 interface GrammarTableProps {
   tableData: {

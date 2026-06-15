@@ -22,6 +22,7 @@ import { supabase } from '../services/supabase';
 import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
+import DOMPurify from 'dompurify';
 
 // Tipo interno para gerenciar a revisão na UI
 interface PendingReview extends StudyRecord {
@@ -43,7 +44,7 @@ const getLocalToday = () => {
 const renderHTML = (html: string) => (
   <span
     className="[&_a:hover:text-cyan-300 [&_a]:text-cyan-400 [&_a]:underline [&_br]:block [&_em]:italic [&_p]:my-2 [&_strong]:text-purple-300 [&_u]:underline"
-    dangerouslySetInnerHTML={{ __html: html }}
+    dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(html) }}
   />
 );
 
@@ -347,7 +348,7 @@ const Revisoes: React.FC = () => {
       const isHighPerformance = taxa > 85;
       const updates: Partial<StudyRecord> = {};
       const field = `rev_${selectedReview.reviewType}` as keyof StudyRecord;
-      (updates as any)[field] = true;
+      (updates as Record<string, boolean | undefined>)[field] = true;
 
       if (isHighPerformance) {
         if (selectedReview.reviewType === '24h') {

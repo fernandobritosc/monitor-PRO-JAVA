@@ -108,9 +108,10 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
             // O realtime já vai atualizar a lista, mas forçamos um fetch por garantia
             fetchNews();
             alert("Radar atualizado! Buscando editais novos...");
-        } catch (err: any) {
+        } catch (err: unknown) {
+            const message = err instanceof Error ? err.message : String(err);
             logger.error('AI', 'Erro ao atualizar notícias:', err);
-            alert("Falha na atualização: " + (err.message || "Erro na Edge Function"));
+            alert("Falha na atualização: " + message);
         } finally {
             setIsRefreshingNews(false);
         }
@@ -123,7 +124,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
             const data = await profilesQueries.getRankingFiltered(timeFilter);
 
             if (data) {
-                const formatted = data.map((r: any) => {
+                const formatted = data.map((r: { user_id: string; name?: string; total_tempo: number; total_questoes: number }) => {
                     const hours = Math.floor(r.total_tempo / 60);
                     return {
                         id: r.user_id,
@@ -135,7 +136,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                     };
                 });
 
-                formatted.sort((a: any, b: any) => b.totalTempo - a.totalTempo);
+                formatted.sort((a: RankerItem, b: RankerItem) => b.totalTempo - a.totalTempo);
                 setRankers(formatted.slice(0, 15)); // Pega os 15 melhores para exibir na lateral
             }
         } catch (err) {

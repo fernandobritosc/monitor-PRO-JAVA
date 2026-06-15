@@ -1,0 +1,245 @@
+[
+  {
+    "Posicao": "1",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Rio Grande do Norte",
+    "IBGE": "24",
+    "Percentual": "93.41%",
+    "ICF": "B",
+    "Pontos": "170.00"
+  },
+  {
+    "Posicao": "2",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Goiás",
+    "IBGE": "52",
+    "Percentual": "92.31%",
+    "ICF": "B",
+    "Pontos": "168.00"
+  },
+  {
+    "Posicao": "3",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Pará",
+    "IBGE": "15",
+    "Percentual": "91.76%",
+    "ICF": "B",
+    "Pontos": "167.00"
+  },
+  {
+    "Posicao": "4",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Pernambuco",
+    "IBGE": "26",
+    "Percentual": "91.76%",
+    "ICF": "B",
+    "Pontos": "167.00"
+  },
+  {
+    "Posicao": "5",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Ceará",
+    "IBGE": "23",
+    "Percentual": "91.53%",
+    "ICF": "B",
+    "Pontos": "166.58"
+  },
+  {
+    "Posicao": "6",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Tocantins",
+    "IBGE": "17",
+    "Percentual": "91.21%",
+    "ICF": "B",
+    "Pontos": "166.00"
+  },
+  {
+    "Posicao": "7",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Rio Grande do Sul",
+    "IBGE": "43",
+    "Percentual": "91.21%",
+    "ICF": "B",
+    "Pontos": "166.00"
+  },
+  {
+    "Posicao": "8",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Espírito Santo",
+    "IBGE": "32",
+    "Percentual": "90.66%",
+    "ICF": "B",
+    "Pontos": "165.00"
+  },
+  {
+    "Posicao": "9",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Rondônia",
+    "IBGE": "11",
+    "Percentual": "90.11%",
+    "ICF": "B",
+    "Pontos": "164.00"
+  },
+  {
+    "Posicao": "10",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Paraná",
+    "IBGE": "41",
+    "Percentual": "90.11%",
+    "ICF": "B",
+    "Pontos": "164.00"
+  },
+  {
+    "Posicao": "11",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Mato Grosso",
+    "IBGE": "51",
+    "Percentual": "90.11%",
+    "ICF": "B",
+    "Pontos": "164.00"
+  },
+  {
+    "Posicao": "12",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Piauí",
+    "IBGE": "22",
+    "Percentual": "89.60%",
+    "ICF": "B",
+    "Pontos": "163.08"
+  },
+  {
+    "Posicao": "13",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Bahia",
+    "IBGE": "29",
+    "Percentual": "89.34%",
+    "ICF": "B",
+    "Pontos": "162.59"
+  },
+  {
+    "Posicao": "14",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Rio de Janeiro",
+    "IBGE": "33",
+    "Percentual": "88.46%",
+    "ICF": "B",
+    "Pontos": "161.00"
+  },
+  {
+    "Posicao": "15",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Paraíba",
+    "IBGE": "25",
+    "Percentual": "88.05%",
+    "ICF": "B",
+    "Pontos": "160.25"
+  },
+  {
+    "Posicao": "16",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Distrito Federal",
+    "IBGE": "53",
+    "Percentual": "87.91%",
+    "ICF": "B",
+    "Pontos": "160.00"
+  },
+  {
+    "Posicao": "17",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Mato Grosso do Sul",
+    "IBGE": "50",
+    "Percentual": "87.83%",
+    "ICF": "B",
+    "Pontos": "159.85"
+  },
+  {
+    "Posicao": "18",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Sergipe",
+    "IBGE": "28",
+    "Percentual": "86.81%",
+    "ICF": "B",
+    "Pontos": "158.00"
+  },
+  {
+    "Posicao": "19",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Roraima",
+    "IBGE": "14",
+    "Percentual": "86.36%",
+    "ICF": "B",
+    "Pontos": "157.17"
+  },
+  {
+    "Posicao": "20",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Amazonas",
+    "IBGE": "13",
+    "Percentual": "86.31%",
+    "ICF": "B",
+    "Pontos": "157.08"
+  },
+  {
+    "Posicao": "21",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Santa Catarina",
+    "IBGE": "42",
+    "Percentual": "85.71%",
+    "ICF": "B",
+    "Pontos": "156.00"
+  },
+  {
+    "Posicao": "22",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Maranhão",
+    "IBGE": "21",
+    "Percentual": "85.16%",
+    "ICF": "B",
+    "Pontos": "155.00"
+  },
+  {
+    "Posicao": "23",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Alagoas",
+    "IBGE": "27",
+    "Percentual": "84.07%",
+    "ICF": "C",
+    "Pontos": "153.00"
+  },
+  {
+    "Posicao": "24",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "São Paulo",
+    "IBGE": "35",
+    "Percentual": "84.07%",
+    "ICF": "C",
+    "Pontos": "153.00"
+  },
+  {
+    "Posicao": "25",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Amapá",
+    "IBGE": "16",
+    "Percentual": "81.32%",
+    "ICF": "C",
+    "Pontos": "148.00"
+  },
+  {
+    "Posicao": "26",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Minas Gerais",
+    "IBGE": "31",
+    "Percentual": "81.32%",
+    "ICF": "C",
+    "Pontos": "148.00"
+  },
+  {
+    "Posicao": "27",
+    "Categoria": "ESTADOS_DF",
+    "Nome": "Acre",
+    "IBGE": "12",
+    "Percentual": "79.67%",
+    "ICF": "C",
+    "Pontos": "145.00"
+  }
+]

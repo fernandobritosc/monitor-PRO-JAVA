@@ -60,7 +60,7 @@ global.speechSynthesis = {
     addEventListener: vi.fn(),
     removeEventListener: vi.fn(),
     dispatchEvent: vi.fn(() => true),
-} as any;
+} as unknown as SpeechSynthesis;
 
 // Mock AudioContext
 global.AudioContext = vi.fn().mockImplementation(() => ({
@@ -75,7 +75,7 @@ global.AudioContext = vi.fn().mockImplementation(() => ({
     destination: {},
     close: vi.fn(),
     sampleRate: 44100,
-})) as any;
+})) as unknown as typeof AudioContext;
 
 // Suprimir warnings do React sobre act()
-(globalThis as any).IS_REACT_ACT_ENVIRONMENT = true;
+(globalThis as unknown as { IS_REACT_ACT_ENVIRONMENT: boolean }).IS_REACT_ACT_ENVIRONMENT = true;

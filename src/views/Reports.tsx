@@ -10,7 +10,7 @@ import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { getErrorMessage } from '../utils/error';
 
 interface jsPDFWithAutoTable extends Object {
-    autoTable: (options: any) => void;
+    autoTable: (options: Record<string, unknown>) => void;
     lastAutoTable: {
         finalY: number;
     };
@@ -234,7 +234,7 @@ const Reports: React.FC = () => {
                     6: { cellWidth: 20, fontSize: 7 }
                 },
                 margin: { left: 14, right: 14 },
-                didParseCell: (data: { row: { raw: any[] }, section: string, column: { index: number }, cell: { raw: any, styles: { fillColor?: number[], textColor?: number[] } } }) => {
+                didParseCell: (data: { row: { raw: string[] }, section: string, column: { index: number }, cell: { raw: string, styles: { fillColor?: number[], textColor?: number[] } } }) => {
                     if (data.column.index === 5 && data.section === 'body') {
                         const val = parseFloat(data.cell.raw as string);
                         if (val < 60) data.cell.styles.textColor = [220, 38, 38];

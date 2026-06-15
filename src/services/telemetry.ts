@@ -6,7 +6,7 @@ import posthog from 'posthog-js';
 // ============================================================
 
 export const initTelemetry = () => {
-    const sentryDsn = (import.meta as any).env.VITE_SENTRY_DSN || "";
+    const sentryDsn = import.meta.env.VITE_SENTRY_DSN || "";
 
     if (sentryDsn) {
         Sentry.init({
@@ -27,7 +27,7 @@ export const initTelemetry = () => {
             beforeSend(event) {
                 // Remove dados sensíveis antes de enviar
                 if (event.request?.data) {
-                    const data = event.request.data as any;
+                    const data = event.request.data as Record<string, unknown>;
                     if (data.apiKey) data.apiKey = '[REDACTED]';
                     if (data.password) data.password = '[REDACTED]';
                 }
@@ -36,8 +36,8 @@ export const initTelemetry = () => {
         });
     }
 
-    const posthogKey = (import.meta as any).env.VITE_POSTHOG_KEY || "";
-    const posthogHost = (import.meta as any).env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
+    const posthogKey = import.meta.env.VITE_POSTHOG_KEY || "";
+    const posthogHost = import.meta.env.VITE_POSTHOG_HOST || "https://us.i.posthog.com";
 
     if (posthogKey) {
         posthog.init(posthogKey, {
@@ -207,17 +207,18 @@ export const startAIPerformanceTrace = (
 
 import { logger } from '../utils/logger';
 
-export const captureError = (error: any, context?: Record<string, any>) => {
-    logger.error('DATA', 'Capture Error', { error: error?.message, context });
+export const captureError = (error: unknown, context?: Record<string, unknown>) => {
+    const errorMessage = error instanceof Error ? error.message : String(error);
+    logger.error('DATA', 'Capture Error', { error: errorMessage, context });
 
     Sentry.withScope((scope) => {
         if (context) {
             scope.setContext('error_context', context);
         }
 
-        if (context?.component) scope.setTag('component', context.component);
-        if (context?.operation) scope.setTag('operation', context.operation);
-        if (context?.provider) scope.setTag('ai_provider', context.provider);
+        if (context?.component) scope.setTag('component', context.component as string);
+        if (context?.operation) scope.setTag('operation', context.operation as string);
+        if (context?.provider) scope.setTag('ai_provider', context.provider as string);
 
         Sentry.captureException(error);
     });
@@ -247,7 +248,7 @@ export const captureAIError = (
 // Eventos PostHog
 // ============================================================
 
-export const trackEvent = (eventName: string, properties?: Record<string, any>) => {
+export const trackEvent = (eventName: string, properties?: Record<string, unknown>) => {
     posthog.capture(eventName, properties);
 };
 

@@ -98,7 +98,7 @@ export const SyncStatus: React.FC = () => {
     }
   };
 
-  const supabaseUrl = (supabase as any).supabaseUrl || '';
+  const supabaseUrl = (supabase as unknown as { supabaseUrl?: string }).supabaseUrl || '';
   const dbHost = supabaseUrl ? new URL(supabaseUrl).hostname.split('.')[0] : 'Desconhecido';
 
   return (

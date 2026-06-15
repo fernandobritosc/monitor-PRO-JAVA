@@ -5,7 +5,7 @@ import {
   Loader2, Filter, BookOpen, Edit2, Save, X, DownloadCloud, Eye,
   Globe, Database, Copy, ChevronDown, Sparkles, Volume2, Lock, ChevronLeft, ChevronRight, Trophy, Tag, Send, MessageSquarePlus, ChevronUp, Headphones, Mic2, RefreshCw, User, Music, FileText, ArrowRightLeft, Table, Map as MapIcon
 } from 'lucide-react';
-import { EditalMateria } from '../types';
+import { EditalMateria, Flashcard, CommunityDeck } from '../types';
 import { CustomSelector } from '../components/CustomSelector';
 import { AIContentBox } from '../components/shared/AIContentBox';
 import { CustomFilterDropdown } from '../components/shared/CustomFilterDropdown';
@@ -14,6 +14,7 @@ import MissionImportModal from '../components/features/flashcards/MissionImportM
 import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
+import { SQL_FLASHCARDS_POLICY } from '../constants/flashcards';
 
 const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> = ({ missaoAtiva: missaoAtivaProps, editais: editaisProps }) => {
   const { userId } = useSession();
@@ -437,7 +438,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                           </AIContentBox>
                         )}
 
-                        {(['mapa', 'tabela', 'fluxo', 'info'] as const).includes(activeAiTool as any) && (
+                        {(['mapa', 'tabela', 'fluxo', 'info'] as const).includes(activeAiTool as 'mapa' | 'tabela' | 'fluxo' | 'info') && (
                           <AIContentBox
                             title={{ mapa: 'Mapa Mental', tabela: 'Tabela Comparativa', fluxo: 'Fluxograma Lógico', info: 'Resumo Ilustrado' }[activeAiTool as 'mapa' | 'tabela' | 'fluxo' | 'info']}
                             icon={<Zap size={14} />}
@@ -447,7 +448,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                             isMarkdown={true}
                             activeTool={activeAiTool}
                             handleExportLabPDF={handleExportLabPDF}
-                            onRegenerate={() => handleGenerateExtraFormat(activeAiTool as any)}
+                            onRegenerate={() => handleGenerateExtraFormat(activeAiTool as 'mapa' | 'tabela' | 'fluxo' | 'info')}
                           >
                             {(!(extraFormat === activeAiTool && extraContent) && !(extraLoading && extraFormat === activeAiTool)) && (
                               <div className="py-12 text-center">
@@ -465,7 +466,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
                                     info: 'Síntese gráfica com pontos-chave destacados para revisão ultra-rápida.'
                                   }[activeAiTool as 'mapa' | 'tabela' | 'fluxo' | 'info']}
                                 </p>
-                                <button onClick={() => handleGenerateExtraFormat(activeAiTool as any)} className="px-12 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all shadow-xl active:scale-95 border border-white/10">Ativar Ferramenta</button>
+                                <button onClick={() => handleGenerateExtraFormat(activeAiTool as 'mapa' | 'tabela' | 'fluxo' | 'info')} className="px-12 py-4 bg-slate-800 hover:bg-slate-700 rounded-2xl text-[10px] font-black uppercase tracking-widest text-white transition-all shadow-xl active:scale-95 border border-white/10">Ativar Ferramenta</button>
                               </div>
                             )}
                           </AIContentBox>
@@ -756,7 +757,7 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
               </div>
             ) : (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-                {communityDecks.map((deck: any) => (
+                {communityDecks.map((deck: CommunityDeck) => (
                   <div key={deck.materia} className="glass-premium bg-[hsl(var(--bg-card))] border-2 border-[hsl(var(--border))] rounded-[2rem] p-8 hover:border-[hsl(var(--accent)/0.5)] transition-all group relative duration-500 hover:shadow-2xl overflow-hidden">
                     <div className="absolute -right-10 -top-10 w-32 h-32 bg-[hsl(var(--accent)/0.05)] rounded-full blur-3xl group-hover:bg-[hsl(var(--accent)/0.15)] transition-all"></div>
 

@@ -2,8 +2,16 @@ import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
 import type { Session } from '@supabase/auth-js';
 
+interface AppNotification {
+  id: string;
+  user_id: string;
+  read: boolean;
+  created_at: string;
+  [key: string]: unknown;
+}
+
 export const useNotifications = (session: Session | null) => {
-  const [notifications, setNotifications] = useState<any[]>([]);
+  const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchData = async () => {
@@ -18,8 +26,9 @@ export const useNotifications = (session: Session | null) => {
 
       // Ignora silenciosamente se a tabela não existir (404 / PGRST116)
       if (error) {
-        const status = (error as any)?.status ?? (error as any)?.code;
-        if (status === 404 || status === 'PGRST116' || error.message?.includes('does not exist') || (error as any)?.details?.includes('does not exist')) return;
+        const errObj = error as { status?: unknown; code?: unknown; message?: string; details?: string };
+        const status = errObj?.status ?? errObj?.code;
+        if (status === 404 || status === 'PGRST116' || errObj.message?.includes('does not exist') || errObj.details?.includes('does not exist')) return;
         return; 
       }
 

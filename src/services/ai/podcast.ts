@@ -64,7 +64,8 @@ export const generatePodcastAudio = async (
     if (!base64Audio) throw new Error("Podcast generation failed");
 
     onStatusChange("Reproduzindo...");
-    audioContext = new (window.AudioContext || (window as any).webkitAudioContext)({ sampleRate: 24000 });
+    const AC: typeof AudioContext = (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)!;
+    audioContext = new AC({ sampleRate: 24000 });
     const audioBytes = decodeBase64(base64Audio);
     const audioBuffer = await decodeAudioData(audioBytes, audioContext);
     source = audioContext.createBufferSource();
@@ -90,7 +91,7 @@ export const generatePodcastAudio = async (
     })();
 
     return () => { if (source) source.stop(); if (audioContext) audioContext.close(); };
-  } catch (error: any) {
+  } catch (error: unknown) {
     onError(processAIError(error, 'Gemini').message);
     onEndAudio();
     return () => { };

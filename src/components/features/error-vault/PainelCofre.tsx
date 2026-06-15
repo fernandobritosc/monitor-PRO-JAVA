@@ -5,7 +5,7 @@ import { StudyRecord, ErrorAnalysis } from '../../../types';
 
 interface PainelCofreProps {
     records: StudyRecord[];
-    localErrors: any[];
+    localErrors: Array<{ recordId: string; materia: string; assunto: string; resolved?: boolean; questao_preview?: string }>;
     missaoAtiva: string;
     onSelectAssunto: (materia: string, assunto: string) => void;
     onGenerateMacro: () => void;

@@ -124,5 +124,9 @@ dist
 # Snapshots & Backups
 .backups/
 .audit/
-*.resolved
+*.resolved
+
+# Vite timestamp artifacts
+vite.config.ts.timestamp-*.mjs
+
 .vercel

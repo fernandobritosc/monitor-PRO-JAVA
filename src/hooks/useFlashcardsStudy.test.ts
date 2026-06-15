@@ -5,6 +5,7 @@ import type { Flashcard } from '../types';
 
 const mockCardNovo: Flashcard = {
   id: 'card-1',
+  concurso: 'Geral',
   materia: 'Direito Constitucional',
   assunto: 'Direitos Fundamentais',
   front: 'Pergunta 1?',
@@ -12,9 +13,6 @@ const mockCardNovo: Flashcard = {
   status: 'novo',
   interval: 0,
   ease_factor: 2.5,
-  next_review: null,
-  ai_generated_assets: null,
-  original_audio_id: null,
   author_name: 'test',
   created_at: '2024-01-01T00:00:00Z',
   user_id: 'user-1',

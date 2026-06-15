@@ -23,14 +23,36 @@ declare global {
           numPages: number;
           getPage: (num: number) => Promise<{
             getViewport: (params: { scale: number }) => { width: number; height: number };
-            render: (params: { canvasContext: CanvasRenderingContext2D; viewport: any }) => { promise: Promise<void> };
+            render: (params: { canvasContext: CanvasRenderingContext2D; viewport: { width: number; height: number } }) => { promise: Promise<void> };
           }>;
         }>;
       };
     };
-    jspdf: any;
+    jspdf?: {
+      jsPDF: new (options?: Record<string, unknown>) => JsPDFDoc;
+    };
   }
 }
+interface JsPDFDoc {
+  [key: string]: unknown;
+  internal: {
+    pageSize: { getWidth: () => number; getHeight: () => number; width: number; height: number };
+    getNumberOfPages: () => number;
+  };
+  setFillColor: (r: number, g: number, b: number) => void;
+  rect: (x: number, y: number, w: number, h: number, style: string) => void;
+  setTextColor: (r: number, g?: number, b?: number) => void;
+  setFontSize: (size: number) => void;
+  setFont: (font: string, style: string) => void;
+  text: (text: string | string[], x: number, y: number, options?: Record<string, unknown>) => void;
+  addPage: () => void;
+  splitTextToSize: (text: string, width: number) => string[];
+  getNumberOfPages: () => number;
+  setPage: (page: number) => void;
+  getTextWidth: (text: string) => number;
+  save: (filename: string) => void;
+}
+
 if (typeof window !== 'undefined' && window.pdfjsLib) {
   window.pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
 }

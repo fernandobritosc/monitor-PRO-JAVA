@@ -36,6 +36,14 @@ interface SubjectDraft {
   peso: number;
 }
 
+interface CommunityTemplate {
+  id: string;
+  title: string;
+  cargo: string;
+  stats: string;
+  materias: unknown[];
+}
+
 const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records: recordsProps, missaoAtiva: missaoAtivaProps, onUpdated: onUpdatedProps, setMissaoAtiva: setMissaoAtivaProps }) => {
   const { userId } = useSession();
   const { editais: editaisQuery } = useEditais(userId);
@@ -74,7 +82,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
   const [resyncResult, setResyncResult] = useState<{ success: boolean; message: string } | null>(null);
   const queryClient = useQueryClient();
 
-  const [communityTemplates, setCommunityTemplates] = useState<any[]>([]);
+  const [communityTemplates, setCommunityTemplates] = useState<CommunityTemplate[]>([]);
   const [loadingTemplates, setLoadingTemplates] = useState(false);
   const [importSearch, setImportSearch] = useState('');
   const [importingId, setImportingId] = useState<string | null>(null);
@@ -96,7 +104,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
 
   useEffect(() => {
     const checkAdmin = async () => {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
       setCurrentUserEmail(user.email || '');
       try {
@@ -125,7 +133,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
       if (exists) return;
 
       try {
-        const { data: { user } } = await (supabase.auth as any).getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (!user || !mounted) return;
 
         await editaisQueries.insert([{
@@ -190,8 +198,8 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     try {
       const data = await editaisQueries.getAll(2000);
       if (data && data.length > 0) {
-        const grouped: Record<string, any[]> = {};
-        data.forEach((row: any) => {
+        const grouped: Record<string, EditalMateria[]> = {};
+        data.forEach((row: EditalMateria) => {
           const key = row.concurso;
           if (!grouped[key]) grouped[key] = [];
           grouped[key].push(row);
@@ -209,22 +217,26 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     } catch (e) { logger.error('DATA', 'Erro fetchCommunityTemplates', e); } finally { setLoadingTemplates(false); }
   };
 
-  const handleImportTemplate = async (template: any) => {
+  const handleImportTemplate = async (template: CommunityTemplate) => {
     setImportingId(template.id);
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não logado");
-      const payload = template.materias.map((m: any) => ({
-        user_id: user.id, concurso: m.concurso, cargo: m.cargo, materia: m.materia,
-        topicos: m.topicos, is_principal: true, data_prova: m.data_prova, peso: m.peso || 1
-      }));
+      const payload = template.materias.map((m: unknown) => {
+        const row = m as Partial<EditalMateria>;
+        return {
+          user_id: user.id, concurso: row.concurso, cargo: row.cargo, materia: row.materia,
+          topicos: row.topicos, is_principal: true, data_prova: row.data_prova, peso: row.peso || 1
+        };
+      });
       await editaisQueries.upsert(payload, false);
       queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       setMissaoAtiva(template.title); await onUpdated(); alert(`Edital "${template.title}" importado com sucesso!`); setActiveTab('mission');
-    } catch (e: any) {
+    } catch (e: unknown) {
+      const message = e instanceof Error ? e.message : String(e);
       logger.error('DATA', 'Erro importando template', e);
-      if (e.message?.includes('constraint') || e.message?.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE BANCO DE DADOS: Faltam regras de unicidade. O modal de correção abrirá automaticamente."); }
-      else { alert("Erro ao importar: " + e.message); }
+      if (message.includes('constraint') || message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE BANCO DE DADOS: Faltam regras de unicidade. O modal de correção abrirá automaticamente."); }
+      else { alert("Erro ao importar: " + message); }
     } finally { setImportingId(null); }
   };
 
@@ -233,7 +245,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     try {
       const data = await profilesQueries.getAll();
       if (data) setUsersList(data);
-    } catch (e: any) { logger.error('DATA', 'Erro ao buscar perfis', e); } finally { setLoadingUsers(false); }
+    } catch (e: unknown) { logger.error('DATA', 'Erro ao buscar perfis', e); } finally { setLoadingUsers(false); }
   };
 
   const runDiagnostics = async () => {
@@ -242,7 +254,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     const log = (msg: string) => logs.push(`[${new Date().toLocaleTimeString()}] ${msg}`);
     try {
       log("Iniciando diagnóstico...");
-      const { data: { session }, error: authError } = await (supabase.auth as any).getSession();
+      const { data: { session }, error: authError } = await supabase.auth.getSession();
       if (authError) log(`❌ Erro Auth: ${authError.message}`);
       else if (!session) log("❌ Sem sessão ativa.");
       else log(`✅ Autenticado como: ${session.user.email} (ID: ${session.user.id.slice(0, 5)}...)`);
@@ -254,7 +266,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
         if (countError) log(`❌ Erro Contagem Editais: ${countError.message}`); else log(`✅ Editais encontrados: ${count ?? 0}`);
       }
       log("Diagnóstico concluído.");
-    } catch (e: any) { log(`❌ Erro Fatal: ${e.message}`); } finally { setLoadingDiag(false); }
+    } catch (e: unknown) { log(`❌ Erro Fatal: ${e instanceof Error ? e.message : String(e)}`); } finally { setLoadingDiag(false); }
   };
 
   const toggleUserApproval = async (userId: string, currentStatus: boolean | undefined) => {
@@ -264,9 +276,11 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
     setTimeout(() => setApprovalMsg(null), 3000);
     try {
       await profilesQueries.updateApproval(userId, newStatus);
-    } catch (error: any) {
+    } catch (error: unknown) {
+      const errMsg = error instanceof Error ? error.message : String(error);
+      const errCode = error instanceof Object && 'code' in error ? (error as { code: string }).code : '';
       logger.error('DATA', "Erro no update de perfil:", error);
-      if (error.code === '42501' || error.message?.includes('permission')) setPermissionError(true); else alert('Erro ao atualizar: ' + error.message);
+      if (errCode === '42501' || errMsg.includes('permission')) setPermissionError(true); else alert('Erro ao atualizar: ' + errMsg);
       setUsersList(prev => prev.map(u => u.id === userId ? { ...u, approved: !newStatus } : u));
     }
   };
@@ -340,14 +354,14 @@ NOTIFY pgrst, 'reload schema';
     if (formSubjects.length === 0) { alert("Adicione pelo menos uma matéria antes de salvar."); return; }
     setLoadingMission(true);
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Sessão expirada.");
       const isPrincipal = editais.length === 0 || editais.some(e => e.concurso === editingOldName && e.is_principal);
-      const dateToSave = formDataProva && formDataProva.trim() !== '' ? formDataProva : null;
+      const dateToSave = formDataProva && formDataProva.trim() !== '' ? formDataProva : undefined;
       const idsToDelete: string[] = [];
       if (editingOldName) { const originalIds = editais.filter(e => e.concurso === editingOldName).map(e => e.id); const currentIds = formSubjects.map(s => s.id).filter(Boolean) as string[]; originalIds.forEach(id => { if (!currentIds.includes(id)) idsToDelete.push(id); }); }
       const isRenamingMission = !!(editingOldName && editingOldName !== formConcurso.trim());
-      const toUpdate: any[] = []; const toInsert: any[] = []; const seenMaterias = new Set<string>();
+      const toUpdate: Partial<EditalMateria>[] = []; const toInsert: Partial<EditalMateria>[] = []; const seenMaterias = new Set<string>();
       for (const sub of formSubjects) { const matName = sub.materia.trim(); const key = matName.toLowerCase(); if (seenMaterias.has(key)) continue; seenMaterias.add(key); const payload = { user_id: user.id, concurso: formConcurso.trim(), cargo: formCargo.trim(), materia: matName, topicos: sub.topicos, data_prova: dateToSave, is_principal: isPrincipal, peso: sub.peso || 1 }; if (sub.id && !isRenamingMission) { toUpdate.push({ ...payload, id: sub.id }); } else { toInsert.push(payload); } }
       if (idsToDelete.length > 0) { await editaisQueries.deleteMany(idsToDelete); }
       if (toUpdate.length > 0) { await editaisQueries.update(toUpdate); }
@@ -355,7 +369,7 @@ NOTIFY pgrst, 'reload schema';
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) { setMissaoAtiva(formConcurso); } else if (!missaoAtiva) { setMissaoAtiva(formConcurso); }
       queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       await onUpdated(); setIsModalOpen(false);
-    } catch (err: any) { logger.error('DATA', 'Erro salvando form de edição', err); if (err.message.includes('duplicate key') || err.message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (err.message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + err.message); } } finally { setLoadingMission(false); }
+    } catch (err: unknown) { const message = err instanceof Error ? err.message : String(err); logger.error('DATA', 'Erro salvando form de edição', err); if (message.includes('duplicate key') || message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + message); } } finally { setLoadingMission(false); }
   };
 
   const handleDeleteMission = async (concurso: string) => {
@@ -373,8 +387,8 @@ NOTIFY pgrst, 'reload schema';
       queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       if (missaoAtiva === concurso) setMissaoAtiva(''); 
       await onUpdated(); 
-    } catch (e: any) { 
-      alert("Falha na exclusão: " + e.message); 
+    } catch (e: unknown) { 
+      alert("Falha na exclusão: " + (e instanceof Error ? e.message : String(e))); 
     } finally { 
       setRefreshing(false); 
     }

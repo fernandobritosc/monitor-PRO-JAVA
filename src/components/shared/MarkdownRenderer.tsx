@@ -5,7 +5,8 @@ export const MarkdownRenderer: React.FC<{ content: string; visualMode?: boolean 
         if (!content) return [];
 
         const lines = content.split(/\r?\n/);
-        const result: any[] = [];
+        type MarkdownPart = { type: 'text'; content: string } | { type: 'table'; content: string; rows?: string[][]; align?: string[] };
+        const result: MarkdownPart[] = [];
         let currentTable: string[] = [];
         let currentText: string[] = [];
 

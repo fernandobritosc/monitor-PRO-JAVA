@@ -56,7 +56,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
                         assunto: r.assunto,
                         meta: r.meta,
                         data: r.data_estudo,
-                        sugestao_mentor: (err as any).sugestao_mentor,
+                        sugestao_mentor: err.sugestao_mentor,
                         failed_attempts: err.failed_attempts ? Number(err.failed_attempts) : 0,
                         resolved: !!err.resolved
                     });
@@ -170,12 +170,12 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
 
     // Re-integração da lógica de PDF
     const handleExportPDF = (isMentor: boolean = false) => {
-        if (!(window as any).jspdf) {
+        if (!window.jspdf) {
             alert("Biblioteca PDF não carregada.");
             return;
         }
 
-        const { jsPDF } = (window as any).jspdf;
+        const { jsPDF } = window.jspdf;
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();

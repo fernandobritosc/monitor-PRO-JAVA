@@ -2,20 +2,36 @@
  * Utility to convert and compress audio files to MP3 in the browser.
  * Loads lamejs locally from /public/lame.min.js to bypass CSP and module issues.
  */
+interface LameJs {
+  Mp3Encoder: new (channels: number, sampleRate: number, bitrate: number) => {
+    encodeBuffer: (left: Int16Array, right: Int16Array) => Int8Array;
+    flush: () => Int8Array;
+  };
+  MPEGMode: unknown;
+  Lame: unknown;
+}
+
+const win = window as unknown as {
+  lamejs?: LameJs;
+  webkitAudioContext?: typeof AudioContext;
+  MPEGMode?: unknown;
+  Lame?: unknown;
+};
+
 export class AudioConverter {
-    private static async loadLameJs(): Promise<any> {
+    private static async loadLameJs(): Promise<LameJs> {
         // Se já carregado, retorna
-        if ((window as any).lamejs) return (window as any).lamejs;
+        if (win.lamejs) return win.lamejs;
 
         return new Promise((resolve, reject) => {
             const script = document.createElement('script');
             script.src = '/lame.min.js'; // Caminho local (public folder)
             script.onload = () => {
-                const lame = (window as any).lamejs;
+                const lame = win.lamejs;
                 if (lame) {
                     // Shim mandatory globals for lamejs core
-                    (window as any).MPEGMode = (window as any).MPEGMode || lame.MPEGMode;
-                    (window as any).Lame = (window as any).Lame || lame.Lame;
+                    win.MPEGMode = win.MPEGMode || lame.MPEGMode;
+                    win.Lame = win.Lame || lame.Lame;
 
                     console.log("Lamejs carregado localmente com sucesso.");
                     resolve(lame);
@@ -33,14 +49,15 @@ export class AudioConverter {
             try {
                 const lamejs = await this.loadLameJs();
 
-                const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+                const AC: typeof AudioContext = (window.AudioContext || win.webkitAudioContext)!;
+                const audioContext = new AC();
                 const arrayBuffer = await file.arrayBuffer();
                 const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
 
                 const channels = audioBuffer.numberOfChannels;
                 const sampleRate = audioBuffer.sampleRate;
                 const mp3encoder = new lamejs.Mp3Encoder(channels, sampleRate, targetBitrate);
-                const mp3Data: any[] = [];
+                const mp3Data: ArrayBuffer[] = [];
 
                 const samplesL = audioBuffer.getChannelData(0);
                 const samplesR = channels > 1 ? audioBuffer.getChannelData(1) : samplesL;
@@ -63,11 +80,11 @@ export class AudioConverter {
                     const leftChunk = int16L.subarray(i, i + sampleBlockSize);
                     const rightChunk = int16R.subarray(i, i + sampleBlockSize);
                     const mp3buf = mp3encoder.encodeBuffer(leftChunk, rightChunk);
-                    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf));
+                    if (mp3buf.length > 0) mp3Data.push(new Int8Array(mp3buf).buffer);
                 }
 
                 const mp3last = mp3encoder.flush();
-                if (mp3last.length > 0) mp3Data.push(new Int8Array(mp3last));
+                if (mp3last.length > 0) mp3Data.push(new Int8Array(mp3last).buffer);
 
                 const blob = new Blob(mp3Data, { type: 'audio/mp3' });
                 const newName = file.name.replace(/\.[^/.]+$/, "") + ".mp3";

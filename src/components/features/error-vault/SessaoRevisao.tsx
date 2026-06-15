@@ -4,6 +4,7 @@ import { X, Check, Loader2, Brain, Sparkles, ChevronRight, AlertCircle, Send, Us
 import { ErrorAnalysis } from '../../../types';
 import { generateAIContent } from '../../../services/aiService';
 import { getGeminiKey, getGroqKey } from '../../../services/supabase';
+import DOMPurify from 'dompurify';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -300,7 +301,7 @@ export const SessaoRevisao: React.FC<SessaoRevisaoProps> = ({
                             </h5>
                             <div 
                                 className="text-lg md:text-2xl text-[hsl(var(--text-bright))] leading-relaxed font-semibold prose dark:prose-invert max-w-none antialiased selection:bg-[hsl(var(--accent)/0.2)]"
-                                dangerouslySetInnerHTML={{ __html: parsedContent.statement }}
+                                dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(parsedContent.statement) }}
                             />
                         </div>
 
@@ -326,7 +327,7 @@ export const SessaoRevisao: React.FC<SessaoRevisaoProps> = ({
                                         {alt.letter}
                                     </div>
                                     <div 
-                                        dangerouslySetInnerHTML={{ __html: alt.text.replace(/^[A-E]\s*[\.\-\)]\s*/i, '') }} 
+                                        dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(alt.text.replace(/^[A-E]\s*[\.\-\)]\s*/i, '')) }} 
                                         className="text-sm md:text-base font-bold pt-2 text-[hsl(var(--text-main))]" 
                                     />
                                 </button>

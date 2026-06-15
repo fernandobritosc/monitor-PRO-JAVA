@@ -4,7 +4,7 @@ import { streamAIContent, generateAIContent, AIProviderName } from '../services/
 import { Flashcard } from '../types';
 import { getErrorMessage } from '../utils/error';
 
-interface UseAIFlashcardsProps {
+export interface UseAIFlashcardsProps {
   currentCard: Flashcard | undefined;
   studyQueue: Flashcard[];
   currentCardIndex: number;

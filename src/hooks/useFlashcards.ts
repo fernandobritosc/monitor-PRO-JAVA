@@ -329,7 +329,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const previewTopics = useMemo(() => {
     if (!previewDeck) return [];
     const topics = new Set<string>();
-    previewDeck.cards.forEach((c: any) => { if (c.assunto) topics.add(c.assunto); });
+    previewDeck.cards.forEach((c: Flashcard) => { if (c.assunto) topics.add(c.assunto); });
     return Array.from(topics).sort();
   }, [previewDeck]);
 
@@ -353,7 +353,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         const cardData = [card.id.substring(0, 8), card.front, card.back, card.assunto || 'N/A'];
         tableRows.push(cardData);
       });
-      (doc as any).autoTable({
+      (doc as unknown as { autoTable: (opts: Record<string, unknown>) => void }).autoTable({
         head: [tableColumn], body: tableRows, startY: 50,
         styles: { fontSize: 8, cellPadding: 2, overflow: 'linebreak' },
         headStyles: { fillColor: [75, 85, 99] },
@@ -485,9 +485,10 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const fileName = `Neural_Lab_${activeAiTool}_${currentCard.id.substring(0, 5)}.pdf`;
       doc.save(fileName);
       console.log("✅ PDF Multi-página com margens exportado!");
-    } catch (err: any) {
-      console.error("Erro ao exportar PDF visual:", err);
-      alert("Erro ao gerar PDF visual: " + err.message);
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      console.error("Erro ao exportar PDF visual:", error);
+      alert("Erro ao gerar PDF visual: " + error.message);
     }
   };
 

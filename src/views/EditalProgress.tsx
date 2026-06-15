@@ -13,18 +13,22 @@ import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useEditais } from '../hooks/queries/useEditais';
 
+interface TopicStatus {
+    name: string;
+    studied: boolean;
+    partial: boolean;
+    avgAccuracy: number;
+    totalTime: number;
+    sessionCount: number;
+    prefix: string | null;
+    originalIndex?: number;
+}
+
 interface SubjectStat {
     total: number;
     studied: number;
     avgAccuracy: number;
-    topics: {
-        name: string;
-        studied: boolean;
-        partial: boolean; // Nova propriedade: Indica se foi "concluído" por ter filhos estudados
-        avgAccuracy: number;
-        totalTime: number;
-        sessionCount: number
-    }[];
+    topics: TopicStatus[];
 }
 
 // UTILITY: Normaliza strings para comparação mais robusta
@@ -113,27 +117,26 @@ const EditalProgress: React.FC = () => {
 
             // Passo 2: Propagação Hierárquica de Status (Bottom-Up)
             // Adicionamos índice original para restaurar a ordem depois
-            let workingTopics = initialTopicsStatus.map((t: any, i: number) => ({ ...t, originalIndex: i }));
+            const workingTopics: TopicStatus[] = initialTopicsStatus.map((t: TopicStatus, i: number) => ({ ...t, originalIndex: i }));
 
             // Ordena por comprimento do prefixo decrescente (filhos antes dos pais)
-            // Ex: "1.1.1" (len 5) vem antes de "1.1" (len 3), que vem antes de "1." (len 2)
-            workingTopics.sort((a: any, b: any) => (b.prefix?.length || 0) - (a.prefix?.length || 0));
+            workingTopics.sort((a: TopicStatus, b: TopicStatus) => (b.prefix?.length || 0) - (a.prefix?.length || 0));
 
             // Itera para atualizar status baseado nos filhos já processados
             for (const topic of workingTopics) {
                 if (!topic.prefix) continue;
 
                 // Encontra descendentes diretos ou indiretos
-                const descendants = workingTopics.filter((t: any) =>
+                const descendants = workingTopics.filter((t: TopicStatus) =>
                     t !== topic &&
-                    t.prefix &&
+                    t.prefix !== null &&
                     (t.name.startsWith(topic.prefix + '.') || t.name.startsWith(topic.prefix + ' '))
                 );
 
                 if (descendants.length > 0) {
                     // Verifica se TODOS os descendentes estão marcados como estudados (direta ou indiretamente)
-                    const allStudied = descendants.every((d: any) => d.studied);
-                    const someStudied = descendants.some((d: any) => d.studied || d.partial);
+                    const allStudied = descendants.every((d: TopicStatus) => d.studied);
+                    const someStudied = descendants.some((d: TopicStatus) => d.studied || d.partial);
 
                     // Se o tópico pai não foi estudado diretamente, inferimos o status
                     if (!topic.studied) {
@@ -142,9 +145,9 @@ const EditalProgress: React.FC = () => {
                             topic.partial = false; // Promovido de parcial para concluído
 
                             // Agrega estatísticas dos filhos para o pai não ficar com nota zerada
-                            const kidsWithStats = descendants.filter((d: any) => d.avgAccuracy > 0);
+                            const kidsWithStats = descendants.filter((d: TopicStatus) => d.avgAccuracy > 0);
                             if (kidsWithStats.length > 0) {
-                                topic.avgAccuracy = kidsWithStats.reduce((acc: number, k: any) => acc + k.avgAccuracy, 0) / kidsWithStats.length;
+                                topic.avgAccuracy = kidsWithStats.reduce((acc: number, k: TopicStatus) => acc + k.avgAccuracy, 0) / kidsWithStats.length;
                             }
                         } else if (someStudied) {
                             topic.partial = true;
@@ -154,10 +157,10 @@ const EditalProgress: React.FC = () => {
             }
 
             // Restaura ordem original do edital
-            const finalTopicsStatus = workingTopics.sort((a: any, b: any) => a.originalIndex - b.originalIndex);
+            const finalTopicsStatus = workingTopics.sort((a: TopicStatus, b: TopicStatus) => a.originalIndex! - b.originalIndex!);
 
             // Contagem final para os cards da matéria
-            const studiedCount = finalTopicsStatus.filter((t: any) => t.studied || t.partial).length;
+            const studiedCount = finalTopicsStatus.filter((t: TopicStatus) => t.studied || t.partial).length;
 
             // Recalcula média da matéria considerando inferidos? 
             // Não, a média global da matéria deve refletir estudos reais (Step 1), senão inflaciona.
@@ -198,7 +201,7 @@ const EditalProgress: React.FC = () => {
         const daysPassed = Math.max(1, Math.floor((today.getTime() - startDate.getTime()) / (1000 * 3600 * 24)));
 
         const totalDirectlyStudied = (Object.values(performanceAnalysis.bySubject) as SubjectStat[])
-            .reduce((acc: number, subj: SubjectStat) => acc + subj.topics.filter((t: any) => t.sessionCount > 0).length, 0);
+            .reduce((acc: number, subj: SubjectStat) => acc + subj.topics.filter((t: TopicStatus) => t.sessionCount > 0).length, 0);
 
         const velocity = totalDirectlyStudied / daysPassed;
 
@@ -330,7 +333,7 @@ const EditalProgress: React.FC = () => {
                                         <p className="text-xs font-black text-[hsl(var(--text-muted))] uppercase tracking-widest italic text-center py-6">Nenhum tópico cadastrado.</p>
                                     ) : (
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                                            {stat.topics.map((topic: any, idx: number) => {
+                                            {stat.topics.map((topic: TopicStatus, idx: number) => {
                                                 const topicPerf = getPerformanceColor(topic.avgAccuracy, topic.partial);
                                                 return (
                                                     <div key={idx} className={`p-4 rounded-[1.5rem] border transition-all duration-500 hover:scale-[1.03] shadow-sm ${topic.studied || topic.partial ? `${topicPerf.bg} ${topicPerf.border}` : 'bg-[hsl(var(--bg-user-block))] border-[hsl(var(--border))]'}`}>

@@ -11,7 +11,7 @@ export function getErrorMessage(error: unknown): string {
     
     // Tratamento específico para erros comuns de API (Supabase/Postgrest)
     if (error && typeof error === 'object' && 'message' in error) {
-        return String((error as any).message);
+        return String((error as { message: unknown }).message);
     }
     
     return "Ocorreu um erro inesperado";
@@ -21,7 +21,7 @@ export function getErrorMessage(error: unknown): string {
  * Utilitário centralizado de logging de erros.
  * Substitui console.error avulsos e integra com o Sentry automaticamente.
  */
-export function logError(context: string, error: unknown, extras?: Record<string, any>) {
+export function logError(context: string, error: unknown, extras?: Record<string, unknown>) {
     // Sempre faz o log no console para desenvolvedores (ambiente local)
     console.error(`[${context}] Erro:`, error, extras || '');
 

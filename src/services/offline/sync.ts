@@ -1,4 +1,4 @@
-import { db } from './db';
+import { db, type OfflineAttempt } from './db';
 import { studyRecordsQueries } from '../queries/studyRecords';
 
 export const syncService = {
@@ -8,7 +8,7 @@ export const syncService = {
      */
     async deduplicateLocal() {
         const all = await db.studyRecords.toArray();
-        const seen = new Map<string, any>();
+        const seen = new Map<string, OfflineAttempt>();
         const toDelete: string[] = [];
 
         for (const r of all) {
@@ -16,7 +16,7 @@ export const syncService = {
             const key = `${r.user_id}-${r.data_estudo}-${r.materia}-${r.assunto}-${r.acertos}-${r.total}-${r.tempo}`;
             
             if (seen.has(key)) {
-                const existing = seen.get(key);
+                const existing = seen.get(key)!;
                 // Se um está sincronizado e o outro não, deletamos o não sincronizado
                 if (existing.syncStatus === 'synced' && r.syncStatus === 'pending') {
                     toDelete.push(r.id);
@@ -81,8 +81,9 @@ export const syncService = {
                     console.log(`[SYNC] ✅ Todos os ${result.length} registros sincronizados com sucesso.`);
                 }
             }
-        } catch (err: any) {
-            console.error('[SYNC] ❌ Erro na sincronização em lote:', err?.message);
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[SYNC] ❌ Erro na sincronização em lote:', msg);
             // Em caso de erro crítico, não alteramos o status para permitir nova tentativa
         }
     },
@@ -90,19 +91,19 @@ export const syncService = {
     /** 
      * Salva um registro novo. Se offline → pending. Se online → tenta Supabase via Upsert.
      */
-    async saveAttempt(record: any) {
+    async saveAttempt(record: Record<string, unknown>) {
         const isOnline = navigator.onLine;
 
         const finalRecord = {
             ...record,
-            id: record.id || crypto.randomUUID()
+            id: (record.id as string) || crypto.randomUUID()
         };
 
         const localId = await db.studyRecords.add({
             ...finalRecord,
             syncStatus: 'pending',
             lastModified: Date.now()
-        });
+        } as OfflineAttempt);
 
         if (isOnline) {
             try {
@@ -158,9 +159,10 @@ export const syncService = {
                 success: true, 
                 message: `Sucesso! Cache atualizado com ${remoteData.length} registros da nuvem.` 
             };
-        } catch (err: any) {
-            console.error('[SAFE-REFRESH] ❌ Erro:', err?.message);
-            return { success: false, message: `Falha na atualização: ${err?.message}` };
+        } catch (err: unknown) {
+            const msg = err instanceof Error ? err.message : String(err);
+            console.error('[SAFE-REFRESH] ❌ Erro:', msg);
+            return { success: false, message: `Falha na atualização: ${msg}` };
         }
     }
 };

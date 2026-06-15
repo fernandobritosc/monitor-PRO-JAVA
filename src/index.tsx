@@ -5,9 +5,11 @@ import * as Sentry from "@sentry/react";
 import App from './App';
 import './index.css';
 
+const env = import.meta.env as { VITE_SENTRY_DSN?: string; MODE: string };
+
 // Inicialização do Sentry (Prioritário conforme AGENTS.md)
 Sentry.init({
-  dsn: (import.meta as any).env.VITE_SENTRY_DSN || "", // O usuário deve configurar VITE_SENTRY_DSN no .env
+  dsn: env.VITE_SENTRY_DSN || "", // O usuário deve configurar VITE_SENTRY_DSN no .env
   integrations: [
     Sentry.browserTracingIntegration(),
     Sentry.replayIntegration(),
@@ -15,7 +17,7 @@ Sentry.init({
   tracesSampleRate: 1.0,
   replaysSessionSampleRate: 0.1,
   replaysOnErrorSampleRate: 1.0,
-  environment: (import.meta as any).env.MODE,
+  environment: env.MODE,
 });
 
 const queryClient = new QueryClient({

@@ -10,13 +10,35 @@ import { useDiscursivaAnalysis, extractFinalScore } from '../hooks/useDiscursiva
 import AnalysisView from '../components/features/discursiva/AnalysisView';
 import {
   FileEdit, UploadCloud, Loader2, Sparkles, Download, Database, Copy,
-  X, Trash2, AlertTriangle, ChevronLeft, Calendar
+  X, Trash2, AlertTriangle, ChevronLeft, Calendar, List
 } from 'lucide-react';
 
 // Declaração para TypeScript reconhecer a biblioteca global
+interface JsPDFDoc {
+  [key: string]: unknown;
+  internal: {
+    pageSize: { getWidth: () => number; getHeight: () => number; width: number; height: number };
+    getNumberOfPages: () => number;
+  };
+  setFillColor: (r: number, g: number, b: number) => void;
+  rect: (x: number, y: number, w: number, h: number, style: string) => void;
+  setTextColor: (r: number, g?: number, b?: number) => void;
+  setFontSize: (size: number) => void;
+  setFont: (font: string, style: string) => void;
+  text: (text: string | string[], x: number, y: number, options?: Record<string, unknown>) => void;
+  addPage: () => void;
+  splitTextToSize: (text: string, width: number) => string[];
+  getNumberOfPages: () => number;
+  setPage: (page: number) => void;
+  getTextWidth: (text: string) => number;
+  save: (filename: string) => void;
+}
+
 declare global {
   interface Window {
-    jspdf: any;
+    jspdf?: {
+      jsPDF: new (options?: Record<string, unknown>) => JsPDFDoc;
+    };
   }
 }
 
@@ -114,9 +136,10 @@ const Discursiva: React.FC = () => {
     try {
       const data = await discursivasQueries.getAll();
       setHistory(data || []);
-    } catch (err: any) {
+    } catch (err: unknown) {
       logger.error('DATA', "Erro ao buscar histórico:", err);
-      if (err.message && err.message.includes('relation "public.discursivas" does not exist')) {
+      const message = err instanceof Error ? err.message : String(err);
+      if (message.includes('relation "public.discursivas" does not exist')) {
         setError("Tabela 'discursivas' não encontrada. Execute o script SQL de configuração.");
       }
     } finally {
@@ -154,7 +177,7 @@ const Discursiva: React.FC = () => {
       const itemToDelete = history.find(h => h.id === id);
       if (itemToDelete) {
         const fileName = itemToDelete.image_url.split('/').pop();
-        const { data: { user } } = await (supabase.auth as any).getUser();
+        const { data: { user } } = await supabase.auth.getUser();
         if (fileName && user) {
           await supabase.storage.from('discursivas_images').remove([`${user.id}/${fileName}`]);
         }
@@ -162,8 +185,9 @@ const Discursiva: React.FC = () => {
       await discursivasQueries.delete(id);
       setHistory(prev => prev.filter(item => item.id !== id));
       if (selectedHistory?.id === id) setSelectedHistory(null);
-    } catch (err: any) {
-      setError("Falha ao excluir: " + err.message);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : String(err);
+      setError("Falha ao excluir: " + message);
     }
   }
 

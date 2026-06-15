@@ -133,7 +133,7 @@ export const useDiscursivaAnalysis = ({ file, title, prompt, geminiKeyAvailable,
     trackEvent('Discursiva_Analysis_Started', { title });
 
     try {
-      const { data: { user } } = await (supabase.auth as any).getUser();
+      const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não autenticado.");
 
       const fileName = `${user.id}/${Date.now()}-${file.name}`;
@@ -172,12 +172,13 @@ ${AI_PROMPT}
       setAnalysisResult(newRecord);
       trackEvent('Discursiva_Analysis_Success', { title, score: extractFinalScore(analysisText) });
       onSuccess(newRecord);
-    } catch (err: any) {
-      captureError(err, { stage: 'discursiva_analysis' });
-      if (err.message && (err.message.includes("column \"prompt\" of relation \"discursivas\" does not exist") || err.message.includes("column 'prompt' does not exist"))) {
+    } catch (err: unknown) {
+      const error = err instanceof Error ? err : new Error(String(err));
+      captureError(error, { stage: 'discursiva_analysis' });
+      if (error.message && (error.message.includes("column \"prompt\" of relation \"discursivas\" does not exist") || error.message.includes("column 'prompt' does not exist"))) {
         setError("ERRO DE BANCO DE DADOS: Sua tabela 'discursivas' está desatualizada. Por favor, execute o script SQL mais recente (botão 'Permissões (SQL)') para adicionar a coluna 'prompt'.");
       } else {
-        setError(`Falha na análise: ${err.message}`);
+        setError(`Falha na análise: ${error.message}`);
       }
     } finally {
       setIsLoading(false);

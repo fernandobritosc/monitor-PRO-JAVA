@@ -1,5 +1,6 @@
 import { supabase } from '../../lib/supabase';
 import { logger } from '../../utils/logger';
+import { getApiKeyCache, encryptValue } from '../../utils/secureStorage';
 
 export { supabase };
 
@@ -45,14 +46,30 @@ function isBase64(str: string): boolean {
   try { return btoa(atob(str)) === str; } catch { return false; }
 }
 
-function tryDecrypt(stored: string | null, minLength: number): string {
-  if (!stored || stored.length <= minLength) return '';
+function tryLegacyDecrypt(stored: string | null): string {
+  if (!stored) return '';
   const trimmed = stored.trim().replace(/^"|"$/g, '');
   if (isBase64(trimmed)) {
     const decrypted = deobfuscate(trimmed);
     if (decrypted.length > 5) return decrypted;
   }
-  return trimmed;
+  return stored;
+}
+
+function readApiKeyFromStorage(storageKey: string): string {
+  const cache = getApiKeyCache();
+  const cacheKey = storageKey === 'monitorpro_ai_key' ? 'gemini' : 'groq';
+  if (cache[cacheKey]) return cache[cacheKey];
+
+  const stored = localStorage.getItem(storageKey);
+  if (!stored) return '';
+
+  const legacy = tryLegacyDecrypt(stored);
+  if (legacy !== stored) {
+    encryptValue(legacy).then(enc => localStorage.setItem(storageKey, enc));
+    return legacy;
+  }
+  return stored;
 }
 
 export const isConfigured = () => {
@@ -65,8 +82,8 @@ export const saveAppConfig = (newUrl: string, newKey: string, newAiKey?: string,
   if (!newUrl || !newKey) return;
   localStorage.setItem('monitorpro_supabase_url', newUrl.trim());
   localStorage.setItem('monitorpro_supabase_key', obfuscate(newKey.trim()));
-  if (newAiKey) localStorage.setItem('monitorpro_ai_key', obfuscate(newAiKey.trim()));
-  if (newGroqKey) localStorage.setItem('monitorpro_groq_key', obfuscate(newGroqKey.trim()));
+  if (newAiKey) encryptValue(newAiKey.trim()).then(enc => localStorage.setItem('monitorpro_ai_key', enc));
+  if (newGroqKey) encryptValue(newGroqKey.trim()).then(enc => localStorage.setItem('monitorpro_groq_key', enc));
   window.location.reload();
 };
 
@@ -76,11 +93,8 @@ export const resetAppConfig = () => {
 };
 
 export const getGroqKey = () => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('monitorpro_groq_key');
-    const decrypted = tryDecrypt(stored, 5);
-    if (decrypted) return decrypted;
-  }
+  const fromStorage = readApiKeyFromStorage('monitorpro_groq_key');
+  if (fromStorage) return fromStorage;
   if (typeof import.meta.env !== 'undefined') {
     return import.meta.env.VITE_GROQ_API_KEY || '';
   }
@@ -88,11 +102,8 @@ export const getGroqKey = () => {
 };
 
 export const getGeminiKey = () => {
-  if (typeof window !== 'undefined') {
-    const stored = localStorage.getItem('monitorpro_ai_key');
-    const decrypted = tryDecrypt(stored, 10);
-    if (decrypted) return decrypted;
-  }
+  const fromStorage = readApiKeyFromStorage('monitorpro_ai_key');
+  if (fromStorage) return fromStorage;
   if (typeof import.meta.env !== 'undefined') {
     return import.meta.env.VITE_GOOGLE_API_KEY || import.meta.env.VITE_GEMINI_API_KEY || '';
   }

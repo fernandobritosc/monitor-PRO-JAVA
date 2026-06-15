@@ -46,7 +46,7 @@ export const mockStudyRecord = {
 };
 
 // Mock do cliente Supabase com todas as operações comuns
-const createMockSupabaseChain = (data: any = [], error: any = null) => {
+const createMockSupabaseChain = (data: Record<string, unknown>[] | null = [], error: Record<string, unknown> | null = null) => {
     const chain = {
         select: vi.fn().mockReturnThis(),
         insert: vi.fn().mockReturnThis(),
@@ -68,10 +68,10 @@ const createMockSupabaseChain = (data: any = [], error: any = null) => {
     // Make all methods resolve with data
     Object.keys(chain).forEach((key) => {
         if (key !== 'then' && key !== 'single') {
-            (chain as any)[key] = vi.fn().mockReturnValue({
+            (chain as Record<string, ReturnType<typeof vi.fn>>)[key] = vi.fn().mockReturnValue({
                 ...chain,
                 // Final resolution
-                then: (fn: any) => fn({ data, error }),
+                then: (fn: (value: { data: Record<string, unknown>[] | null; error: Record<string, unknown> | null }) => unknown) => fn({ data, error }),
             });
         }
     });
@@ -80,9 +80,9 @@ const createMockSupabaseChain = (data: any = [], error: any = null) => {
 };
 
 export const createMockSupabase = (overrides?: {
-    flashcards?: any[];
-    studyRecords?: any[];
-    authError?: any;
+    flashcards?: Record<string, unknown>[];
+    studyRecords?: Record<string, unknown>[];
+    authError?: Record<string, unknown>;
 }) => {
     const flashcards = overrides?.flashcards ?? [mockFlashcard];
     const studyRecords = overrides?.studyRecords ?? [mockStudyRecord];
@@ -105,16 +105,16 @@ export const createMockSupabase = (overrides?: {
                     eq: vi.fn().mockReturnValue({
                         order: vi.fn().mockResolvedValue({ data, error: null }),
                         not: vi.fn().mockReturnValue({
-                            then: (fn: any) => fn({ data, error: null }),
+                            then: (fn: (value: { data: Record<string, unknown>[] | null; error: null }) => unknown) => fn({ data, error: null }),
                         }),
                     }),
                     not: vi.fn().mockReturnValue({
-                        then: (fn: any) => fn({ data, error: null }),
+                        then: (fn: (value: { data: Record<string, unknown>[] | null; error: null }) => unknown) => fn({ data, error: null }),
                     }),
                     order: vi.fn().mockResolvedValue({ data, error: null }),
                 }),
                 insert: vi.fn().mockReturnValue({
-                    then: (fn: any) => fn({ data: null, error: null }),
+                    then: (fn: (value: { data: null; error: null }) => unknown) => fn({ data: null, error: null }),
                 }),
                 update: vi.fn().mockReturnValue({
                     eq: vi.fn().mockResolvedValue({ data: null, error: null }),

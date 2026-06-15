@@ -1,13 +1,14 @@
 
 import React from 'react';
 import { RefreshCw, Database, LogIn } from 'lucide-react';
+import type { Session } from '@supabase/auth-js';
 
 interface AppStatusIndicatorsProps {
   isLoading: boolean;
   backgroundSyncing: boolean;
   isOfflineMode: boolean;
   isError: boolean;
-  session: any;
+  session: Session | null;
   appVersion: string;
   onFetchData: () => void;
   onLogout: () => void;

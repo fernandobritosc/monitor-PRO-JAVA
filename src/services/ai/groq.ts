@@ -77,7 +77,7 @@ export const streamWithGroq = async (
 
     logger.info('AI', 'Streaming Groq completo');
     callbacks.onComplete();
-  } catch (error: any) {
+  } catch (error: unknown) {
     callbacks.onError(processAIError(error, 'Groq'));
   }
 };
@@ -108,7 +108,7 @@ export const runGroq = async (
     if (!response.ok) throw new Error(`Groq status ${response.status}`);
     const data = await response.json();
     return data.choices[0].message.content;
-  } catch (error: any) {
+  } catch (error: unknown) {
     throw processAIError(error, 'Groq');
   }
 };
