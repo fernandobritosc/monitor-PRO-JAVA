@@ -8,16 +8,13 @@ interface JsPDFWithAutoTable {
 }
 
 export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
-  if (!window.jspdf) {
-    alert("Biblioteca PDF não carregada. Recarregue a página.");
-    return;
-  }
-
   try {
-    const { data: { user } } = await supabase.auth.getUser();
+    const [{ jsPDF }, { data: { user } }] = await Promise.all([
+      import('jspdf'),
+      supabase.auth.getUser()
+    ]);
+    await import('jspdf-autotable');
     const userIdentifier = user?.email || 'N/A';
-
-    const { jsPDF } = window.jspdf;
     const doc = new jsPDF({ orientation: 'p', unit: 'mm', format: 'a4' });
     const doc_ = doc as unknown as JsPDFWithAutoTable;
     const pageWidth = doc.internal.pageSize.getWidth();
@@ -145,7 +142,7 @@ export const generateDiscursivePDF = async (analysis: DiscursivaType) => {
       });
     }
 
-    const pageCount = doc.internal.getNumberOfPages();
+    const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8);
@@ -171,13 +168,9 @@ interface GabaritoPDFParams {
 }
 
 export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswers, officialAnswers }: GabaritoPDFParams) => {
-  if (!window.jspdf) {
-    alert("Biblioteca PDF não carregada. Recarregue a página.");
-    return;
-  }
-
   try {
-    const { jsPDF } = window.jspdf;
+    const { jsPDF } = await import('jspdf');
+    await import('jspdf-autotable');
     const doc = new jsPDF();
     const doc_ = doc as unknown as JsPDFWithAutoTable;
     const { data: { user } } = await supabase.auth.getUser();
@@ -278,7 +271,7 @@ export const generateGabaritoPDF = async ({ selectedGabarito, scores, userAnswer
       currentY += (splitJustificativa.length * 4) + 10;
     });
 
-    const pageCount = doc.internal.getNumberOfPages();
+    const pageCount = doc.getNumberOfPages();
     for (let i = 1; i <= pageCount; i++) {
       doc.setPage(i);
       doc.setFontSize(8); doc.setTextColor(150);

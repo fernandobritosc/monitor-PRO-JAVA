@@ -117,9 +117,17 @@ export default defineConfig(({ mode }) => {
       '__APP_VERSION__': JSON.stringify(pkg.version || '1.0.0'),
     },
     build: {
-      // Em produção, remove TODOS os console.* e debugger do bundle final
-      // O logger centralizado já captura tudo em sessionStorage
       ...(mode === 'production' ? { minify: 'esbuild' } : {}),
+      rollupOptions: {
+        output: {
+          manualChunks: {
+            'pdf-vendor': ['jspdf', 'jspdf-autotable', 'html2canvas'],
+            'chart-vendor': ['recharts'],
+            'editor-vendor': ['@tiptap/react', '@tiptap/starter-kit', '@tiptap/extension-underline'],
+            'motion-vendor': ['framer-motion'],
+          }
+        }
+      }
     },
     esbuild: {
       // Remove console.* e debugger em produção

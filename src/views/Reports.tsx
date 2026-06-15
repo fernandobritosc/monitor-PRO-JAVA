@@ -105,16 +105,12 @@ const Reports: React.FC = () => {
     }, [filteredRecords]);
 
 
-    const generatePDF = () => {
+    const generatePDF = async () => {
         setGenerating(true);
 
         try {
-            // VERIFICAÇÃO CRÍTICA: Checa se a lib foi carregada pelo script do index.html
-            if (!window.jspdf) {
-                throw new Error("Biblioteca PDF não encontrada. Verifique sua conexão com a internet e recarregue a página.");
-            }
-
-            const { jsPDF } = window.jspdf;
+            const { jsPDF } = await import('jspdf');
+            await import('jspdf-autotable');
             const doc = new jsPDF() as unknown as jsPDFWithAutoTable;
 
             const hasAutoTable = typeof doc.autoTable === 'function';

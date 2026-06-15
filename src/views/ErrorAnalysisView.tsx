@@ -170,13 +170,8 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
     }, [records, selectedAssunto]);
 
     // Re-integração da lógica de PDF
-    const handleExportPDF = (isMentor: boolean = false) => {
-        if (!window.jspdf) {
-            alert("Biblioteca PDF não carregada.");
-            return;
-        }
-
-        const { jsPDF } = window.jspdf;
+    const handleExportPDF = async (isMentor: boolean = false) => {
+        const { jsPDF } = await import('jspdf');
         const doc = new jsPDF();
         const pageWidth = doc.internal.pageSize.getWidth();
         const pageHeight = doc.internal.pageSize.getHeight();
@@ -199,7 +194,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
         };
 
         const drawFooter = () => {
-            const pageCount = doc.internal.getNumberOfPages();
+            const pageCount = doc.getNumberOfPages();
             doc.setFontSize(8); doc.setTextColor(150);
             doc.text(`MonitorPro Cofre de Erros | Gerado em ${new Date().toLocaleString()} | Página ${pageCount}`, margin, pageHeight - 10);
         };

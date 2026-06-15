@@ -334,12 +334,12 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     return Array.from(topics).sort();
   }, [previewDeck]);
 
-  const generatePDF = () => {
+  const generatePDF = async () => {
     if (filteredCards.length === 0) { alert("Nenhum card para exportar com os filtros atuais."); return; }
     setIsGeneratingPdf(true);
     try {
-      if (!window.jspdf) { throw new Error("Biblioteca PDF (jsPDF) não carregada. Verifique a conexão ou recarregue a página."); }
-      const { jsPDF } = window.jspdf;
+      const { jsPDF } = await import('jspdf');
+      await import('jspdf-autotable');
       const doc = new jsPDF();
       doc.setFontSize(18);
       doc.text("Relatório de Flashcards", 14, 22);
