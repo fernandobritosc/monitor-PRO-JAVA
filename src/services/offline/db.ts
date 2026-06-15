@@ -34,9 +34,32 @@ export class MonitorProDB extends Dexie {
 
     constructor() {
         super('MonitorProDB');
+
         this.version(5).stores({
+            studyRecords: 'id, user_id, materia, syncStatus, lastModified',
+            editais: 'id, user_id, materia, syncStatus, lastModified',
+            materials_cache: 'id, materia, name'
+        }).upgrade(_tx => {
+            // v5: Added lastModified index, added materials_cache table
+        });
+
+        this.version(4).stores({
             studyRecords: 'id, user_id, materia, syncStatus',
             editais: 'id, user_id, materia, syncStatus'
+        }).upgrade(_tx => {
+            // v4: Added editais table
+        });
+
+        this.version(3).stores({
+            studyRecords: 'id, user_id, materia, syncStatus'
+        }).upgrade(_tx => {
+            // v3: Added syncStatus index
+        });
+
+        this.version(2).stores({
+            studyRecords: 'id, user_id, materia'
+        }).upgrade(_tx => {
+            // v2: Added materia index
         });
     }
 

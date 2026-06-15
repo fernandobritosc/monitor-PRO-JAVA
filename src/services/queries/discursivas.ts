@@ -32,4 +32,13 @@ export const discursivasQueries = {
         const { error } = await supabase.from('discursivas').delete().eq('id', id);
         if (error) throw error;
     },
+
+    /** Atualiza uma discursiva existente */
+    async update(id: string, updates: Partial<Discursiva>) {
+        const { error } = await supabase
+            .from('discursivas')
+            .update(updates)
+            .eq('id', id);
+        if (error) throw error;
+    },
 };

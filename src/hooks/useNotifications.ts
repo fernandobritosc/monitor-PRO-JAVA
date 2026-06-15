@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/supabase';
+import { notificationsQueries } from '../services/queries';
 import type { Session } from '@supabase/auth-js';
 
 interface AppNotification {
@@ -18,24 +18,9 @@ export const useNotifications = (session: Session | null) => {
     if (!session?.user?.id) return;
 
     try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .eq('user_id', session.user.id)
-        .order('created_at', { ascending: false });
-
-      // Ignora silenciosamente se a tabela não existir (404 / PGRST116)
-      if (error) {
-        const errObj = error as { status?: unknown; code?: unknown; message?: string; details?: string };
-        const status = errObj?.status ?? errObj?.code;
-        if (status === 404 || status === 'PGRST116' || errObj.message?.includes('does not exist') || errObj.details?.includes('does not exist')) return;
-        return; 
-      }
-
-      if (data) {
-        setNotifications(data);
-        setUnreadCount(data.filter(n => !n.read).length);
-      }
+      const data = await notificationsQueries.getByUser(session.user.id);
+      setNotifications(data);
+      setUnreadCount(data.filter(n => !n.read).length);
     } catch {
       // tabela não existe — ignora silenciosamente
     }
@@ -46,28 +31,17 @@ export const useNotifications = (session: Session | null) => {
 
     if (!session?.user?.id) return;
 
-    const channel = supabase
-      .channel('public:notifications')
-      .on('postgres_changes', {
-        event: '*',
-        schema: 'public',
-        table: 'notifications',
-        filter: `user_id=eq.${session.user.id}`
-      }, () => fetchData())
-      .subscribe();
-
-    return () => {
-      supabase.removeChannel(channel);
-    };
+    const subscription = notificationsQueries.subscribe(() => fetchData());
+    return () => { subscription.unsubscribe(); };
   }, [session?.user?.id]);
 
   const markAsRead = async (id?: string) => {
     if (!session?.user?.id) return;
     try {
       if (id) {
-        await supabase.from('notifications').update({ read: true }).eq('id', id);
+        await notificationsQueries.markAsRead(id);
       } else {
-        await supabase.from('notifications').update({ read: true }).eq('user_id', session.user.id);
+        await notificationsQueries.markAllAsRead(session.user.id);
       }
       fetchData();
     } catch {

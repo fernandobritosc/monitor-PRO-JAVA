@@ -65,4 +65,12 @@ export const profilesQueries = {
         }
         return data ?? [];
     },
+
+    /** Cria ou atualiza um perfil (upsert) */
+    async upsert(profile: { id: string; email?: string; username?: string }) {
+        const { error } = await supabase
+            .from('profiles')
+            .upsert(profile, { onConflict: 'id' });
+        if (error) throw error;
+    },
 };

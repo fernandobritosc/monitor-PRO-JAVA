@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef, type Dispatch, type SetStateAction } from 'react';
-import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
+import { getGeminiKey, getGroqKey } from '../services/supabase';
+import { flashcardsQueries } from '../services/queries';
 import { streamAIContent, generateAIContent, AIProviderName } from '../services/aiService';
 import { Flashcard } from '../types';
 import { getErrorMessage } from '../utils/error';
@@ -54,11 +55,7 @@ export const useAIFlashcards = ({ currentCard, studyQueue, currentCardIndex, set
     setStudyQueue(updatedQueue);
 
     try {
-      const { error } = await supabase
-        .from('flashcards')
-        .update({ ai_generated_assets: newAssets })
-        .eq('id', currentCard.id);
-      if (error) throw error;
+      await flashcardsQueries.update(currentCard.id, { ai_generated_assets: newAssets });
       logger.log(`✅ Asset '${String(assetType)}' salvo para o card ${currentCard.id}`);
     } catch (error) {
       logger.error('AI', "Erro ao salvar asset de IA:", getErrorMessage(error));

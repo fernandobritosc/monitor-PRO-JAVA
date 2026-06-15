@@ -8,3 +8,5 @@ export { editaisQueries } from './editais';
 export { gabaritosQueries } from './gabaritos';
 export { discursivasQueries } from './discursivas';
 export { profilesQueries } from './profiles';
+export { flashcardsQueries } from './flashcards';
+export { notificationsQueries } from './notifications';

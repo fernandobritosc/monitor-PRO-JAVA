@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo, useCallback, type MouseEvent } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
+import { flashcardsQueries } from '../services/queries';
 import { AIProviderName, deleteCachedAudio } from '../services/aiService';
 import { EditalMateria, Flashcard, CommunityDeck } from '../types';
 import { getErrorMessage } from '../utils/error';
@@ -110,13 +111,8 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) throw new Error("Usuário não logado");
-      const { data, error } = await supabase.from('flashcards')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('concurso', missaoAtiva)
-        .order('created_at', { ascending: false });
-      if (error) throw error;
-      setCards((data as Flashcard[]) || []);
+      const data = await flashcardsQueries.getByUser(user.id);
+      setCards(data as Flashcard[]);
     } catch (error) { 
       logger.error('DATA', 'Erro ao carregar flashcards:', getErrorMessage(error)); 
     } finally { 
@@ -127,12 +123,9 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const loadCommunityDecks = async () => {
     setLoadingCommunity(true);
     try {
-      const { data, error } = await supabase.from('flashcards')
-        .select('materia, assunto, front, back, id, status, created_at, ai_generated_assets, original_audio_id, author_name')
-        .not('user_id', 'eq', '00000000-0000-0000-0000-000000000000');
-      if (error) throw error;
+      const data = await flashcardsQueries.getCommunityCards();
       const decksMap = new Map<string, CommunityDeck>();
-      (data as Flashcard[])?.forEach((card) => {
+      data.forEach((card) => {
         if (!decksMap.has(card.materia)) {
           decksMap.set(card.materia, { materia: card.materia, count: 0, cards: [] });
         }
@@ -211,7 +204,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         assunto: c.assunto || '',
         front: c.front || '',
         back: c.back || '',
-        ai_generated_assets: c.ai_generated_assets || null,
+        ai_generated_assets: c.ai_generated_assets || undefined,
         original_audio_id: c.original_audio_id || c.id,
         author_name: userName,
         status: 'novo' as Flashcard['status']
@@ -222,8 +215,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         alert('Todos os cards selecionados já existem no seu inventário.');
         return;
       }
-      const { error } = await supabase.from('flashcards').insert(uniquePayload);
-      if (error) throw error;
+      await flashcardsQueries.upsert(uniquePayload);
       const newLocalCards = uniquePayload.map((p, idx) => ({ ...p, id: `temp-${Date.now()}-${idx}`, created_at: new Date().toISOString() })) as Flashcard[];
       setCards(prev => [...prev, ...newLocalCards]);
       if (previewDeck) {
@@ -278,15 +270,14 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     setSaveMessage(null);
     try {
       if (editingId) {
-        const { error } = await supabase.from('flashcards').update({
+        await flashcardsQueries.update(editingId, {
           materia: newCard.materia,
           assunto: newCard.assunto,
           front: newCard.front,
           back: newCard.back,
-          ai_generated_assets: null,
-          original_audio_id: null
-        }).eq('id', editingId);
-        if (error) throw error;
+          ai_generated_assets: undefined,
+          original_audio_id: undefined
+        });
         cancelEdit();
         alert('Flashcard atualizado!');
         deleteCachedAudio(editingId);
@@ -295,7 +286,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
         const { data: { user } } = await supabase.auth.getUser();
         if (!user) throw new Error('Usuário não autenticado');
         const authorName = user.email?.split('@')[0] || 'Anônimo';
-        const { error } = await supabase.from('flashcards').insert([{
+        await flashcardsQueries.upsert({
           user_id: user.id,
           concurso: missaoAtiva,
           materia: newCard.materia,
@@ -304,8 +295,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
           back: newCard.back,
           author_name: authorName,
           status: 'novo' as Flashcard['status']
-        }]);
-        if (error) throw error;
+        });
         setNewCard(prev => ({ ...prev, front: '', back: '' }));
         setSaveMessage("Salvo! Campos mantidos para próximo card.");
         setTimeout(() => setSaveMessage(null), 3000);
@@ -319,8 +309,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
   const deleteCard = async (id: string) => {
     if (!confirm('Excluir este flashcard?')) return;
     try {
-      const { error } = await supabase.from('flashcards').delete().eq('id', id);
-      if (error) throw error;
+      await flashcardsQueries.delete(id);
       deleteCachedAudio(id);
       setPodcastCache(prev => { const n = new Set(prev); n.delete(id); return n; });
       loadFlashcards();
@@ -391,14 +380,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('flashcards')
-        .select('concurso')
-        .eq('user_id', user.id)
-        .not('concurso', 'eq', missaoAtiva);
-      if (error) throw error;
-      const uniqueMissions = Array.from(new Set(data.map(d => d.concurso))).filter(Boolean) as string[];
-      return uniqueMissions.sort();
+      return await flashcardsQueries.getOtherMissions(user.id, missaoAtiva);
     } catch (e) {
       logger.error('DATA', "Erro ao carregar outras missões:", e);
       return [];
@@ -409,12 +391,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     try {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return [];
-      const { data, error } = await supabase
-        .from('flashcards')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('concurso', sourceMission);
-      if (error) throw error;
+      const data = await flashcardsQueries.getByConcurso(user.id, sourceMission);
       return data as Flashcard[];
     } catch (e) {
       logger.error('DATA', "Erro ao buscar cards da missão:", e);

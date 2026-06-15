@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
-import { supabase } from '../services/supabase';
+import { flashcardsQueries } from '../services/queries';
 import { Flashcard } from '../types';
 import { smartShuffle, sm2 } from '../utils/flashcards';
 import { logger } from '../utils/logger';
@@ -70,14 +70,12 @@ export const useFlashcardsStudy = ({ filteredCards, onCardResult }: UseFlashcard
     if (result.learned) setSessionStats(prev => ({ ...prev, learned: prev.learned + 1 }));
 
     try {
-      const { error } = await supabase.from('flashcards').update({
+      await flashcardsQueries.update(currentCard.id, {
         status: result.status,
         interval: result.interval,
         ease_factor: result.easeFactor,
         next_review: result.nextReview.toISOString()
-      }).eq('id', currentCard.id);
-
-      if (error) throw error;
+      });
       onCardResult();
     } catch (error) {
       logger.error('DATA', 'Erro ao atualizar card:', error);
