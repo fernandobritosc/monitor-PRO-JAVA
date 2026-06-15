@@ -3,6 +3,7 @@ import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { streamAIContent, generateAIContent, AIProviderName } from '../services/aiService';
 import { Flashcard } from '../types';
 import { getErrorMessage } from '../utils/error';
+import { logger } from '../utils/logger';
 
 export interface UseAIFlashcardsProps {
   currentCard: Flashcard | undefined;
@@ -58,9 +59,9 @@ export const useAIFlashcards = ({ currentCard, studyQueue, currentCardIndex, set
         .update({ ai_generated_assets: newAssets })
         .eq('id', currentCard.id);
       if (error) throw error;
-      console.log(`✅ Asset '${String(assetType)}' salvo para o card ${currentCard.id}`);
+      logger.log(`✅ Asset '${String(assetType)}' salvo para o card ${currentCard.id}`);
     } catch (error) {
-      console.error("Erro ao salvar asset de IA:", getErrorMessage(error));
+      logger.error('AI', "Erro ao salvar asset de IA:", getErrorMessage(error));
     }
   };
 
@@ -80,7 +81,7 @@ export const useAIFlashcards = ({ currentCard, studyQueue, currentCardIndex, set
       onChunk: (text: string) => { setAiStreamText(prev => prev + text); accumulatedText += text; },
       onComplete: async () => { setAiLoading(false); await saveAiAsset('explanation', accumulatedText); },
       onError: (error: Error) => {
-        console.error("AI Fatal Error:", error);
+        logger.error('AI', "AI Fatal Error:", error);
         setAiStreamText('❌ Falha Crítica: Todos os motores de IA falharam.\n\nDetalhes: ' + error.message + '\n\n💡 Tente trocar manualmente para Groq nas configurações ou verifique suas chaves.');
         setAiLoading(false);
       }
@@ -98,7 +99,7 @@ export const useAIFlashcards = ({ currentCard, studyQueue, currentCardIndex, set
       setMnemonicText(result);
       await saveAiAsset('mnemonic', result);
     } catch (error) {
-      console.error("Erro ao gerar mnemônico:", getErrorMessage(error));
+      logger.error('AI', "Erro ao gerar mnemônico:", getErrorMessage(error));
       setMnemonicText("Desculpe, não foi possível criar um mnemônico agora.");
     } finally {
       setMnemonicLoading(false);
@@ -125,7 +126,7 @@ export const useAIFlashcards = ({ currentCard, studyQueue, currentCardIndex, set
       await saveAiAsset(format, result);
     } catch (error) {
       const msg = getErrorMessage(error);
-      console.error(`Erro ao gerar ${format}:`, msg);
+      logger.error('AI', `Erro ao gerar ${format}:`, msg);
       setExtraContent(`Desculpe, não foi possível gerar o formato "${format}" para este card. Motivo: ${msg}`);
     } finally {
       setExtraLoading(false);

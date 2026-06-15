@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { saveAppConfig, resetAppConfig } from '../services/supabase';
 import { createClient } from '@supabase/supabase-js';
 import { Settings, Link, Key, AlertTriangle, ExternalLink, ClipboardPaste, CheckCircle2, Loader2, Sparkles, Zap } from 'lucide-react';
+import { logger } from '../utils/logger';
 
 interface ConfigScreenProps {
   initialError?: string | null;
@@ -24,7 +25,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
         setKey(text.trim());
       }
     } catch (err) {
-      console.error('Failed to read clipboard contents: ', err);
+      logger.error('UI', 'Failed to read clipboard contents: ', err);
       setError('Não foi possível colar. Use Ctrl+V.');
     }
   };
@@ -84,7 +85,7 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
       }, 800);
 
     } catch (err: unknown) {
-      console.error("Connection Test Failed:", err);
+      logger.error('UI', "Connection Test Failed:", err);
       setError(err instanceof Error ? err.message : 'Falha ao conectar. Verifique os dados.');
       setTestStatus('error');
       setLoading(false);

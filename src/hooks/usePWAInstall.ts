@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { logger } from '../utils/logger';
 
 interface BeforeInstallPromptEvent extends Event {
     readonly platforms: string[];
@@ -39,7 +40,7 @@ export function usePWAInstall() {
         const { outcome } = await deferredPrompt.userChoice;
 
         if (outcome === 'accepted') {
-            console.log('Usuário instalou o PWA');
+            logger.log('Usuário instalou o PWA');
             setIsInstallable(false);
         }
 

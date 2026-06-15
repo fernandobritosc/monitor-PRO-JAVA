@@ -8,6 +8,7 @@ import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 
 // Declaração para TypeScript reconhecer a biblioteca global
 import { getErrorMessage } from '../utils/error';
+import { logger } from '../utils/logger';
 
 interface jsPDFWithAutoTable extends Object {
     autoTable: (options: Record<string, unknown>) => void;
@@ -119,7 +120,7 @@ const Reports: React.FC = () => {
             const hasAutoTable = typeof doc.autoTable === 'function';
 
             if (!hasAutoTable) {
-                console.warn("Plugin AutoTable não detectado corretamente.");
+                logger.warn('PDF', "Plugin AutoTable não detectado corretamente.");
                 throw new Error("Plugin de tabelas PDF não carregou. Tente recarregar a página.");
             }
 
@@ -255,7 +256,7 @@ const Reports: React.FC = () => {
             doc.save(`Relatorio_MonitorPro_${missaoAtiva}_${endDate}.pdf`);
 
         } catch (err) {
-            console.error("Erro ao gerar PDF:", err);
+            logger.error('PDF', "Erro ao gerar PDF:", err);
             alert("Erro ao gerar o PDF: " + getErrorMessage(err));
         } finally {
             setGenerating(false);

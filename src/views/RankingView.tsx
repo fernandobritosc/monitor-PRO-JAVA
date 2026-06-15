@@ -11,6 +11,7 @@ import {
 } from 'lucide-react';
 import { ViewType } from '../types';
 import { supabase } from '../services/supabase';
+import { logger } from '../utils/logger';
 
 interface RankingGeralRow {
     user_id: string;
@@ -78,7 +79,7 @@ const RankingView: React.FC = () => {
                     setRankers(formatted.slice(0, 50));
                 }
             } catch (err) {
-                console.error("Erro ao buscar ranking:", err);
+                logger.error('DATA', "Erro ao buscar ranking:", err);
             } finally {
                 setLoading(false);
             }

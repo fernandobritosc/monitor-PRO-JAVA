@@ -2,6 +2,7 @@ import { useState, useEffect, useRef } from 'react';
 import { supabase } from '../services/supabase';
 import { Flashcard } from '../types';
 import { smartShuffle, sm2 } from '../utils/flashcards';
+import { logger } from '../utils/logger';
 
 interface UseFlashcardsStudyProps {
   filteredCards: Flashcard[];
@@ -79,7 +80,7 @@ export const useFlashcardsStudy = ({ filteredCards, onCardResult }: UseFlashcard
       if (error) throw error;
       onCardResult();
     } catch (error) {
-      console.error('Erro ao atualizar card:', error);
+      logger.error('DATA', 'Erro ao atualizar card:', error);
     }
 
     const nextIndex = currentCardIndex + 1;

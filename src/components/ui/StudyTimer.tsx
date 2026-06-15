@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Play, Pause, RotateCcw, X, Clock, Settings } from 'lucide-react';
 import { useTimerStore } from '../../stores/useTimerStore';
+import { logger } from '../../utils/logger';
 
 export const StudyTimer: React.FC = () => {
     const { 
@@ -78,7 +79,7 @@ export const StudyTimer: React.FC = () => {
                          await audioRef.current.play();
                      }
                  } catch (e) {
-                     console.log("Audio play blocked - Interaction required", e);
+                     logger.log("Audio play blocked - Interaction required", e);
                  }
              };
              playSound();

@@ -6,6 +6,7 @@ import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import { useAppStore } from '../stores/useAppStore';
 import { generateAIContent } from '../services/aiService';
 import { getGeminiKey, getGroqKey } from '../services/supabase';
+import { logger } from '../utils/logger';
 
 // Componentes Modulares Traduzidos
 import { PainelCofre } from '../components/features/error-vault/PainelCofre';
@@ -104,7 +105,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
 
             await updateRecord({ ...record, analise_erros: updatedAnalise });
         } catch (err) {
-            console.error("[Cofre] Falha ao sincronizar:", err);
+            logger.error('SYNC', "[Cofre] Falha ao sincronizar:", err);
         }
     };
 
@@ -133,7 +134,7 @@ export const ErrorAnalysisView: React.FC<ErrorAnalysisViewProps> = ({
             setMacroDiagnosis(result);
             alert("Diagnóstico Neural Gerado com Sucesso!");
         } catch (error) {
-            console.error('Erro AI:', error);
+            logger.error('AI', 'Erro AI:', error);
         } finally {
             setIsSynthesizing(false);
         }

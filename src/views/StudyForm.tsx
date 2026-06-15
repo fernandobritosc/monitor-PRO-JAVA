@@ -202,7 +202,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             const { data: { publicUrl } } = supabase.storage.from('questions').getPublicUrl(filePath);
             return publicUrl;
         } catch (error) {
-            console.error('Error uploading image:', error);
+            logger.error('UI', 'Error uploading image:', error);
             return null;
         }
     };
@@ -475,7 +475,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                             topico: assunto.trim()
                         });
                     } catch (topicoError) {
-                        console.warn('Estudo Livre: Erro ao adicionar tópico automaticamente', topicoError);
+                        logger.warn('SYNC', 'Estudo Livre: Erro ao adicionar tópico automaticamente', topicoError);
                     }
                 }
 

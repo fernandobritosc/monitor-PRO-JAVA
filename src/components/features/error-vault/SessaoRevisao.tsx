@@ -5,6 +5,7 @@ import { ErrorAnalysis } from '../../../types';
 import { generateAIContent } from '../../../services/aiService';
 import { getGeminiKey, getGroqKey } from '../../../services/supabase';
 import DOMPurify from 'dompurify';
+import { logger } from '../../../utils/logger';
 
 interface Message {
     role: 'user' | 'assistant';
@@ -173,7 +174,7 @@ export const SessaoRevisao: React.FC<SessaoRevisaoProps> = ({
             setAiExplanation(response);
             setChatHistory([{ role: 'assistant', content: response }]);
         } catch (error) {
-            console.error('Erro na IA:', error);
+            logger.error('AI', 'Erro na IA:', error);
             setAiExplanation("Não consegui gerar a explicação.");
         } finally {
             setIsGeneratingExplanation(false);

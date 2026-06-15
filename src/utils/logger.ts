@@ -67,7 +67,7 @@ class MonitorProLogger {
         };
     }
 
-    private log(entry: LogEntry) {
+    private logEntry(entry: LogEntry) {
         if (!this.enabled) return;
 
         this.logs.push(entry);
@@ -109,21 +109,26 @@ class MonitorProLogger {
         }
     }
 
+    // — Convenience methods (auto-categorize) —
+    log(message: string, data?: unknown) {
+        this.info('SYNC', message, data);
+    }
+
     // —— Métodos Públicos ——
     info(category: LogCategory, message: string, data?: unknown, userId?: string) {
-        this.log(this.createEntry('INFO', category, message, data, userId));
+        this.logEntry(this.createEntry('INFO', category, message, data, userId));
     }
 
     warn(category: LogCategory, message: string, data?: unknown, userId?: string) {
-        this.log(this.createEntry('WARN', category, message, data, userId));
+        this.logEntry(this.createEntry('WARN', category, message, data, userId));
     }
 
     error(category: LogCategory, message: string, data?: unknown, userId?: string) {
-        this.log(this.createEntry('ERROR', category, message, data, userId));
+        this.logEntry(this.createEntry('ERROR', category, message, data, userId));
     }
 
     debug(category: LogCategory, message: string, data?: unknown, userId?: string) {
-        this.log(this.createEntry('DEBUG', category, message, data, userId));
+        this.logEntry(this.createEntry('DEBUG', category, message, data, userId));
     }
 
     // —— Métodos Específicos (Domínio) ——

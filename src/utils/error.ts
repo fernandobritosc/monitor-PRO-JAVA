@@ -1,5 +1,6 @@
 
 import * as Sentry from '@sentry/react';
+import { logger } from './logger';
 
 /**
  * Utilitário para extração segura de mensagens de erro em blocos catch().
@@ -23,7 +24,7 @@ export function getErrorMessage(error: unknown): string {
  */
 export function logError(context: string, error: unknown, extras?: Record<string, unknown>) {
     // Sempre faz o log no console para desenvolvedores (ambiente local)
-    console.error(`[${context}] Erro:`, error, extras || '');
+    logger.error('SYNC', `[${context}] Erro:`, { error, extras });
 
     // Envia o erro para o Sentry de forma estruturada para monitoramento real
     Sentry.withScope((scope) => {

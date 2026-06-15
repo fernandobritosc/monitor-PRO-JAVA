@@ -8,6 +8,7 @@ import { findDuplicate as findDuplicateCard } from '../utils/flashcards';
 import { useAIFlashcards } from './useAIFlashcards';
 import { useAudioFlashcards } from './useAudioFlashcards';
 import { useFlashcardsStudy } from './useFlashcardsStudy';
+import { logger } from '../utils/logger';
 
 interface FlashcardsProps {
   missaoAtiva: string;
@@ -48,7 +49,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     setIsSyncing(true);
     try {
       const { data, error } = await supabase.storage.from('audio-revisions').list('', { limit: 1000, sortBy: { column: 'name', order: 'desc' } });
-      if (error) { console.error("Erro ao listar áudios:", error); return; }
+      if (error) { logger.error('AUDIO', "Erro ao listar áudios:", error); return; }
       if (data) {
         const podcastIds = new Set<string>();
         let count = 0;
@@ -59,11 +60,11 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
             count++;
           }
         });
-        console.log(`✅ Sincronização: ${count} podcasts identificados no servidor.`);
+        logger.log(`✅ Sincronização: ${count} podcasts identificados no servidor.`);
         setPodcastCache(podcastIds);
       }
     } catch (e) { 
-      console.error("Erro exceção sync podcast:", getErrorMessage(e)); 
+      logger.error('AUDIO', "Erro exceção sync podcast:", getErrorMessage(e)); 
     } finally { 
       setIsSyncing(false); 
     }
@@ -117,7 +118,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       if (error) throw error;
       setCards((data as Flashcard[]) || []);
     } catch (error) { 
-      console.error('Erro ao carregar flashcards:', getErrorMessage(error)); 
+      logger.error('DATA', 'Erro ao carregar flashcards:', getErrorMessage(error)); 
     } finally { 
       setLoading(false); 
     }
@@ -142,7 +143,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const validDecks = Array.from(decksMap.values()).filter(d => d.count > 0);
       setCommunityDecks(validDecks);
     } catch (error) { 
-      console.error('Erro ao carregar decks:', getErrorMessage(error)); 
+      logger.error('DATA', 'Erro ao carregar decks:', getErrorMessage(error)); 
     } finally { 
       setLoadingCommunity(false); 
     }
@@ -323,7 +324,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       deleteCachedAudio(id);
       setPodcastCache(prev => { const n = new Set(prev); n.delete(id); return n; });
       loadFlashcards();
-    } catch (error) { console.error(error); }
+    } catch (error) { logger.error('DATA', getErrorMessage(error)); }
   };
 
   const previewTopics = useMemo(() => {
@@ -382,7 +383,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
     setFilterPodcast('Todos');
     setNewCard({ front: '', back: '', materia: '', assunto: '' });
     setEditingId(null);
-    console.log('🔄 Flashcards: Filtros resetados para nova missão:', missaoAtiva);
+    logger.log('🔄 Flashcards: Filtros resetados para nova missão:', missaoAtiva);
     loadFlashcards();
   }, [missaoAtiva]);
 
@@ -399,7 +400,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       const uniqueMissions = Array.from(new Set(data.map(d => d.concurso))).filter(Boolean) as string[];
       return uniqueMissions.sort();
     } catch (e) {
-      console.error("Erro ao carregar outras missões:", e);
+      logger.error('DATA', "Erro ao carregar outras missões:", e);
       return [];
     }
   }, [missaoAtiva]);
@@ -416,7 +417,7 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       if (error) throw error;
       return data as Flashcard[];
     } catch (e) {
-      console.error("Erro ao buscar cards da missão:", e);
+      logger.error('DATA', "Erro ao buscar cards da missão:", e);
       return [];
     }
   };
@@ -484,10 +485,10 @@ export const useFlashcards = ({ missaoAtiva, editais }: FlashcardsProps) => {
       }
       const fileName = `Neural_Lab_${activeAiTool}_${currentCard.id.substring(0, 5)}.pdf`;
       doc.save(fileName);
-      console.log("✅ PDF Multi-página com margens exportado!");
+      logger.log("✅ PDF Multi-página com margens exportado!");
     } catch (err: unknown) {
       const error = err instanceof Error ? err : new Error(String(err));
-      console.error("Erro ao exportar PDF visual:", error);
+      logger.error('PDF', "Erro ao exportar PDF visual:", error);
       alert("Erro ao gerar PDF visual: " + error.message);
     }
   };

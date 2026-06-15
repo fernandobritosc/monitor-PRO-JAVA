@@ -2,6 +2,8 @@
  * Utility to convert and compress audio files to MP3 in the browser.
  * Loads lamejs locally from /public/lame.min.js to bypass CSP and module issues.
  */
+import { logger } from './logger';
+
 interface LameJs {
   Mp3Encoder: new (channels: number, sampleRate: number, bitrate: number) => {
     encodeBuffer: (left: Int16Array, right: Int16Array) => Int8Array;
@@ -33,7 +35,7 @@ export class AudioConverter {
                     win.MPEGMode = win.MPEGMode || lame.MPEGMode;
                     win.Lame = win.Lame || lame.Lame;
 
-                    console.log("Lamejs carregado localmente com sucesso.");
+                    logger.log("Lamejs carregado localmente com sucesso.");
                     resolve(lame);
                 } else {
                     reject(new Error("lamejs não encontrado no objeto window"));
@@ -92,7 +94,7 @@ export class AudioConverter {
                 await audioContext.close();
                 resolve(new File([blob], newName, { type: 'audio/mp3' }));
             } catch (error) {
-                console.error("Erro na conversão MP3:", error);
+                logger.error('AUDIO', "Erro na conversão MP3:", error);
                 reject(error);
             }
         });

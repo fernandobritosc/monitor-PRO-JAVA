@@ -15,6 +15,7 @@ import { useAuth } from './hooks/useAuth';
 import { useNotifications } from './hooks/useNotifications';
 import { useSentry } from './hooks/useSentry';
 import { APP_VERSION } from './constants';
+import { logger } from './utils/logger';
 
 const AppContent: React.FC = () => {
   const { session, userEmail, loading: authLoading, signOut } = useAuth();
@@ -83,7 +84,7 @@ const AppContent: React.FC = () => {
           alert(result.message);
         }
       } catch (err) {
-        console.error('Erro ao atualizar cache:', err);
+        logger.error('CACHE', 'Erro ao atualizar cache:', err);
         alert('Falha ao atualizar cache. Verifique sua conexão.');
       }
     }

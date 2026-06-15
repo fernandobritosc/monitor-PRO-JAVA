@@ -7,6 +7,7 @@ import { syncService } from '../../services/offline/sync';
 import { useSession } from '../../hooks/useSession';
 import { supabase } from '../../lib/supabase';
 import { studyRecordsQueries } from '../../services/queries/studyRecords';
+import { logger } from '../../utils/logger';
 
 export const SyncStatus: React.FC = () => {
   const { userId } = useSession();
@@ -20,7 +21,7 @@ export const SyncStatus: React.FC = () => {
     if (isOnline && userId) {
       studyRecordsQueries.getCount(userId)
         .then(setRemoteTotal)
-        .catch(console.error);
+        .catch((err) => logger.error('SYNC', 'Erro ao buscar contagem remota:', err));
     }
   }, [isOnline, userId, isSyncing]);
 
@@ -36,7 +37,7 @@ export const SyncStatus: React.FC = () => {
           .equals('pending')
           .count();
       } catch (e) {
-        console.error('Dexie syncStatus query error:', e);
+        logger.error('STORAGE', 'Dexie syncStatus query error:', e);
         return 0;
       }
     },
@@ -76,7 +77,7 @@ export const SyncStatus: React.FC = () => {
           alert('Nenhum registro local encontrado para resgate.');
         }
       } catch (err) {
-        console.error('Erro no resgate:', err);
+        logger.error('SYNC', 'Erro no resgate:', err);
       } finally {
         setTimeout(() => setIsSyncing(false), 2000);
       }
@@ -90,7 +91,7 @@ export const SyncStatus: React.FC = () => {
         const result = await syncService.safeRefresh(userId || '');
         alert(result.message);
       } catch (err) {
-        console.error('Erro no refresh:', err);
+        logger.error('SYNC', 'Erro no refresh:', err);
         alert('Falha ao sincronizar dados.');
       } finally {
         setIsSyncing(false);

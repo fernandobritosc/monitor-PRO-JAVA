@@ -4,6 +4,7 @@
  */
 import { supabase } from '../../lib/supabase';
 import { StudyRecord } from '../../types';
+import { logger } from '../../utils/logger';
 
 export const studyRecordsQueries = {
     /** Busca todos os registros de um usuário (max 2000, desc por data) */
@@ -53,7 +54,7 @@ export const studyRecordsQueries = {
             return entry;
         });
 
-        console.log('[SUPABASE] Upsert Payload:', payload);
+        logger.log('[SUPABASE] Upsert Payload:', payload);
 
         const { data, error } = await supabase
             .from('registros_estudos')
@@ -61,10 +62,7 @@ export const studyRecordsQueries = {
             .select();
 
         if (error) {
-            console.error('❌ Erro no Supabase (Upsert):', error.message);
-            console.error('🔍 Detalhes:', error.details);
-            console.error('💡 Dica:', error.hint);
-            console.error('📦 Payload enviado:', JSON.stringify(payload, null, 2));
+            logger.error('DATA', '❌ Erro no Supabase (Upsert):', { message: error.message, details: error.details, hint: error.hint, payload: JSON.stringify(payload, null, 2) });
             throw error;
         }
         return data as StudyRecord[];
@@ -99,7 +97,7 @@ export const studyRecordsQueries = {
             .eq('id', record.id);
         
         if (error) {
-            console.error('❌ Erro no Supabase (Update):', error.message, error.details, error.hint);
+            logger.error('DATA', '❌ Erro no Supabase (Update):', { message: error.message, details: error.details, hint: error.hint });
             throw error;
         }
     },

@@ -23,6 +23,7 @@ import { useAppStore } from '../stores/useAppStore';
 import { useAuth } from '../hooks/useAuth';
 import { useStudyRecords } from '../hooks/queries/useStudyRecords';
 import DOMPurify from 'dompurify';
+import { logger } from '../utils/logger';
 
 // Tipo interno para gerenciar a revisão na UI
 interface PendingReview extends StudyRecord {
@@ -234,7 +235,7 @@ const Revisoes: React.FC = () => {
       );
 
       if (records.length > 0 && activeRecords.length === 0) {
-        console.warn(
+        logger.warn('DATA',
           `⚠️ Revisoes: ${records.length} registros totais encontrados, mas ZERO para a missão "${missaoAtiva}". Verifique se o nome do concurso bate.`,
         );
       }
@@ -399,7 +400,7 @@ const Revisoes: React.FC = () => {
       // Fecha o modal imediatamente
       setSelectedReview(null);
     } catch (error) {
-      console.error('Erro ao processar revisão:', error);
+      logger.error('DATA', 'Erro ao processar revisão:', error);
       alert('Erro ao concluir revisão: ' + getErrorMessage(error));
     } finally {
       // Opcionalmente podemos manter o state de loading se acharmos necessário

@@ -15,6 +15,7 @@ import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
 import { SQL_FLASHCARDS_POLICY } from '../constants/flashcards';
+import { logger } from '../utils/logger';
 
 const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> = ({ missaoAtiva: missaoAtivaProps, editais: editaisProps }) => {
   const { userId } = useSession();
@@ -156,19 +157,19 @@ const Flashcards: React.FC<{ missaoAtiva?: string; editais?: EditalMateria[] }> 
 
                 <div className="flex p-1.5 bg-[hsl(var(--bg-main))]/80 backdrop-blur-sm rounded-xl border border-[hsl(var(--border))] shadow-inner gap-1 overflow-hidden relative z-50">
                   <button
-                    onClick={() => { console.log("AI: Auto"); setSelectedAI('auto'); }}
+                    onClick={() => { logger.log("AI: Auto"); setSelectedAI('auto'); }}
                     className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 transform active:scale-95 ${selectedAI === 'auto' ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg opacity-100' : 'text-[hsl(var(--text-muted))] hover:bg-white/5 opacity-70 hover:opacity-100'}`}
                   >
                     Auto
                   </button>
                   <button
-                    onClick={() => { console.log("AI: Gemini"); setSelectedAI('gemini'); }}
+                    onClick={() => { logger.log("AI: Gemini"); setSelectedAI('gemini'); }}
                     className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 transform active:scale-95 ${selectedAI === 'gemini' ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg opacity-100' : 'text-[hsl(var(--text-muted))] hover:bg-white/5 opacity-70 hover:opacity-100'}`}
                   >
                     Gemini
                   </button>
                   <button
-                    onClick={() => { console.log("AI: Groq"); setSelectedAI('groq'); }}
+                    onClick={() => { logger.log("AI: Groq"); setSelectedAI('groq'); }}
                     className={`flex-1 py-3 rounded-lg text-[10px] font-black uppercase tracking-widest transition-all duration-300 transform active:scale-95 ${selectedAI === 'groq' ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-lg opacity-100' : 'text-[hsl(var(--text-muted))] hover:bg-white/5 opacity-70 hover:opacity-100'}`}
                   >
                     Groq

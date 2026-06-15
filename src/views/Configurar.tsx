@@ -149,7 +149,7 @@ const Configurar: React.FC<ConfigurarProps> = ({ editais: editaisProps, records:
         queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
         if (mounted) await onUpdated();
       } catch (e) {
-        console.error('Erro ao criar Estudo Livre', e);
+        logger.error('DATA', 'Erro ao criar Estudo Livre', e);
       }
     };
 

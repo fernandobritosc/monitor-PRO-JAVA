@@ -3,6 +3,7 @@
  * Centraliza queries de `profiles` e `ranking_geral`
  */
 import { supabase } from '../supabase';
+import { logger } from '../../utils/logger';
 
 export const profilesQueries = {
     /** Verifica se um usuário é admin */
@@ -59,7 +60,7 @@ export const profilesQueries = {
         const { data, error } = await supabase
             .rpc('get_ranking_by_period', { p_days: days });
         if (error) {
-            console.error('ERRO NO RPC get_ranking_by_period:', error);
+            logger.error('DATA', 'ERRO NO RPC get_ranking_by_period:', error);
             throw error;
         }
         return data ?? [];

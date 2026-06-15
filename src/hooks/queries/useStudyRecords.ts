@@ -4,6 +4,7 @@ import { studyRecordsQueries } from '../../services/queries/studyRecords';
 import { StudyRecord } from '../../types';
 import { db, OfflineAttempt } from '../../services/offline/db';
 import { supabase } from '../../lib/supabase';
+import { logger } from '../../utils/logger';
 
 export const useStudyRecords = (userId: string | undefined) => {
   const queryClient = useQueryClient();
@@ -43,7 +44,7 @@ export const useStudyRecords = (userId: string | undefined) => {
         const allLocal = await db.studyRecords.toArray();
         const orphans = allLocal.filter(r => !r.user_id || r.user_id === 'undefined');
         if (orphans.length > 0) {
-          console.warn(`🔍 Recuperando ${orphans.length} registros sem usuário para ${userId}`);
+          logger.warn('DATA', `🔍 Recuperando ${orphans.length} registros sem usuário para ${userId}`);
           await db.studyRecords.bulkPut(orphans.map(o => ({ 
             ...o, 
             user_id: userId,
@@ -51,7 +52,7 @@ export const useStudyRecords = (userId: string | undefined) => {
           })));
         }
       } catch (err) {
-        console.error('Erro na auto-recuperação:', err);
+        logger.error('SYNC', 'Erro na auto-recuperação:', err);
       }
 
       const localData = await db.studyRecords
@@ -64,7 +65,7 @@ export const useStudyRecords = (userId: string | undefined) => {
         if (navigator.onLine) {
           const remoteData = await studyRecordsQueries.getByUser(userId);
           const remoteCount = remoteData?.length || 0;
-          console.log(`[SYNC] ☁️ Dados remotos recebidos: ${remoteCount}`);
+          logger.log(`[SYNC] ☁️ Dados remotos recebidos: ${remoteCount}`);
           
           if (remoteData && remoteCount > 0) {
             const pendingIds = new Set(
@@ -78,18 +79,18 @@ export const useStudyRecords = (userId: string | undefined) => {
             }));
             
             const result = await db.studyRecords.bulkPut(remoteToStore);
-            console.log(`[SYNC] ✅ Cache local (Dexie) atualizado com ${remoteToStore.length} registros.`);
+            logger.log(`[SYNC] ✅ Cache local (Dexie) atualizado com ${remoteToStore.length} registros.`);
           }
         }
         
         return await db.studyRecords.where('user_id').equals(userId).toArray();
       } catch (error: unknown) {
-        console.error('[SYNC] Erro ao sincronizar:', error);
+        logger.error('SYNC', '[SYNC] Erro ao sincronizar:', error);
         return localData;
       }
     },
     enabled: !!userId,
-    staleTime: 0, // Força verificação sempre que o componente montar
+    staleTime: 1000 * 60 * 3, // 3 minutos antes de re-buscar
   });
 
   const insertMutation = useMutation({
@@ -99,7 +100,7 @@ export const useStudyRecords = (userId: string | undefined) => {
       // SEMPRE inserimos no Dexie primeiro
       const recordsToInsert = recordsArray.map((r: Partial<StudyRecord>, index: number) => {
         const newId = r.id || crypto.randomUUID();
-        console.log(`[SYNC] Preparando registro ${index + 1}: ID=${newId} (Tipo: ${typeof newId})`);
+        logger.log(`[SYNC] Preparando registro ${index + 1}: ID=${newId} (Tipo: ${typeof newId})`);
         
         return {
           ...r,
@@ -124,13 +125,13 @@ export const useStudyRecords = (userId: string | undefined) => {
               syncStatus: 'synced',
               lastModified: Date.now() 
             })));
-            console.log(`[SYNC] ✅ ${recordsToInsert.length} registros confirmados na nuvem.`);
+            logger.log(`[SYNC] ✅ ${recordsToInsert.length} registros confirmados na nuvem.`);
           } else {
-            console.error('[SYNC] ❌ Supabase não confirmou todos os registros. Mantendo como pending para retry.');
+            logger.error('SYNC', '[SYNC] ❌ Supabase não confirmou todos os registros. Mantendo como pending para retry.');
             await db.studyRecords.bulkPut(recordsToInsert.map((r: OfflineAttempt) => ({ ...r, syncStatus: 'pending' })));
           }
         } catch (e) {
-          console.warn('⚠️ Falha no sync imediato, ficará pendente:', e);
+          logger.warn('SYNC', '⚠️ Falha no sync imediato, ficará pendente:', e);
         }
       }
       return recordsToInsert; // Retorna os registros locais para a UI
@@ -160,10 +161,10 @@ export const useStudyRecords = (userId: string | undefined) => {
           } catch (e: unknown) {
             // Se for erro de rede (offline), apenas avisamos e deixamos pendente no Dexie
             if (!navigator.onLine || (e as Error).message === 'Failed to fetch') {
-              console.warn('⚠️ Update offline, marcado como pendente no Dexie');
+              logger.warn('SYNC', '⚠️ Update offline, marcado como pendente no Dexie');
             } else {
               // Se for erro de banco (400, RLS, etc), logamos e podemos propagar ou tratar
-              console.error('❌ Falha na sincronização remota (não é offline):', e);
+              logger.error('SYNC', '❌ Falha na sincronização remota (não é offline):', e);
               throw e; // Propaga para o ErrorAnalysisView detectar a falha
             }
           }
@@ -183,7 +184,7 @@ export const useStudyRecords = (userId: string | undefined) => {
         try {
           await studyRecordsQueries.delete(id);
         } catch (e) {
-          console.error('❌ Erro ao deletar no remoto:', e);
+          logger.error('SYNC', '❌ Erro ao deletar no remoto:', e);
           // Opcional: registrar deleção pendente se o Supabase exigir
         }
       }
@@ -201,7 +202,7 @@ export const useStudyRecords = (userId: string | undefined) => {
         try {
           await studyRecordsQueries.deleteMany(ids);
         } catch (e) {
-          console.error('❌ Erro ao deletar múltiplos no remoto:', e);
+          logger.error('SYNC', '❌ Erro ao deletar múltiplos no remoto:', e);
         }
       }
     },

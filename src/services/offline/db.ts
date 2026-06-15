@@ -1,5 +1,5 @@
 import Dexie, { type Table } from 'dexie';
-import { StudyRecord } from '../../types';
+import { StudyRecord, EditalMateria } from '../../types';
 
 export interface StudyMaterial {
     id: string;
@@ -17,15 +17,14 @@ export interface StudyMaterial {
 export interface OfflineAttempt extends StudyRecord {
     syncStatus: 'pending' | 'synced' | 'error';
     lastModified: number;
+    retryCount?: number;
+    lastError?: string;
 }
 
-export interface OfflineEdital {
-    id: string;
-    user_id: string;
-    concurso: string;
-    materia: string;
-    topicos: string[];
-    is_principal: boolean;
+export interface OfflineEdital extends EditalMateria {
+    syncStatus: 'pending' | 'synced' | 'error';
+    lastModified: number;
+    retryCount?: number;
 }
 
 export class MonitorProDB extends Dexie {
@@ -35,9 +34,9 @@ export class MonitorProDB extends Dexie {
 
     constructor() {
         super('MonitorProDB');
-        this.version(4).stores({
+        this.version(5).stores({
             studyRecords: 'id, user_id, materia, syncStatus',
-            editais: 'id, user_id, materia'
+            editais: 'id, user_id, materia, syncStatus'
         });
     }
 

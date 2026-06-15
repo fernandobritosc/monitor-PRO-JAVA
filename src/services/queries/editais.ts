@@ -28,10 +28,12 @@ export const editaisQueries = {
 
     /** Faz upsert de editais (cria ou atualiza) */
     async upsert(records: Partial<EditalMateria>[], ignoreDuplicates = false) {
-        const { error } = await supabase
+        const { data, error } = await supabase
             .from('editais_materias')
-            .upsert(records, { onConflict: 'user_id,concurso,materia', ignoreDuplicates });
+            .upsert(records, { onConflict: 'user_id,concurso,materia', ignoreDuplicates })
+            .select();
         if (error) throw error;
+        return data ?? [];
     },
 
     /** Insere novos editais (agora usando upsert para segurança) */
