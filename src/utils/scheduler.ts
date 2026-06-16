@@ -14,15 +14,27 @@ export interface StudyPlan {
 export function getDueCards(cards: Flashcard[]): Flashcard[] {
   const now = new Date();
   return cards
-    .filter(c => c.next_review && new Date(c.next_review) <= now)
+    .filter(c => {
+      // Cards with a past next_review date are due
+      if (c.next_review && new Date(c.next_review) <= now) return true;
+      // Cards that need review even without a date set (e.g. 'revisar', 'aprendendo', 'revisando')
+      if (
+        !c.next_review &&
+        (c.status === 'revisar' ||
+          c.status === 'aprendendo' ||
+          c.status === 'revisando')
+      )
+        return true;
+      return false;
+    })
     .sort((a, b) => {
       // Overdue cards first (positive = more overdue)
       const aOverdue = a.next_review
         ? now.getTime() - new Date(a.next_review).getTime()
-        : 0;
+        : 999999; // Cards without dates treated as most overdue
       const bOverdue = b.next_review
         ? now.getTime() - new Date(b.next_review).getTime()
-        : 0;
+        : 999999;
       return bOverdue - aOverdue;
     });
 }
