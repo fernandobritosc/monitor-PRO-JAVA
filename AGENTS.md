@@ -177,7 +177,23 @@ function CameraCard(props: any) {}
 - Criar utilitários de erro em `/src/utils/error.ts`
 - Nunca expor secrets em logs ou erros
 
-## 10. Testes
+## 10. Trabalho Futuro — F3 e F7
+
+### F3:M4 — Cache PWA
+Service worker do PWA configurado para cache de fontes, ícones, WASM. O `vite-plugin-pwa` já está configurado, mas falta auditar se o cache de runtime cobre todos os assets estáticos.
+
+### F7:M4 — Multi-dispositivo sync
+Sync offline com suporte a merge de conflitos, versão de documento e Realtime multi-sessão. Exige mudanças em `sync.ts` e `db.ts`.
+
+### F7:M5 — Assistente IA de estudos
+Chat contextual que sugere o que estudar com base no histórico e gap analysis. View + hook + service novos, com definição de UX pendente.
+
+### F7:M2 — Dashboard cross-missão
+Comparativo de rendimento entre concursos simultâneos. Natural depois da F6 consolidada.
+
+---
+
+## 11. Testes
 
 ### Unitários (Vitest)
 

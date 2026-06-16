@@ -96,7 +96,7 @@ describe('syncService', () => {
         writable: true,
       });
     } else {
-      globalThis.crypto.randomUUID = vi.fn(() => 'mock-uuid-12345') as unknown as () => string;
+      globalThis.crypto.randomUUID = vi.fn(() => 'mock-uuid-12345') as unknown as () => `${string}-${string}-${string}-${string}-${string}`;
     }
   });
 

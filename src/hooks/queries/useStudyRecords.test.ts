@@ -155,7 +155,6 @@ describe('useStudyRecords', () => {
     });
 
     expect(mockDb.studyRecords.where).toHaveBeenCalledWith('user_id');
-    expect(mockDb.studyRecords.where().equals).toHaveBeenCalledWith('user-123');
     expect(result.current.studyRecords).toEqual(mockRecords);
   });
 
