@@ -1,69 +1,71 @@
-# Unit Tests & CI Workflow Summary
+---
+phase: F7
+plan: M1
+subsystem: flashcards
+tags:
+  - scheduler
+  - spaced-repetition
+  - study-planning
+tech-stack:
+  added:
+    - sm2-scheduler (internal utility)
+  patterns:
+    - generateStudyPlan with mode-based card selection
+    - getDueCards with next_review + fallback status check
+key-files:
+  created:
+    - src/utils/scheduler.ts
+    - src/components/features/flashcards/SchedulerConfig.tsx
+  modified:
+    - src/hooks/useFlashcardsStudy.ts
+decisions: []
+---
 
-**Date:** 2026-06-15  
-**Duration:** ~15 min  
-**Commits:** 4
+# Phase F7 Plan M1: Smart Scheduler Implementation
 
-## Files Created
+## One-liner
+SM2-based study scheduler with configurable Normal/Turbo/Suave modes, due-card prioritization by ease factor, and a React configuration panel.
 
-| # | File | Description |
-|---|------|-------------|
-| 1 | `src/hooks/useNotifications.test.ts` | Unit tests for `useNotifications` hook — 9 tests |
-| 2 | `src/hooks/useAuth.test.ts` | Unit tests for `useAuth` hook — 8 tests |
-| 3 | `src/hooks/queries/useStudyRecords.test.ts` | Unit tests for `useStudyRecords` query hook — 6 tests |
-| 4 | `.github/workflows/ci.yml` | CI workflow with Node 20, npm cache, lint, test, typecheck |
+## Objective
+Replace the manual priority/normal grouping in `useFlashcardsStudy` with a proper scheduler utility that uses SM2 fields (`next_review`, `ease_factor`, `status`) to intelligently plan daily study sessions. Provide a UI for users to configure daily new card limits and study intensity mode.
 
-## Test Coverage
+## Tasks Executed
 
-### `useNotifications` (9 tests)
-- fetchData on mount: calls `getByUser` with user ID and sets notifications
-- Computes `unreadCount` correctly
-- `markAsRead(id)`: calls `markAsRead` with the id
-- `markAsRead()` (no id): calls `markAllAsRead`
-- `markAsRead` refetches data after marking
-- Subscribe on mount: calls `notificationsQueries.subscribe`
-- Unsubscribe on unmount: calls `unsubscribe`
-- No session: does not fetch
-- Empty response: handles gracefully
+| #  | Name                         | Type | Commit     | Files                                                                                                                        |
+|----|------------------------------|------|------------|------------------------------------------------------------------------------------------------------------------------------|
+| 1  | Create scheduler utility     | feat | `44703dc8` | `src/utils/scheduler.ts`                                                                                                     |
+| 1b | Fix getDueCards edge case    | fix  | `29e1d531` | `src/utils/scheduler.ts` (getDueCards: include non-date review cards)                                                        |
+| 2  | Update useFlashcardsStudy    | feat | `adc87cda` | `src/hooks/useFlashcardsStudy.ts` (import generateStudyPlan, add schedulerConfig param, update startStudySession)            |
+| 3  | Create SchedulerConfig panel | feat | `bfc93174` | `src/components/features/flashcards/SchedulerConfig.tsx`                                                                     |
 
-### `useAuth` (8 tests)
-- `getSession` on mount: calls `supabase.auth.getSession`
-- Sets session and userEmail from result
-- Handles null session
-- `signOut`: calls `clearUserKey` and `supabase.auth.signOut`
-- `onAuthStateChange` cleanup: unsubscribes on unmount
-- Auth state updates session on event
-- `deriveKeyFromUserId` called when session has user ID
+## Deviations from Plan
 
-### `useStudyRecords` (6 tests)
-- Fetches data from local DB when userId provided
-- Calls `studyRecordsQueries.getByUser` when online
-- Query disabled when userId is undefined (enabled: false)
-- Sets up Supabase realtime subscription
-- Cleans up subscription on unmount
-- Offline mode: falls back to local data, does not call remote
+### Auto-fixed Issues
 
-## CI Workflow
+**1. [Rule 1 - Bug] getDueCards excluded review-status cards without next_review**
+- **Found during:** Task 2 verification (3 test failures in useFlashcardsStudy.test.ts)
+- **Issue:** Cards with status `revisar`/`aprendendo`/`revisando` but no `next_review` date were filtered out by `getDueCards`, causing them to fall through the cracks (neither in dueCards nor newCards).
+- **Fix:** Added fallback check — if no `next_review` but status indicates active review need, treat card as due. Date-less cards get the highest overdue priority (999999ms fallback).
+- **Files modified:** `src/utils/scheduler.ts`
+- **Commit:** `29e1d531`
 
-- Trigger: push/PR to `main`
-- Node 20 with npm cache
-- Steps: `npm ci` → `npm test` → `npm run lint` → `npx tsc --noEmit`
+## Known Stubs
 
-## Commits
+None. All created components have fully wired data flows.
 
-```
-1c9eff5d ci: add CI workflow with lint, test, and typecheck
-7b03641a test(hooks): add unit tests for useStudyRecords query hook
-9085442f test(hooks): add unit tests for useAuth hook
-57327693 test(hooks): add unit tests for useNotifications hook
-```
+## Threat Flags
 
-## Verification
+None. The scheduler utility is pure logic with no network/file access. The config panel is presentational with no data mutation.
 
-- **TypeScript:** No new errors (1 pre-existing error in `src/services/offline/sync.test.ts`, unrelated)
-- **Tests:** All 23 new tests pass (114 total across all test files)
-- **Lint:** No new lint errors (all 153 errors are pre-existing in unrelated files)
+## Verification Results
 
-## Deviations
+| Check           | Result                        |
+|-----------------|-------------------------------|
+| `npx tsc --noEmit` | ✅ No errors in changed files (1 pre-existing error in `StudyForm.tsx` — out of scope) |
+| `npm run lint`  | ✅ No lint errors in changed files (127 pre-existing errors in unrelated files — out of scope) |
+| `npm run test`  | ✅ All 114 tests pass across 11 test files |
 
-None — all tasks executed as planned.
+## Self-Check: PASSED
+
+- Created files verified: `src/utils/scheduler.ts` ✅, `src/hooks/useFlashcardsStudy.ts` (modified) ✅, `src/components/features/flashcards/SchedulerConfig.tsx` ✅
+- All commits verified in git log ✅
