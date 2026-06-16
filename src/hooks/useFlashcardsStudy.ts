@@ -2,14 +2,21 @@ import { useState, useEffect, useRef } from 'react';
 import { flashcardsQueries } from '../services/queries';
 import { Flashcard } from '../types';
 import { smartShuffle, sm2 } from '../utils/flashcards';
+import { generateStudyPlan } from '../utils/scheduler';
+import type { SchedulerConfig } from '../utils/scheduler';
 import { logger } from '../utils/logger';
 
 interface UseFlashcardsStudyProps {
   filteredCards: Flashcard[];
   onCardResult: () => void;
+  schedulerConfig?: SchedulerConfig;
 }
 
-export const useFlashcardsStudy = ({ filteredCards, onCardResult }: UseFlashcardsStudyProps) => {
+export const useFlashcardsStudy = ({
+  filteredCards,
+  onCardResult,
+  schedulerConfig = { dailyNewCards: 20, mode: 'normal' },
+}: UseFlashcardsStudyProps) => {
   const [studyQueue, setStudyQueue] = useState<Flashcard[]>([]);
   const [currentCardIndex, setCurrentCardIndex] = useState(0);
   const [isFlipped, setIsFlipped] = useState(false);
@@ -43,10 +50,12 @@ export const useFlashcardsStudy = ({ filteredCards, onCardResult }: UseFlashcard
       return;
     }
 
-    const priorityGroup = studyable.filter(c => c.status === 'revisar' || c.status === 'aprendendo');
-    const normalGroup = studyable.filter(c => c.status === 'novo' || c.status === 'revisando' || c.status === 'pendente');
+    const plan = generateStudyPlan(studyable, schedulerConfig);
 
-    const finalQueue = [...smartShuffle([...priorityGroup]), ...smartShuffle([...normalGroup])];
+    const finalQueue = [
+      ...smartShuffle([...plan.dueCards]),
+      ...smartShuffle([...plan.newCards]),
+    ];
 
     setStudyQueue(finalQueue);
     setCurrentCardIndex(0);
