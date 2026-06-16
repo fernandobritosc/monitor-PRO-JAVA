@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { supabase, getGeminiKey, getGroqKey } from '../services/supabase';
 import { EditalMateria, StudyRecord, ErrorAnalysis } from '../types';
+import { ExamBoard } from '../constants/examBoards';
 import { getErrorMessage } from '../utils/error';
 import { logger } from '../utils/logger';
 import { generateAIContent, parseAIJSON } from '../services/aiService';
@@ -62,6 +63,9 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
 
     // Multi Record States (Simulado)
     const [simuladoScores, setSimuladoScores] = useState<Record<string, { acertos: string, total: string }>>({});
+
+    // Exam Board State
+    const [examBoard, setExamBoard] = useState<ExamBoard>('CESPE');
 
     // UI States
     const [loading, setLoading] = useState(false);
@@ -417,6 +421,8 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
                         onTimeChange={handleTimeChange}
                         simuladoScores={simuladoScores}
                         onSimuladoScoreChange={handleSimuladoScoreChange}
+                        board={examBoard}
+                        onBoardChange={setExamBoard}
                     />
                 ) : (
                     <>
