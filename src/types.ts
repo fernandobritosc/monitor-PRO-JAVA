@@ -30,6 +30,9 @@ export interface StudyRecord {
   gabarito?: string;
   minha_resposta?: string;
   analise_erros?: ErrorAnalysis[]; // Qualitativo: O "porquê" do erro
+  exam_board?: string; // 'CESPE' | 'FCC' | 'FGV' | 'VUNESP' | 'PERSONALIZADO'
+  blank_answers?: number;
+  incorrect_answers?: number;
 }
 
 export interface ErrorAnalysis {
