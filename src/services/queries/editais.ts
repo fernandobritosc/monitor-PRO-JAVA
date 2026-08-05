@@ -73,7 +73,7 @@ export const editaisQueries = {
             .eq('user_id', userId)
             .eq('concurso', concurso);
         if (error) throw error;
-        return (data ?? []).map(i => i.id);
+        return (data ?? []).map((i: { id: string }) => i.id);
     },
 
     /** Adiciona um tópico a uma matéria existente (merge no array) */

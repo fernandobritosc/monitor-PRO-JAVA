@@ -37,20 +37,6 @@ export default defineConfig(({ mode }) => {
                   maxAgeSeconds: 60 * 60 * 24 * 365 // 1 ano
                 }
               }
-            },
-            {
-              urlPattern: /^https:\/\/.*\.supabase\.co\/.*/i,
-              handler: 'StaleWhileRevalidate',
-              options: {
-                cacheName: 'supabase-data',
-                expiration: {
-                  maxEntries: 100,
-                  maxAgeSeconds: 60 * 60 * 24 // 24 horas
-                },
-                cacheableResponse: {
-                  statuses: [0, 200]
-                }
-              }
             }
           ]
         },
@@ -102,6 +88,15 @@ export default defineConfig(({ mode }) => {
         }
       })
     ],
+    server: {
+      proxy: {
+        '/api': {
+          target: env.VITE_BACKEND_URL || 'http://127.0.0.1:3000',
+          changeOrigin: true,
+          rewrite: (path) => path.replace(/^\/api/, ''),
+        },
+      },
+    },
     define: {
       '__SUPABASE_URL__': JSON.stringify(env.VITE_SUPABASE_URL || ""),
       '__SUPABASE_KEY__': JSON.stringify(env.VITE_SUPABASE_ANON_KEY || ""),

@@ -62,7 +62,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
             .on(
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'news_feed' },
-                (payload) => {
+                (payload: { new?: NewsItem; old?: unknown; table?: string; eventType?: string }) => {
                     logger.info('DATA', 'New news item:', payload);
                     setNews((currentNews) => [payload.new as NewsItem, ...currentNews].slice(0, 20)); // Keep only top 20
                 }

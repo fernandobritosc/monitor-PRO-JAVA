@@ -1,7 +1,7 @@
 
 import React from 'react';
 import { RefreshCw, Database, LogIn } from 'lucide-react';
-import type { Session } from '@supabase/auth-js';
+import type { Session } from '../../lib/supabase';
 
 interface AppStatusIndicatorsProps {
   isLoading: boolean;

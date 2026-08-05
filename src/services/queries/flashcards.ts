@@ -59,7 +59,7 @@ export const flashcardsQueries = {
             .eq('user_id', userId)
             .not('concurso', 'eq', excludeConcurso);
         if (error) throw error;
-        const uniqueMissions = Array.from(new Set((data ?? []).map(d => d.concurso))).filter(Boolean) as string[];
+        const uniqueMissions = Array.from(new Set((data ?? []).map((d: { concurso: string }) => d.concurso))).filter(Boolean) as string[];
         return uniqueMissions.sort();
     },
 

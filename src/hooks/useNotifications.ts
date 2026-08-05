@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { notificationsQueries } from '../services/queries';
-import type { Session } from '@supabase/auth-js';
+import type { Session } from '../lib/supabase';
 
 interface AppNotification {
   id: string;
@@ -20,7 +20,7 @@ export const useNotifications = (session: Session | null) => {
     try {
       const data = await notificationsQueries.getByUser(session.user.id);
       setNotifications(data);
-      setUnreadCount(data.filter(n => !n.read).length);
+      setUnreadCount(data.filter((n: AppNotification) => !n.read).length);
     } catch {
       // tabela não existe — ignora silenciosamente
     }

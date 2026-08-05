@@ -3,6 +3,7 @@ import React, { useState, useEffect } from 'react';
 import { supabase } from '../services/supabase';
 import { logger } from '../utils/logger';
 import { editaisQueries } from '../services/queries';
+import { EditalMateria } from '../types';
 import { BookOpen, Shield, Scale, Briefcase, GraduationCap, ArrowRight, Loader2, Database, DownloadCloud, Users, Search } from 'lucide-react';
 
 import { getErrorMessage } from '../utils/error';
@@ -122,7 +123,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
             if (data && data.length > 0) {
                // Agrupa por concurso
                const grouped: Record<string, typeof data> = {};
-               data.forEach((row) => {
+               data.forEach((row: EditalMateria) => {
                   // Normaliza chave para evitar duplicações por case sensitive
                   const key = row.concurso;
                   if (!grouped[key]) grouped[key] = [];
@@ -133,7 +134,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
                   const rows = grouped[concursoName];
                   const mainCargo = rows[0].cargo || 'Geral';
                   const totalMaterias = rows.length;
-                  const totalTopicos = rows.reduce((acc, r) => acc + (r.topicos?.length || 0), 0);
+                  const totalTopicos = rows.reduce((acc: number, r: EditalMateria) => acc + (r.topicos?.length || 0), 0);
 
                   return {
                      id: `dynamic-${idx}`,
@@ -142,7 +143,7 @@ const Onboarding: React.FC<OnboardingProps> = ({ onSelectTemplate, userEmail }) 
                      description: `Cargo: ${mainCargo}. ${totalMaterias} matérias e ${totalTopicos} tópicos cadastrados.`,
                      color: 'from-slate-700 to-slate-800',
                      isDynamic: true,
-                     materias: rows.map(r => ({ materia: r.materia, topicos: r.topicos || [] }))
+                     materias: rows.map((r: EditalMateria) => ({ materia: r.materia, topicos: r.topicos || [] }))
                   };
                }).sort((a, b) => b.title.localeCompare(a.title)); // Ordem alfabética inversa (mais recentes geralmente)
 

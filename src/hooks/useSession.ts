@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { supabase } from '../lib/supabase';
-import type { Session } from '@supabase/auth-js';
+import type { Session } from '../lib/supabase';
 
 /**
  * Hook leve que expõe a sessão atual sem criar subscriptions adicionais.

@@ -1,4 +1,5 @@
 import { db, type OfflineAttempt, type OfflineEdital } from './db';
+import { StudyRecord } from '../../types';
 import { studyRecordsQueries } from '../queries/studyRecords';
 import { editaisQueries } from '../queries/editais';
 import { logger } from '../../utils/logger';
@@ -205,7 +206,7 @@ export const syncService = {
             const result = await editaisQueries.upsert(payloads);
 
             if (result && result.length > 0) {
-                const confirmedIds = result.map(r => r.id);
+                const confirmedIds = result.map((r: { id: string }) => r.id);
                 await db.editais.where('id').anyOf(confirmedIds).modify({
                     syncStatus: 'synced',
                     lastModified: Date.now()
@@ -297,7 +298,7 @@ export const syncService = {
 
             // 4. Repovoar com dados limpos
             if (remoteData.length > 0) {
-                const cleanRecords = remoteData.map(r => ({
+                const cleanRecords = remoteData.map((r: StudyRecord) => ({
                     ...r,
                     syncStatus: 'synced' as const,
                     lastModified: Date.now()
@@ -306,7 +307,7 @@ export const syncService = {
             }
 
             if (remoteEditais.length > 0) {
-                const cleanEditais = remoteEditais.map(r => ({
+                const cleanEditais = remoteEditais.map((r: OfflineEdital) => ({
                     ...r,
                     syncStatus: 'synced' as const,
                     lastModified: Date.now()

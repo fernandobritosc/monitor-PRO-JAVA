@@ -1,5 +1,4 @@
 import { supabase } from '../../lib/supabase';
-import { logger } from '../../utils/logger';
 import { getApiKeyCache, encryptValue } from '../../utils/secureStorage';
 
 export { supabase };
@@ -72,23 +71,23 @@ function readApiKeyFromStorage(storageKey: string): string {
   return stored;
 }
 
+// O backend próprio é fixo (VITE_API_URL ou /api). Não há mais Supabase a configurar.
 export const isConfigured = () => {
-  const url = typeof window !== 'undefined' ? localStorage.getItem('monitorpro_supabase_url') : null;
-  const key = typeof window !== 'undefined' ? localStorage.getItem('monitorpro_supabase_key') : null;
-  return !!(url && key && !url.includes('placeholder'));
+  return true;
 };
 
 export const saveAppConfig = (newUrl: string, newKey: string, newAiKey?: string, newGroqKey?: string) => {
-  if (!newUrl || !newKey) return;
-  localStorage.setItem('monitorpro_supabase_url', newUrl.trim());
-  localStorage.setItem('monitorpro_supabase_key', obfuscate(newKey.trim()));
+  // Ignora URL/anon key do Supabase (o backend agora é fixo). Mantém apenas as chaves de IA.
   if (newAiKey) encryptValue(newAiKey.trim()).then(enc => localStorage.setItem('monitorpro_ai_key', enc));
   if (newGroqKey) encryptValue(newGroqKey.trim()).then(enc => localStorage.setItem('monitorpro_groq_key', enc));
   window.location.reload();
 };
 
 export const resetAppConfig = () => {
-  localStorage.clear();
+  localStorage.removeItem('monitorpro_supabase_url');
+  localStorage.removeItem('monitorpro_supabase_key');
+  localStorage.removeItem('monitorpro_ai_key');
+  localStorage.removeItem('monitorpro_groq_key');
   window.location.reload();
 };
 

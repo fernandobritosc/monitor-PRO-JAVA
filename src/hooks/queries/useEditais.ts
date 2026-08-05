@@ -28,7 +28,7 @@ export const useEditais = (userId: string | undefined) => {
               localData.filter(d => d.syncStatus === 'pending').map(d => d.id)
             );
 
-            const remoteToStore: OfflineEdital[] = remoteData.map(r => ({
+            const remoteToStore: OfflineEdital[] = remoteData.map((r: OfflineEdital) => ({
               ...r,
               syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
               lastModified: Date.now()

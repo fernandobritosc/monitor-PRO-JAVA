@@ -1,7 +1,7 @@
 
 import { useEffect } from 'react';
 import * as Sentry from '@sentry/react';
-import type { Session } from '@supabase/auth-js';
+import type { Session } from '../lib/supabase';
 
 export const useSentry = (session: Session | null) => {
   useEffect(() => {

@@ -1,8 +1,7 @@
 
 import React, { useState } from 'react';
 import { saveAppConfig, resetAppConfig } from '../services/supabase';
-import { createClient } from '@supabase/supabase-js';
-import { Settings, Link, Key, AlertTriangle, ExternalLink, ClipboardPaste, CheckCircle2, Loader2, Sparkles, Zap } from 'lucide-react';
+import { Settings, AlertTriangle, CheckCircle2, Loader2, Sparkles, Zap } from 'lucide-react';
 import { logger } from '../utils/logger';
 
 interface ConfigScreenProps {
@@ -10,25 +9,11 @@ interface ConfigScreenProps {
 }
 
 const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
-  const [url, setUrl] = useState('');
-  const [key, setKey] = useState('');
   const [aiKey, setAiKey] = useState('');
   const [groqKey, setGroqKey] = useState('');
   const [loading, setLoading] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
   const [error, setError] = useState<string | null>(initialError || null);
-
-  const handlePasteKey = async () => {
-    try {
-      const text = await navigator.clipboard.readText();
-      if (text) {
-        setKey(text.trim());
-      }
-    } catch (err) {
-      logger.error('UI', 'Failed to read clipboard contents: ', err);
-      setError('Não foi possível colar. Use Ctrl+V.');
-    }
-  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,57 +21,18 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
     setTestStatus('testing');
     setLoading(true);
 
-    const trimmedUrl = url.trim();
-    const trimmedKey = key.trim();
     const trimmedAiKey = aiKey.trim();
     const trimmedGroqKey = groqKey.trim();
 
-    // Validação Básica
-    if (!trimmedUrl.startsWith('https://')) {
-      setError('A URL deve começar com "https://".');
-      setLoading(false);
-      setTestStatus('idle');
-      return;
-    }
-
-    if (trimmedKey.length < 20) {
-      setError('A Chave API Supabase parece muito curta.');
-      setLoading(false);
-      setTestStatus('idle');
-      return;
-    }
-
-    // Teste de Conexão
     try {
-      // Cria cliente temporário para testar
-      const tempClient = createClient(trimmedUrl, trimmedKey, {
-        auth: { persistSession: false, autoRefreshToken: false, detectSessionInUrl: false }
-      });
-
-      // Faz um ping leve no banco. 
-      const { error: pingError } = await tempClient.from('profiles').select('count', { count: 'exact', head: true });
-
-      if (pingError) {
-        // Se for erro de autenticação, rejeita.
-        if (pingError.message.includes('Invalid API key') || pingError.code === 'PGRST301' || pingError.code === '401') {
-           throw new Error('Chave API recusada pelo Supabase. Verifique se copiou a "anon" key corretamente.');
-        }
-        // Se for erro de conexão (URL errada)
-        if (pingError.message.includes('FetchError') || pingError.message.includes('Failed to fetch')) {
-           throw new Error('Não foi possível conectar nesta URL. Verifique o endereço.');
-        }
-      }
-
       setTestStatus('success');
-      
-      // Salva as credenciais e recarrega
+      // O backend é fixo; salva apenas as chaves de IA e recarrega
       setTimeout(() => {
-        saveAppConfig(trimmedUrl, trimmedKey, trimmedAiKey, trimmedGroqKey);
+        saveAppConfig('', '', trimmedAiKey, trimmedGroqKey);
       }, 800);
-
     } catch (err: unknown) {
-      logger.error('UI', "Connection Test Failed:", err);
-      setError(err instanceof Error ? err.message : 'Falha ao conectar. Verifique os dados.');
+      logger.error('UI', "Falha ao salvar configuração:", err);
+      setError(err instanceof Error ? err.message : 'Falha ao salvar configuração.');
       setTestStatus('error');
       setLoading(false);
     }
@@ -131,51 +77,6 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
             </div>
           )}
           
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Link size={12} /> URL do Projeto
-            </label>
-            <div className="relative">
-              <Link size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none" />
-              <input
-                type="url"
-                required
-                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-4 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600"
-                placeholder="https://exemplo.supabase.co"
-                value={url}
-                onChange={(e) => setUrl(e.target.value)}
-                disabled={loading}
-              />
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
-              <Key size={12} /> Supabase API Key (anon/public)
-            </label>
-            <div className="relative flex items-center">
-              <Key size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 pointer-events-none z-10" />
-              <input
-                type="text"
-                required
-                className="w-full bg-slate-50 dark:bg-slate-900/50 border border-slate-200 dark:border-white/10 rounded-xl pl-10 pr-12 py-3 focus:outline-none focus:ring-2 focus:ring-purple-500/50 transition-all text-slate-900 dark:text-white placeholder-slate-400 dark:placeholder-slate-600 font-mono text-xs"
-                placeholder="eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
-                value={key}
-                onChange={(e) => setKey(e.target.value)}
-                disabled={loading}
-              />
-              <button 
-                type="button" 
-                onClick={handlePasteKey} 
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-slate-400 dark:text-slate-500 hover:text-cyan-500 dark:hover:text-cyan-400 transition-colors" 
-                title="Colar"
-                disabled={loading}
-              >
-                <ClipboardPaste size={16} />
-              </button>
-            </div>
-          </div>
-
           <div className="pt-4 border-t border-slate-200 dark:border-white/5 grid grid-cols-1 gap-4">
             <div className="space-y-2">
                 <label className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-2">
@@ -207,10 +108,8 @@ const ConfigScreen: React.FC<ConfigScreenProps> = ({ initialError }) => {
           </div>
           
           <div className="text-xs text-slate-600 dark:text-slate-500 bg-slate-100 dark:bg-slate-900/30 p-3 rounded-lg border border-slate-200 dark:border-white/5">
-             <p>Seus dados ficarão salvos apenas neste navegador.</p>
-             <a href="https://supabase.com/dashboard" target="_blank" rel="noopener noreferrer" className="text-cyan-600 dark:text-cyan-400 font-bold mt-2 inline-flex items-center gap-1 hover:underline">
-                Pegar chaves no Supabase <ExternalLink size={12} />
-             </a>
+             <p>Seus dados ficarão salvos no servidor seguro do Monitor Pro.</p>
+           <p className="mt-1">Configuração do banco de dados já está definida pelo aplicativo.</p>
           </div>
 
           <button

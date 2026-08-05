@@ -1,7 +1,7 @@
 import { describe, it, expect, beforeEach, vi } from 'vitest';
 import { renderHook, act, waitFor } from '@testing-library/react';
 import { useNotifications } from './useNotifications';
-import type { Session } from '@supabase/supabase-js';
+import type { Session } from '../lib/supabase';
 
 const mockSession = { user: { id: 'user-123', email: 'test@test.com' } } as Session;
 

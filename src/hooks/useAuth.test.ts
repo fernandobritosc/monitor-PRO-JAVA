@@ -6,7 +6,7 @@ const mockSession = {
   user: { id: 'user-123', email: 'test@monitorpro.com' },
   access_token: 'mock-token',
   refresh_token: 'mock-refresh',
-} as unknown as import('@supabase/supabase-js').Session;
+} as unknown as import('../lib/supabase').Session;
 
 vi.mock('../lib/supabase', () => ({
   supabase: {
