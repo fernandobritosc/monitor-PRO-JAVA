@@ -31,7 +31,7 @@ const queryClient = new QueryClient({
   },
 });
 
-const FallbackComponent = ({ error }: { error: unknown }) => (
+const FallbackComponent = ({ error: _error }: { error: unknown }) => (
   <div className="min-h-screen bg-[hsl(var(--bg-main))] flex flex-col items-center justify-center p-4 text-center font-sans">
     <div className="bg-red-500/10 text-red-500 p-6 rounded-2xl max-w-md w-full border border-red-500/20 shadow-xl">
       <h2 className="text-xl font-bold mb-4">Algo deu errado</h2>

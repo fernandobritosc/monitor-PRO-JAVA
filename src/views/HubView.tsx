@@ -63,9 +63,10 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
                 'postgres_changes',
                 { event: 'INSERT', schema: 'public', table: 'news_feed' },
                 (payload: { new?: NewsItem; old?: unknown; table?: string; eventType?: string }) => {
-                    logger.info('DATA', 'New news item:', payload);
-                    setNews((currentNews) => [payload.new as NewsItem, ...currentNews].slice(0, 20)); // Keep only top 20
-                }
+                        logger.info('DATA', 'New news item:', payload);
+                        const novo = payload?.new as NewsItem | undefined;
+                        setNews((currentNews) => (novo ? [novo, ...currentNews] : currentNews).slice(0, 20)); // Keep only top 20
+                    }
             )
             .subscribe();
 
@@ -228,7 +229,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
                                 <div className="flex items-center justify-between mb-4 relative z-10">
                                     <div className="flex gap-2 flex-wrap">
-                                        {item.tags.map(tag => (
+                                        {(Array.isArray(item.tags) ? item.tags : []).map(tag => (
                                             <span key={tag} className="px-2.5 py-1 text-[9px] font-black uppercase tracking-widest text-[hsl(var(--accent))] bg-[hsl(var(--accent)/0.1)] rounded-md border border-[hsl(var(--accent)/0.2)]">
                                                 {tag}
                                             </span>
