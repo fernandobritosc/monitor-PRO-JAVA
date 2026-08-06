@@ -55,35 +55,40 @@ export const useStudyRecords = (userId: string | undefined) => {
         logger.error('SYNC', 'Erro na auto-recuperação:', err);
       }
 
-      const localData = await db.studyRecords
+      const localData = (await db.studyRecords
         .where('user_id')
         .equals(userId)
-        .toArray();
+        .toArray())
+        .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo);
 
       // 2. Tentar buscar do remoto
       try {
         if (navigator.onLine) {
-          const remoteData = await studyRecordsQueries.getByUser(userId);
-          const remoteCount = remoteData?.length || 0;
+          const remoteData = (await studyRecordsQueries.getByUser(userId)) || [];
+          const validRemote = remoteData.filter(
+            (r: unknown): r is StudyRecord => !!r && typeof r === 'object' && !!(r as StudyRecord).id && !!(r as StudyRecord).materia && !!(r as StudyRecord).data_estudo
+          );
+          const remoteCount = validRemote.length;
           logger.log(`[SYNC] ☁️ Dados remotos recebidos: ${remoteCount}`);
           
-          if (remoteData && remoteCount > 0) {
+          if (validRemote && remoteCount > 0) {
             const pendingIds = new Set(
               localData.filter((d: OfflineAttempt) => d.syncStatus === 'pending').map((d: OfflineAttempt) => d.id)
             );
             
-            const remoteToStore: OfflineAttempt[] = remoteData.map((r: StudyRecord) => ({
+            const remoteToStore: OfflineAttempt[] = validRemote.map((r: StudyRecord) => ({
               ...r,
               syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
               lastModified: (r as OfflineAttempt).lastModified || Date.now()
             }));
             
-            const result = await db.studyRecords.bulkPut(remoteToStore);
+            await db.studyRecords.bulkPut(remoteToStore);
             logger.log(`[SYNC] ✅ Cache local (Dexie) atualizado com ${remoteToStore.length} registros.`);
           }
         }
         
-        return await db.studyRecords.where('user_id').equals(userId).toArray();
+        return (await db.studyRecords.where('user_id').equals(userId).toArray())
+          .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo);
       } catch (error: unknown) {
         logger.error('SYNC', '[SYNC] Erro ao sincronizar:', error);
         return localData;
