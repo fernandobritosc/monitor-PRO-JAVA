@@ -6,6 +6,13 @@ import { db, OfflineAttempt } from '../../services/offline/db';
 import { supabase } from '../../lib/supabase';
 import { logger } from '../../utils/logger';
 
+const normalizeDataEstudo = (r: OfflineAttempt): OfflineAttempt => {
+  if (!r || typeof r !== 'object' || !r.data_estudo) return r;
+  const datePart = String(r.data_estudo).split('T')[0];
+  if (datePart === String(r.data_estudo)) return r;
+  return { ...r, data_estudo: datePart };
+};
+
 export const useStudyRecords = (userId: string | undefined) => {
   const queryClient = useQueryClient();
   const queryKey = ['studyRecords', userId];
@@ -59,7 +66,8 @@ export const useStudyRecords = (userId: string | undefined) => {
         .where('user_id')
         .equals(userId)
         .toArray())
-        .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo);
+        .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo)
+        .map(normalizeDataEstudo);
 
       // 2. Tentar buscar do remoto
       try {
@@ -78,6 +86,7 @@ export const useStudyRecords = (userId: string | undefined) => {
             
             const remoteToStore: OfflineAttempt[] = validRemote.map((r: StudyRecord) => ({
               ...r,
+              data_estudo: String(r.data_estudo).split('T')[0] || r.data_estudo,
               syncStatus: pendingIds.has(r.id) ? 'pending' : 'synced' as const,
               lastModified: (r as OfflineAttempt).lastModified || Date.now()
             }));
@@ -88,7 +97,8 @@ export const useStudyRecords = (userId: string | undefined) => {
         }
         
         return (await db.studyRecords.where('user_id').equals(userId).toArray())
-          .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo);
+          .filter((r): r is OfflineAttempt => !!r && typeof r === 'object' && !!r.id && !!r.materia && !!r.data_estudo)
+          .map(normalizeDataEstudo);
       } catch (error: unknown) {
         logger.error('SYNC', '[SYNC] Erro ao sincronizar:', error);
         return localData;
