@@ -12,7 +12,9 @@ import HistoryEditModal from '../components/features/history/HistoryEditModal';
 
 const formatDateDisplay = (dateStr: string) => {
   if (!dateStr) return '--/--/----';
-  const [year, month, day] = dateStr.split('-');
+  const datePart = String(dateStr).split('T')[0];
+  const [year, month, day] = datePart.split('-');
+  if (!year || !month || !day) return String(dateStr);
   return `${day}/${month}/${year}`;
 };
 
@@ -51,8 +53,9 @@ const History: React.FC = () => {
           (r.comentarios &&
             r.comentarios.toLowerCase().includes(searchTerm.toLowerCase()));
         let dateMatch = true;
-        if (dateStart) dateMatch = dateMatch && r.data_estudo >= dateStart;
-        if (dateEnd) dateMatch = dateMatch && r.data_estudo <= dateEnd;
+        const recDate = String(r.data_estudo || '').split('T')[0];
+        if (dateStart) dateMatch = dateMatch && recDate >= dateStart;
+        if (dateEnd) dateMatch = dateMatch && recDate <= dateEnd;
         return searchMatch && dateMatch;
       });
   }, [records, missaoAtiva, searchTerm, dateStart, dateEnd]);
