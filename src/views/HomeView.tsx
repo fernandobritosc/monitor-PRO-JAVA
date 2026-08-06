@@ -74,18 +74,10 @@ const HomeView: React.FC = () => {
   const summaryMinutes = summaryRecords.reduce((acc, r) => acc + r.tempo, 0);
   const summaryQuestions = summaryRecords.reduce((acc, r) => acc + r.total, 0);
 
-  // KPIs refletem TODO o histórico da missão (ou global), sem o corte de período,
-  // para que os números sempre apareçam mesmo quando os filtros de 30d ficarem vazios.
-  const kpiRecords = useMemo(() => {
-    const hasRecordsInActiveMission = records.some(rec => rec.concurso === missaoAtiva);
-    const kpiGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva || !hasRecordsInActiveMission;
-    return records.filter(r => kpiGlobal ? true : r.concurso === missaoAtiva);
-  }, [records, missaoAtiva]);
-
-  const totalQuestions = kpiRecords.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
-  const totalCorrect = kpiRecords.reduce((acc, r) => acc + (Number(r.acertos) || 0), 0);
+  const totalQuestions = activeRecords.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
+  const totalCorrect = activeRecords.reduce((acc, r) => acc + (Number(r.acertos) || 0), 0);
   const precision = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
-  const totalHours = kpiRecords.reduce((acc, r) => acc + (Number(r.tempo) || 0), 0) / 60;
+  const totalHours = activeRecords.reduce((acc, r) => acc + (Number(r.tempo) || 0), 0) / 60;
 
   const daysUntilExam = useMemo(() => {
     const activeEdital = editais.find(e => e.concurso === missaoAtiva);
