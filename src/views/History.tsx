@@ -174,8 +174,8 @@ const History: React.FC = () => {
                             </div>
                             <div className="flex items-center gap-4">
                               <span className="text-xs font-black text-slate-400"><Calculator size={12} className="mr-1 inline text-cyan-400" />{r.acertos}/{r.total}</span>
-                              <span className={`text-lg font-black ${(r.taxa || 0) >= 80 ? 'text-green-400' : (r.taxa || 0) >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
-                                {(r.taxa || 0).toFixed(0)}%
+<span className={`text-lg font-black ${(Number(r.taxa) || 0) >= 80 ? 'text-green-400' : (Number(r.taxa) || 0) >= 60 ? 'text-yellow-400' : 'text-red-400'}`}>
+                {(Number(r.taxa) || 0).toFixed(0)}%
                               </span>
                               <span className="text-[10px] font-bold text-slate-500"><Clock size={10} className="mr-1 inline" />{minutesToHHMM(r.tempo)}</span>
                             </div>
