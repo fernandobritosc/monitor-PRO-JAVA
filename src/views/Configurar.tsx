@@ -2,6 +2,7 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { supabase, saveAppConfig } from '../services/supabase';
 import { EditalMateria, UserProfile, StudyRecord } from '../types';
 import { logger } from '../utils/logger';
+import { getErrorMessage } from '../utils/error';
 import { editaisQueries, profilesQueries } from '../services/queries';
 import { Target, DownloadCloud, Settings, Activity, Shield } from 'lucide-react';
 import { usePWAInstall } from '../hooks/usePWAInstall';
@@ -13,6 +14,7 @@ import { ESTUDO_LIVRE } from '../constants';
 import { syncService } from '../services/offline/sync';
 import { useQueryClient } from '@tanstack/react-query';
 import SystemConfigPanel from '../components/features/configurar/SystemConfigPanel';
+import ChangePasswordPanel from '../components/features/configurar/ChangePasswordPanel';
 import GoalsPanel from '../components/features/configurar/GoalsPanel';
 import MissionsPanel from '../components/features/configurar/MissionsPanel';
 import ImportPanel from '../components/features/configurar/ImportPanel';
@@ -369,7 +371,7 @@ NOTIFY pgrst, 'reload schema';
       if (editingOldName === missaoAtiva && formConcurso !== missaoAtiva) { setMissaoAtiva(formConcurso); } else if (!missaoAtiva) { setMissaoAtiva(formConcurso); }
       queryClient.invalidateQueries({ queryKey: ['editais', user.id] });
       await onUpdated(); setIsModalOpen(false);
-    } catch (err: unknown) { const message = err instanceof Error ? err.message : String(err); logger.error('DATA', 'Erro salvando form de edição', err); if (message.includes('duplicate key') || message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + message); } } finally { setLoadingMission(false); }
+    } catch (err: unknown) { const message = getErrorMessage(err); logger.error('DATA', 'Erro salvando form de edição', err); if (message.includes('duplicate key') || message.includes('ON CONFLICT')) { setPermissionError(true); alert("ERRO DE DUPLICIDADE: Matéria duplicada detectada."); } else if (message.includes('schema cache')) { setPermissionError(true); alert("ATUALIZAÇÃO NECESSÁRIA: Execute o script SQL."); } else { alert("Erro ao salvar: " + message); } } finally { setLoadingMission(false); }
   };
 
   const handleDeleteMission = async (concurso: string) => {
@@ -451,13 +453,18 @@ NOTIFY pgrst, 'reload schema';
       </div>
 
       {activeTab === 'system' && (
-        <SystemConfigPanel
-          sysUrl={sysUrl} sysKey={sysKey} sysAiKey={sysAiKey} sysGroqKey={sysGroqKey}
-          sysLoading={sysLoading} isInstallable={isInstallable}
-          onUrlChange={setSysUrl} onKeyChange={setSysKey}
-          onAiKeyChange={setSysAiKey} onGroqKeyChange={setSysGroqKey}
-          onSave={handleSaveSystemConfig} onInstallApp={installApp}
-        />
+        <>
+          <SystemConfigPanel
+            sysUrl={sysUrl} sysKey={sysKey} sysAiKey={sysAiKey} sysGroqKey={sysGroqKey}
+            sysLoading={sysLoading} isInstallable={isInstallable}
+            onUrlChange={setSysUrl} onKeyChange={setSysKey}
+            onAiKeyChange={setSysAiKey} onGroqKeyChange={setSysGroqKey}
+            onSave={handleSaveSystemConfig} onInstallApp={installApp}
+          />
+          <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2 max-w-2xl mx-auto space-y-2">
+            <ChangePasswordPanel />
+          </div>
+        </>
       )}
 
       {activeTab === 'goals' && (
