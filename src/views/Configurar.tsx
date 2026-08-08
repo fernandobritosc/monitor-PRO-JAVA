@@ -481,6 +481,7 @@ NOTIFY pgrst, 'reload schema';
           groupedMissions={groupedMissions} missaoAtiva={missaoAtiva} refreshing={refreshing}
           onRefresh={handleManualRefresh} onOpenCreate={handleOpenCreate}
           onOpenEdit={handleOpenEdit} onDeleteMission={handleDeleteMission}
+          onSelectMission={setMissaoAtiva}
           onShowSql={() => setShowSqlModal(true)}
         />
       )}

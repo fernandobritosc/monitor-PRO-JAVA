@@ -1,4 +1,4 @@
-import { RefreshCw, Loader2, PlusCircle, Calendar, Database, Edit, Trash } from 'lucide-react';
+import { RefreshCw, Loader2, PlusCircle, Calendar, Database, Edit, Trash, CheckCircle } from 'lucide-react';
 
 interface GroupedMission {
   concurso: string;
@@ -16,12 +16,13 @@ interface MissionsPanelProps {
   onOpenCreate: () => void;
   onOpenEdit: (concurso: string) => void;
   onDeleteMission: (concurso: string) => void;
+  onSelectMission: (concurso: string) => void;
   onShowSql: () => void;
 }
 
 const MissionsPanel = ({
   groupedMissions, missaoAtiva, refreshing,
-  onRefresh, onOpenCreate, onOpenEdit, onDeleteMission, onShowSql,
+  onRefresh, onOpenCreate, onOpenEdit, onDeleteMission, onSelectMission, onShowSql,
 }: MissionsPanelProps) => {
   return (
     <div className="glass rounded-2xl p-6 shadow-xl animate-in slide-in-from-right-2">
@@ -71,6 +72,11 @@ const MissionsPanel = ({
                   </div>
                   <div className="flex items-center gap-3">
                     {isActive && <span className="text-[10px] font-black text-cyan-400 uppercase tracking-widest bg-cyan-500/10 px-3 py-1.5 rounded-lg border border-cyan-500/20">ATIVA</span>}
+                    {!isActive && (
+                      <button onClick={() => onSelectMission(m.concurso)} className="flex items-center gap-1.5 px-3 py-2 bg-cyan-600 hover:bg-cyan-500 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-cyan-500/20">
+                        <CheckCircle size={14} /> Selecionar
+                      </button>
+                    )}
                     <button onClick={() => onOpenEdit(m.concurso)} className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-cyan-400 rounded-xl transition-all"><Edit size={16} /></button>
                     <button onClick={() => onDeleteMission(m.concurso)} className="p-2.5 bg-slate-800 hover:bg-slate-700 text-slate-400 hover:text-red-400 rounded-xl transition-all"><Trash size={16} /></button>
                   </div>
