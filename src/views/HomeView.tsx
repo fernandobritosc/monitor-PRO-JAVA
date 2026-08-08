@@ -43,10 +43,14 @@ const HomeView: React.FC = () => {
 
     if (filterPeriod === 0) return baseRecords;
 
-    const limitDate = new Date();
-    limitDate.setDate(limitDate.getDate() - filterPeriod);
+    const now = new Date();
+    const limitMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - filterPeriod);
 
-    return baseRecords.filter(r => new Date(r.data_estudo + 'T00:00:00').getTime() >= limitDate.getTime());
+    return baseRecords.filter(r => {
+      const [y, m, d] = r.data_estudo.split('-').map(Number);
+      const recordMs = Date.UTC(y, m - 1, d);
+      return recordMs >= limitMs;
+    });
   }, [records, missaoAtiva, filterPeriod]);
 
   const summaryRecords = records.filter(r => (missaoAtiva === 'Escolha a sua missão' || !missaoAtiva ? true : r.concurso === missaoAtiva) && r.data_estudo === summaryDate);
