@@ -524,6 +524,18 @@ async function signOut(): Promise<{ error: null }> {
   return { error: null }
 }
 
+async function changePassword(currentPassword: string, newPassword: string): Promise<{ error: string | null }> {
+  try {
+    await apiJson<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: { currentPassword, newPassword },
+    })
+    return { error: null }
+  } catch (err) {
+    return { error: err instanceof Error ? err.message : 'Falha ao alterar a senha' }
+  }
+}
+
 function onAuthStateChange(callback: AuthListener): { data: { subscription: { unsubscribe: () => void } } } {
   const listener: AuthListener = (event, session) => callback(event, session)
   authListeners.add(listener)
@@ -540,7 +552,15 @@ function onAuthStateChange(callback: AuthListener): { data: { subscription: { un
   }
 }
 
-const auth = { getSession, getUser, signInWithPassword, signUp, signOut, onAuthStateChange }
+const auth: {
+  getSession: typeof getSession
+  getUser: typeof getUser
+  signInWithPassword: typeof signInWithPassword
+  signUp: typeof signUp
+  signOut: typeof signOut
+  changePassword: typeof changePassword
+  onAuthStateChange: typeof onAuthStateChange
+} = { getSession, getUser, signInWithPassword, signUp, signOut, changePassword, onAuthStateChange }
 
 // ─── Storage ───────────────────────────────────────────────────────────────────
 
