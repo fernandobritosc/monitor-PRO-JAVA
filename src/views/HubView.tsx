@@ -139,6 +139,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
 
                 formatted.sort((a: RankerItem, b: RankerItem) => b.totalTempo - a.totalTempo);
                 setRankers(formatted.slice(0, 15)); // Pega os 15 melhores para exibir na lateral
+                console.log(`[Global Top] filtro=${timeFilter ?? 'TOTAL'} → ${formatted.length} entradas do RPC`);
             }
         } catch (err) {
             logger.error('DATA', "Erro ao buscar ranking para o Hub:", err);

@@ -64,14 +64,18 @@ export const profilesQueries = {
 
     /** Busca o ranking filtrado por período via RPC */
     async getRankingFiltered(days: number | null): Promise<RankingPeriodRow[]> {
-        const { data, error } = await supabase
+        const result = await supabase
             .rpc('get_ranking_by_period', { p_days: days });
-        if (error) {
-            logger.error('DATA', 'ERRO NO RPC get_ranking_by_period:', error);
-            throw error;
+
+        // Log diagnóstico: resposta bruta do RPC para cada período
+        console.log(`[RPC get_ranking_by_period] p_days=${days}`, { data: result.data, error: result.error });
+
+        if (result.error) {
+            console.error(`[RPC get_ranking_by_period] ERRO p_days=${days}`, result.error);
+            throw new Error(result.error.message || 'Erro no RPC get_ranking_by_period');
         }
 
-        const rows = (data ?? []) as RankingPeriodRow[];
+        const rows = (result.data ?? []) as RankingPeriodRow[];
         if (rows.length === 0) return rows;
 
         // O RPC nem sempre retorna o nome do usuário; complementa com a view ranking_geral.

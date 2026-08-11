@@ -407,9 +407,13 @@ async function rpc(fn: string, args: Record<string, unknown> = {}) {
   try {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const data = await apiJson<any>(`/rpc/${fn}`, { method: 'POST', body: args })
-    return { data, error: null }
+    console.log(`[RPC] ${fn} OK`, { args, data })
+    return { data: data ?? [], error: null }
   } catch (err) {
-    return { data: null, error: { message: err instanceof Error ? err.message : 'Erro no RPC' } }
+    const status = err instanceof ApiError ? err.status : 0
+    const message = err instanceof Error ? err.message : 'Erro no RPC'
+    console.error(`[RPC] ${fn} FALHOU (status ${status})`, { args, message })
+    return { data: null, error: { message, code: status ? `HTTP_${status}` : 'RPC_ERROR' } }
   }
 }
 
