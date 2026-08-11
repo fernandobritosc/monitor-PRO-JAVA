@@ -3,6 +3,7 @@ import { StudyRecord } from '../../types';
 import { studyRecordsQueries } from '../queries/studyRecords';
 import { editaisQueries } from '../queries/editais';
 import { logger } from '../../utils/logger';
+import { getErrorMessage } from '../../utils/error';
 
 function debounce<T extends (...args: unknown[]) => void>(fn: T, ms: number): (...args: Parameters<T>) => void {
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -123,7 +124,7 @@ export const syncService = {
                 }
             }
         } catch (err: unknown) {
-            const msg = err instanceof Error ? err.message : String(err);
+            const msg = getErrorMessage(err);
             logger.error('SYNC', '[SYNC] ❌ Erro na sincronização em lote:', msg);
             if (typeof document !== 'undefined') document.title = `[SYNC-ERRO] ${msg.slice(0, 140)}`;
 
@@ -173,8 +174,8 @@ export const syncService = {
                 if (result && result.length > 0) {
                     await db.studyRecords.update(localId, { syncStatus: 'synced' });
                 }
-            } catch (err) {
-                const msg = err instanceof Error ? err.message : String(err);
+} catch (err) {
+                const msg = getErrorMessage(err);
                 logger.warn('SYNC', '[SYNC] Falha no cloud (saveAttempt), mantendo pendente:', err);
                 if (typeof document !== 'undefined') document.title = `[SYNC-ERRO saveAttempt] ${msg.slice(0, 140)}`;
             }
