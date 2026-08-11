@@ -4,6 +4,28 @@ import { EditalMateria } from '../../types';
 import { db, OfflineEdital } from '../../services/offline/db';
 import { logger } from '../../utils/logger';
 
+const dedupeEditais = (list: EditalMateria[]): EditalMateria[] => {
+  const map = new Map<string, EditalMateria>();
+  for (const e of list) {
+    const key = `${e.concurso}|${e.materia}`.toLowerCase();
+    const existing = map.get(key);
+    if (!existing) {
+      map.set(key, e);
+      continue;
+    }
+    map.set(key, {
+      ...existing,
+      user_id: existing.user_id || e.user_id || '',
+      cargo: e.cargo || existing.cargo,
+      data_prova: e.data_prova || existing.data_prova,
+      is_principal: existing.is_principal ?? e.is_principal,
+      peso: e.peso && e.peso !== 1 ? e.peso : existing.peso,
+      topicos: Array.from(new Set([...(existing.topicos ?? []), ...(e.topicos ?? [])]))
+    });
+  }
+  return Array.from(map.values());
+};
+
 export const useEditais = (userId: string | undefined) => {
   const queryClient = useQueryClient();
   const queryKey = ['editais', userId];
@@ -35,16 +57,25 @@ export const useEditais = (userId: string | undefined) => {
             }));
 
             await db.editais.bulkPut(remoteToStore);
+
+            const remoteIds = new Set(remoteData.map((r: { id: string }) => r.id));
+            const staleLocal = await db.editais.where('user_id').equals(userId).toArray();
+            const toDelete = staleLocal
+              .filter(d => !remoteIds.has(d.id) && d.syncStatus !== 'pending')
+              .map(d => d.id);
+            if (toDelete.length > 0) {
+              await db.editais.bulkDelete(toDelete);
+            }
           }
 
-          return await db.editais.where('user_id').equals(userId).toArray();
+          return dedupeEditais(await db.editais.where('user_id').equals(userId).toArray());
         } catch (err) {
           logger.error('SYNC', '[SYNC] Erro ao sincronizar editais:', err);
-          return localData;
+          return dedupeEditais(localData);
         }
       }
 
-      return localData;
+      return dedupeEditais(localData);
     },
     enabled: !!userId,
     staleTime: 1000 * 60 * 3,
