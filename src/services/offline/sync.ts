@@ -125,6 +125,7 @@ export const syncService = {
         } catch (err: unknown) {
             const msg = err instanceof Error ? err.message : String(err);
             logger.error('SYNC', '[SYNC] ❌ Erro na sincronização em lote:', msg);
+            if (typeof document !== 'undefined') document.title = `[SYNC-ERRO] ${msg.slice(0, 140)}`;
 
             // Incrementa retryCount e salva lastError nos registros pendentes
             try {
@@ -173,7 +174,9 @@ export const syncService = {
                     await db.studyRecords.update(localId, { syncStatus: 'synced' });
                 }
             } catch (err) {
+                const msg = err instanceof Error ? err.message : String(err);
                 logger.warn('SYNC', '[SYNC] Falha no cloud (saveAttempt), mantendo pendente:', err);
+                if (typeof document !== 'undefined') document.title = `[SYNC-ERRO saveAttempt] ${msg.slice(0, 140)}`;
             }
         }
     },

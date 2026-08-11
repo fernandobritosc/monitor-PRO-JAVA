@@ -63,6 +63,7 @@ export const studyRecordsQueries = {
 
         if (error) {
             logger.error('DATA', '❌ Erro no Supabase (Upsert):', { message: error.message, details: error.details, hint: error.hint, payload: JSON.stringify(payload, null, 2) });
+            if (typeof document !== 'undefined') document.title = `[UPSERT-ERRO] ${error.message} | details=${error.details ?? ''} | hint=${error.hint ?? ''} | status=${error.code ?? ''}`;
             throw error;
         }
         return data as StudyRecord[];
