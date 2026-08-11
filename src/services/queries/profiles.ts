@@ -5,6 +5,13 @@
 import { supabase } from '../supabase';
 import { logger } from '../../utils/logger';
 
+interface RankingPeriodRow {
+    user_id: string;
+    name?: string | null;
+    total_tempo: number;
+    total_questoes: number;
+}
+
 export const profilesQueries = {
     /** Verifica se um usuário é admin */
     async isAdmin(userId: string): Promise<boolean> {
@@ -56,14 +63,34 @@ export const profilesQueries = {
     },
 
     /** Busca o ranking filtrado por período via RPC */
-    async getRankingFiltered(days: number | null) {
+    async getRankingFiltered(days: number | null): Promise<RankingPeriodRow[]> {
         const { data, error } = await supabase
             .rpc('get_ranking_by_period', { p_days: days });
         if (error) {
             logger.error('DATA', 'ERRO NO RPC get_ranking_by_period:', error);
             throw error;
         }
-        return data ?? [];
+
+        const rows = (data ?? []) as RankingPeriodRow[];
+        if (rows.length === 0) return rows;
+
+        // O RPC nem sempre retorna o nome do usuário; complementa com a view ranking_geral.
+        try {
+            const { data: full } = await supabase
+                .from('ranking_geral')
+                .select('*');
+            const nameByUserId = new Map<string, string>();
+            (full ?? []).forEach((r: { user_id: string; name?: string | null }) => {
+                if (r.name) nameByUserId.set(r.user_id, r.name);
+            });
+            return rows.map(r => ({
+                ...r,
+                name: r.name || nameByUserId.get(r.user_id) || null
+            }));
+        } catch (err) {
+            logger.warn('DATA', 'Falha ao complementar nomes do ranking:', err);
+            return rows;
+        }
     },
 
     /** Cria ou atualiza um perfil (upsert) */

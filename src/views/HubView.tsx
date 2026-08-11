@@ -125,7 +125,7 @@ const HubView: React.FC<HubViewProps> = ({ userEmail }) => {
             const data = await profilesQueries.getRankingFiltered(timeFilter);
 
             if (data) {
-                const formatted = data.map((r: { user_id: string; name?: string; total_tempo: number; total_questoes: number }) => {
+                const formatted = data.map((r: { user_id: string; name?: string | null; total_tempo: number; total_questoes: number }) => {
                     const hours = Math.floor(r.total_tempo / 60);
                     return {
                         id: r.user_id,
