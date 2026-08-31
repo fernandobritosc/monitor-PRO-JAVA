@@ -68,9 +68,9 @@ export const SyncStatus: React.FC = () => {
     if (confirm('🚨 MODO RESGATE DE EMERGÊNCIA 🚨\n\nIsso forçará todos os registros locais salvos no navegador a se marcarem como pendentes e serem re-enviados para a nuvem.\n\nDeseja realizar o resgate agora?')) {
       setIsSyncing(true);
       try {
-        const recordsToRescue = await db.studyRecords.where('syncStatus').equals('synced').toArray();
+        const recordsToRescue = await db.studyRecords.where('syncStatus').anyOf('synced', 'error').toArray();
         if (recordsToRescue.length > 0) {
-          await db.studyRecords.bulkPut(recordsToRescue.map(r => ({ ...r, syncStatus: 'pending' })));
+          await db.studyRecords.bulkPut(recordsToRescue.map(r => ({ ...r, syncStatus: 'pending', retryCount: 0, lastError: undefined })));
           await syncService.syncPendingAttempts();
           alert(`Resgate acionado! ${recordsToRescue.length} registros foram reenviados para a fila de sincronização.`);
         } else {

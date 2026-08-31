@@ -10,7 +10,6 @@ import { useSession } from '../hooks/useSession';
 import { useEditais } from '../hooks/queries/useEditais';
 import { useAppStore } from '../stores/useAppStore';
 import { useTimerStore } from '../stores/useTimerStore';
-import { ESTUDO_LIVRE } from '../constants';
 import { getLocalToday, handleTimeMask, validateAndConvertTime } from '../utils/form';
 import SimuladoFormSection from '../components/features/study/SimuladoFormSection';
 import { StudyFormHeader } from '../components/features/study-form/StudyFormHeader';
@@ -36,7 +35,6 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
     const editais = editaisProps ?? editaisQuery;
     const missaoAtiva = missaoAtivaProps ?? missaoAtivaStore;
     const onSaved = onSavedProps ?? (() => {});
-    const isEstudoLivre = missaoAtiva === ESTUDO_LIVRE;
     // Form States
     const [dataEstudo, setDataEstudo] = useState(getLocalToday());
     const [tempoHHMM, setTempoHHMM] = useState('');
@@ -370,7 +368,7 @@ export const StudyForm: React.FC<StudyFormProps> = ({ editais: editaisProps, mis
             };
 
             try {
-                if (isEstudoLivre && assunto && assunto.trim()) {
+                if (assunto && assunto.trim()) {
                     try {
                         await addTopicoToMateria({
                             concurso: missaoAtiva,
