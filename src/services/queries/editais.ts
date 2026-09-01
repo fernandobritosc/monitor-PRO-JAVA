@@ -5,6 +5,15 @@
 import { supabase } from '../supabase';
 import { EditalMateria } from '../../types';
 
+/** Backend espera topicos como string JSON (pg driver serializa array JS
+ *  como {a,b} do Postgres, quebrando o cast para coluna json) */
+function normalizeTopicos<T extends { topicos?: string[] | string }>(r: T): T {
+    if (r.topicos && Array.isArray(r.topicos)) {
+        return { ...r, topicos: JSON.stringify(r.topicos) };
+    }
+    return r;
+}
+
 export const editaisQueries = {
     /** Busca todos os editais de um usuário */
     async getByUser(userId: string) {
@@ -30,7 +39,7 @@ export const editaisQueries = {
     async upsert(records: Partial<EditalMateria>[], ignoreDuplicates = false) {
         const { data, error } = await supabase
             .from('editais_materias')
-            .upsert(records, { onConflict: 'user_id,concurso,materia', ignoreDuplicates })
+            .upsert(records.map(normalizeTopicos), { onConflict: 'user_id,concurso,materia', ignoreDuplicates })
             .select();
         if (error) throw error;
         return data ?? [];
@@ -98,7 +107,7 @@ export const editaisQueries = {
 
         const { error: updateError } = await supabase
             .from('editais_materias')
-            .update({ topicos: [...currentTopicos, normalizedNew] })
+            .update({ topicos: JSON.stringify([...currentTopicos, normalizedNew]) })
             .eq('id', existing.id);
         
         if (updateError) throw updateError;
