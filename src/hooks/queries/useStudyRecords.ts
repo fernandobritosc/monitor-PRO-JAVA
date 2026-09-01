@@ -9,8 +9,13 @@ import { logger } from '../../utils/logger';
 const normalizeDataEstudo = (r: OfflineAttempt): OfflineAttempt => {
   if (!r || typeof r !== 'object' || !r.data_estudo) return r;
   const datePart = String(r.data_estudo).split('T')[0];
-  if (datePart === String(r.data_estudo)) return r;
-  return { ...r, data_estudo: datePart };
+  const result = datePart === String(r.data_estudo) ? r : { ...r, data_estudo: datePart };
+  // Normaliza campos numericos que podem vir como string do backend
+  if (typeof result.taxa === 'string') result.taxa = Number(result.taxa) || 0;
+  if (typeof result.acertos === 'string') result.acertos = Number(result.acertos) || 0;
+  if (typeof result.total === 'string') result.total = Number(result.total) || 0;
+  if (typeof result.tempo === 'string') result.tempo = Number(result.tempo) || 0;
+  return result;
 };
 
 export const useStudyRecords = (userId: string | undefined) => {

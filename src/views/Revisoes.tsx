@@ -151,7 +151,7 @@ const ReviewCard: React.FC<{
             <span>
               Taxa:{' '}
               <span className="text-[hsl(var(--text-bright))]">
-                {item.taxa.toFixed(0)}%
+                { (Number(item.taxa) || 0).toFixed(0) }%
               </span>
             </span>
           </div>
