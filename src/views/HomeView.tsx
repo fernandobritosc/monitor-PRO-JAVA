@@ -198,29 +198,59 @@ const HomeView: React.FC = () => {
     return days;
   }, [records, missaoAtiva]);
 
-  const inactiveStreak = useMemo(() => {
+  const streakStats = useMemo(() => {
     const isGlobal = missaoAtiva === 'Escolha a sua missão' || !missaoAtiva;
     const studyMap = new Map<string, number>();
     records
       .filter(r => isGlobal ? true : r.concurso === missaoAtiva)
-      .forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + r.tempo));
+      .forEach(r => studyMap.set(r.data_estudo, (studyMap.get(r.data_estudo) || 0) + Number(r.tempo || 0)));
 
-    let streak = 0;
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
+    if (studyMap.size === 0) return { current: 0, record: 0, daysOff: 0, byDate: {} as Record<string, number> };
 
-    for (let i = 0; i < 120; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() - i);
-      const year = d.getFullYear();
-      const month = String(d.getMonth() + 1).padStart(2, '0');
-      const day = String(d.getDate()).padStart(2, '0');
-      const dateStr = `${year}-${month}-${day}`;
+    const toKey = (d: Date) =>
+      `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+    const toDayNum = (iso: string) => {
+      const [y, m, day] = iso.split('-').map(Number);
+      return Date.UTC(y, m - 1, day) / 86400000;
+    };
 
-      if ((studyMap.get(dateStr) || 0) > 0) break;
-      streak++;
+    // Sequência atual: dias consecutivos com estudo até hoje
+    // (se hoje ainda não tem estudo, conta a partir de ontem)
+    const cursor = new Date();
+    cursor.setHours(0, 0, 0, 0);
+    if ((studyMap.get(toKey(cursor)) || 0) === 0) cursor.setDate(cursor.getDate() - 1);
+    let current = 0;
+    while ((studyMap.get(toKey(cursor)) || 0) > 0) {
+      current++;
+      cursor.setDate(cursor.getDate() - 1);
     }
-    return streak;
+
+    // Recorde: maior sequência de dias consecutivos com estudo
+    // byDate: para cada dia com estudo, há quantos dias estava sem falhar até ele
+    const studiedDays = [...studyMap.keys()]
+      .filter(k => (studyMap.get(k) || 0) > 0)
+      .sort();
+    const byDate: Record<string, number> = {};
+    let record = 0;
+    let run = 0;
+    let prev = -Infinity;
+    for (const iso of studiedDays) {
+      const dayNum = toDayNum(iso);
+      run = dayNum === prev + 1 ? run + 1 : 1;
+      record = Math.max(record, run);
+      byDate[iso] = run;
+      prev = dayNum;
+    }
+
+    const now = new Date();
+    now.setHours(0, 0, 0, 0);
+    const nowNum = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate()) / 86400000;
+    const lastStudiedNum = Math.max(
+      ...studiedDays.map(toDayNum)
+    );
+    const daysOff = Math.max(0, nowNum - lastStudiedNum);
+
+    return { current, record, daysOff, byDate };
   }, [records, missaoAtiva]);
 
   const formatDateLabel = (dateStr: string) => {
@@ -293,7 +323,20 @@ const HomeView: React.FC = () => {
         />
       </motion.div>
 
-      {/* ROW 2: PRINCIPAL */}
+      {/* ROW 2: MAPA DE CONSTÂNCIA */}
+      <motion.div variants={itemVariants}>
+        <ConsistencyHeatmap
+          data={heatmapData}
+          summaryDate={summaryDate}
+          currentStreak={streakStats.current}
+          recordStreak={streakStats.record}
+          daysOff={streakStats.daysOff}
+          streakByDate={streakStats.byDate}
+          onDateSelect={setSummaryDate}
+        />
+      </motion.div>
+
+      {/* ROW 3: PRINCIPAL */}
       <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         <KnowledgeCurveChart
           data={evolutionData}
@@ -309,14 +352,8 @@ const HomeView: React.FC = () => {
         />
       </motion.div>
 
-      {/* ROW 3: HEATMAP & ANALYSIS */}
-      <motion.div variants={itemVariants} className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-        <ConsistencyHeatmap
-          data={heatmapData}
-          summaryDate={summaryDate}
-          inactiveStreak={inactiveStreak}
-          onDateSelect={setSummaryDate}
-        />
+      {/* ROW 4: ANALYSIS */}
+      <motion.div variants={itemVariants}>
         <AnalysisPanel
           analysisTab={analysisTab}
           setAnalysisTab={setAnalysisTab}
