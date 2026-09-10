@@ -6,15 +6,11 @@ const HubView             = lazy(() => import('../../views/HubView'));
 const HomeView            = lazy(() => import('../../views/HomeView'));
 const EditalView          = lazy(() => import('../../views/EditalProgress'));
 const RegistrarEstudoView = lazy(() => import('../../views/StudyForm'));
-const RevisoesView        = lazy(() => import('../../views/Revisoes'));
 const HistoricoView       = lazy(() => import('../../views/History'));
 const SimuladosView       = lazy(() => import('../../views/Simulados'));
 const ConfigurarView      = lazy(() => import('../../views/Configurar'));
-const RelatoriosView      = lazy(() => import('../../views/Reports'));
 const ErrorAnalysisView   = lazy(() => import('../../views/ErrorAnalysisView'));
 const FlashcardsView      = lazy(() => import('../../views/Flashcards'));
-const DiscursivaView      = lazy(() => import('../../views/Discursiva'));
-const GabaritoIAView      = lazy(() => import('../../views/GabaritoIA'));
 const RankingView         = lazy(() => import('../../views/RankingView'));
 
 interface AppRouterProps {
@@ -36,15 +32,11 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
         <Route path="/dashboard" element={<HomeView />} />
         <Route path="/edital" element={<EditalView />} />
         <Route path="/registrar" element={<RegistrarEstudoView />} />
-        <Route path="/revisoes" element={<RevisoesView />} />
         <Route path="/historico" element={<HistoricoView />} />
         <Route path="/simulados" element={<SimuladosView />} />
         <Route path="/configurar" element={<ConfigurarView />} />
-        <Route path="/relatorios" element={<RelatoriosView />} />
         <Route path="/analise-erros" element={<ErrorAnalysisView />} />
         <Route path="/flashcards" element={<FlashcardsView />} />
-        <Route path="/discursiva" element={<DiscursivaView />} />
-        <Route path="/gabarito-ia" element={<GabaritoIAView />} />
         <Route path="/ranking" element={<RankingView />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

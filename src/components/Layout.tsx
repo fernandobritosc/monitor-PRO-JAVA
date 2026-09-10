@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   TrendingUp,
-  FileText,
   Clock,
   Sun,
   Moon,
@@ -21,7 +20,6 @@ import {
   Activity,
   Target,
   Zap,
-  Sparkles,
   Trophy
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -69,15 +67,11 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case '/dashboard': return 'DASHBOARD';
       case '/edital': return 'EDITAL';
       case '/flashcards': return 'FLASHCARDS';
-      case '/discursiva': return 'DISCURSIVA';
-      case '/gabarito-ia': return 'GABARITO_IA';
       case '/registrar': return 'REGISTRAR';
-      case '/revisoes': return 'REVISOES';
       case '/historico': return 'HISTORICO';
       case '/simulados': return 'SIMULADOS';
       case '/registrar-simulado': return 'REGISTRAR_SIMULADO';
       case '/analise-erros': return 'ANALISE_ERROS';
-      case '/relatorios': return 'RELATORIOS';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
       default: return 'HUB';
@@ -93,15 +87,11 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'DASHBOARD': return '/dashboard';
       case 'EDITAL': return '/edital';
       case 'FLASHCARDS': return '/flashcards';
-      case 'DISCURSIVA': return '/discursiva';
-      case 'GABARITO_IA': return '/gabarito-ia';
       case 'REGISTRAR': return '/registrar';
-      case 'REVISOES': return '/revisoes';
       case 'HISTORICO': return '/historico';
       case 'SIMULADOS': return '/simulados';
       case 'REGISTRAR_SIMULADO': return '/registrar-simulado';
       case 'ANALISE_ERROS': return '/analise-erros';
-      case 'RELATORIOS': return '/relatorios';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
       default: return '/';
@@ -148,19 +138,15 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
         { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
         { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
-        { id: 'REVISOES', label: 'Revisões Ativas', icon: Clock },
         { id: 'SIMULADOS', label: 'Simulados', icon: Target },
-        { id: 'DISCURSIVA', label: 'IA Discursiva', icon: FileText, isNew: true },
-        { id: 'GABARITO_IA', label: 'Gabarito IA', icon: Sparkles },
         { id: 'ANALISE_ERROS', label: 'Analise de Performace', icon: Activity },
-        { id: 'RELATORIOS', label: 'Relatórios Pro', icon: TrendingUp },
         { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       ];
 
       const isStudyModule = [
-        'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
-        'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-        'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS', 'CONFIGURAR', 'RANKING'
+        'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
+        'HISTORICO', 'SIMULADOS', 'FLASHCARDS',
+        'ANALISE_ERROS', 'CONFIGURAR', 'RANKING'
       ].includes(activeView);
 
       if (activeView === 'HUB') {
@@ -324,9 +310,9 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
           {(() => {
             const isStudyModule = [
-              'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL', 'REVISOES',
-              'HISTORICO', 'SIMULADOS', 'FLASHCARDS', 'DISCURSIVA',
-              'GABARITO_IA', 'ANALISE_ERROS', 'RELATORIOS'
+              'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
+              'HISTORICO', 'SIMULADOS', 'FLASHCARDS',
+              'ANALISE_ERROS'
             ].includes(activeView);
 
             return (
