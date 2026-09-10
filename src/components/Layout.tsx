@@ -71,7 +71,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case '/historico': return 'HISTORICO';
       case '/simulados': return 'SIMULADOS';
       case '/registrar-simulado': return 'REGISTRAR_SIMULADO';
-      case '/analise-erros': return 'ANALISE_ERROS';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
       default: return 'HUB';
@@ -91,7 +90,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'HISTORICO': return '/historico';
       case 'SIMULADOS': return '/simulados';
       case 'REGISTRAR_SIMULADO': return '/registrar-simulado';
-      case 'ANALISE_ERROS': return '/analise-erros';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
       default: return '/';
@@ -139,14 +137,13 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
         { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
         { id: 'SIMULADOS', label: 'Simulados', icon: Target },
-        { id: 'ANALISE_ERROS', label: 'Analise de Performace', icon: Activity },
         { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       ];
 
       const isStudyModule = [
         'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
         'HISTORICO', 'SIMULADOS', 'FLASHCARDS',
-        'ANALISE_ERROS', 'CONFIGURAR', 'RANKING'
+        'CONFIGURAR', 'RANKING'
       ].includes(activeView);
 
       if (activeView === 'HUB') {
@@ -311,8 +308,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
           {(() => {
             const isStudyModule = [
               'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
-              'HISTORICO', 'SIMULADOS', 'FLASHCARDS',
-              'ANALISE_ERROS'
+              'HISTORICO', 'SIMULADOS', 'FLASHCARDS'
             ].includes(activeView);
 
             return (

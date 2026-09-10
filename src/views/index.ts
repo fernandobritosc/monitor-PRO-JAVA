@@ -7,4 +7,3 @@ export { default as Configurar } from './Configurar';
 export { default as Onboarding } from './Onboarding';
 export { default as EditalProgress } from './EditalProgress';
 export { default as Flashcards } from './Flashcards';
-export { ErrorAnalysisView } from './ErrorAnalysisView';

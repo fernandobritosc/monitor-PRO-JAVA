@@ -9,7 +9,6 @@ const RegistrarEstudoView = lazy(() => import('../../views/StudyForm'));
 const HistoricoView       = lazy(() => import('../../views/History'));
 const SimuladosView       = lazy(() => import('../../views/Simulados'));
 const ConfigurarView      = lazy(() => import('../../views/Configurar'));
-const ErrorAnalysisView   = lazy(() => import('../../views/ErrorAnalysisView'));
 const FlashcardsView      = lazy(() => import('../../views/Flashcards'));
 const RankingView         = lazy(() => import('../../views/RankingView'));
 
@@ -35,7 +34,6 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
         <Route path="/historico" element={<HistoricoView />} />
         <Route path="/simulados" element={<SimuladosView />} />
         <Route path="/configurar" element={<ConfigurarView />} />
-        <Route path="/analise-erros" element={<ErrorAnalysisView />} />
         <Route path="/flashcards" element={<FlashcardsView />} />
         <Route path="/ranking" element={<RankingView />} />
         <Route path="*" element={<Navigate to="/" replace />} />

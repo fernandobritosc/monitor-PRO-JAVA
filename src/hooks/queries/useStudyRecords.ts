@@ -185,7 +185,7 @@ export const useStudyRecords = (userId: string | undefined) => {
             } else {
               // Se for erro de banco (400, RLS, etc), logamos e podemos propagar ou tratar
               logger.error('SYNC', '❌ Falha na sincronização remota (não é offline):', e);
-              throw e; // Propaga para o ErrorAnalysisView detectar a falha
+              throw e; // Propaga para o chamador detectar a falha
             }
           }
       }
