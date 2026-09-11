@@ -1,5 +1,5 @@
 import React from 'react';
-import { Sparkles, GitCommit } from 'lucide-react';
+import { Sparkles, GitCommit, PlusCircle } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { APP_VERSION } from '../../../constants';
 import { StudyRecord } from '../../../types';
@@ -13,6 +13,7 @@ interface AnalysisToolbarProps {
   missaoAtiva: string | null;
   showGlobalStats: boolean;
   setShowGlobalStats: (v: boolean) => void;
+  onRegister?: () => void;
 }
 
 const AnalysisToolbar: React.FC<AnalysisToolbarProps> = ({
@@ -23,7 +24,8 @@ const AnalysisToolbar: React.FC<AnalysisToolbarProps> = ({
   activeRecords,
   missaoAtiva,
   showGlobalStats,
-  setShowGlobalStats
+  setShowGlobalStats,
+  onRegister
 }) => {
   return (
     <div className="flex flex-col lg:flex-row justify-between items-center gap-6">
@@ -63,6 +65,16 @@ const AnalysisToolbar: React.FC<AnalysisToolbarProps> = ({
           v{APP_VERSION}
         </button>
       </div>
+      <div className="flex items-center gap-3">
+        {onRegister && (
+          <button
+            onClick={onRegister}
+            className="px-5 py-2.5 flex items-center gap-2 bg-teal-500 hover:bg-teal-400 text-white rounded-2xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg active:scale-95"
+          >
+            <PlusCircle size={15} />
+            Registrar estudo
+          </button>
+        )}
       <div className="flex p-1 bg-[hsl(var(--bg-sidebar)/0.5)] backdrop-blur-md border border-[hsl(var(--border))] rounded-2xl shadow-xl">
         {[{ label: '7 D', val: 7 }, { label: '30 D', val: 30 }, { label: 'ALL', val: 0 }].map(p => (
           <button
@@ -73,6 +85,7 @@ const AnalysisToolbar: React.FC<AnalysisToolbarProps> = ({
             {p.label}
           </button>
         ))}
+      </div>
       </div>
     </div>
   );

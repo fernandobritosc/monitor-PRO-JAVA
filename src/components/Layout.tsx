@@ -2,7 +2,6 @@ import React, { useState, useEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
   Home,
-  BookOpen,
   CheckSquare,
   Calendar,
   Settings,
@@ -16,11 +15,11 @@ import {
   Clock,
   Sun,
   Moon,
-  PlusCircle,
   Activity,
   Target,
   Zap,
-  Trophy
+  Trophy,
+  ChartColumn
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { supabase } from '../services/supabase';
@@ -65,7 +64,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
     switch (path) {
       case '/': return 'HUB';
       case '/dashboard': return 'DASHBOARD';
-      case '/edital': return 'EDITAL';
+      case '/estatisticas': return 'ESTATISTICAS';
       case '/flashcards': return 'FLASHCARDS';
       case '/registrar': return 'REGISTRAR';
       case '/historico': return 'HISTORICO';
@@ -84,7 +83,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'HUB': return '/';
       case 'HOME':
       case 'DASHBOARD': return '/dashboard';
-      case 'EDITAL': return '/edital';
+      case 'ESTATISTICAS': return '/estatisticas';
       case 'FLASHCARDS': return '/flashcards';
       case 'REGISTRAR': return '/registrar';
       case 'HISTORICO': return '/historico';
@@ -133,15 +132,14 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
       const studyItems = [
         { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
-        { id: 'REGISTRAR', label: 'Registrar Estudo', icon: PlusCircle },
+        { id: 'ESTATISTICAS', label: 'Estatísticas', icon: ChartColumn },
         { id: 'FLASHCARDS', label: 'Flashcard', icon: Zap },
-        { id: 'EDITAL', label: 'Edital Vertical', icon: BookOpen },
         { id: 'SIMULADOS', label: 'Simulados', icon: Target },
         { id: 'HISTORICO', label: 'Histórico', icon: Activity },
       ];
 
       const isStudyModule = [
-        'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
+        'DASHBOARD', 'HOME', 'ESTATISTICAS', 'REGISTRAR',
         'HISTORICO', 'SIMULADOS', 'FLASHCARDS',
         'CONFIGURAR', 'RANKING'
       ].includes(activeView);
@@ -307,7 +305,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
           {(() => {
             const isStudyModule = [
-              'DASHBOARD', 'HOME', 'REGISTRAR', 'EDITAL',
+              'DASHBOARD', 'HOME', 'ESTATISTICAS', 'REGISTRAR',
               'HISTORICO', 'SIMULADOS', 'FLASHCARDS'
             ].includes(activeView);
 

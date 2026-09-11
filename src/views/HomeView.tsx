@@ -10,6 +10,7 @@ import AnalysisToolbar from '../components/features/home/AnalysisToolbar';
 import KPIRow from '../components/features/home/KPIRow';
 import SubjectPanel from '../components/features/home/SubjectPanel';
 import RecentActivities from '../components/features/home/RecentActivities';
+import RegisterStudyModal from '../components/features/study/RegisterStudyModal';
 import KnowledgeCurveChart from '../components/features/home/KnowledgeCurveChart';
 import DailySummaryPanel from '../components/features/home/DailySummaryPanel';
 import ConsistencyHeatmap from '../components/features/home/ConsistencyHeatmap';
@@ -33,6 +34,7 @@ const HomeView: React.FC = () => {
 
   const [summaryDate, setSummaryDate] = useState(getLocalTodayStr());
   const [isReleaseNotesOpen, setIsReleaseNotesOpen] = useState(false);
+  const [isRegisterOpen, setIsRegisterOpen] = useState(false);
 
   const activeRecords = useMemo(() => {
     const hasRecordsInActiveMission = records.some(rec => rec.concurso === missaoAtiva);
@@ -293,6 +295,7 @@ const HomeView: React.FC = () => {
           missaoAtiva={missaoAtiva}
           showGlobalStats={showGlobalStats}
           setShowGlobalStats={setShowGlobalStats}
+          onRegister={() => setIsRegisterOpen(true)}
         />
       </motion.div>
 
@@ -342,6 +345,7 @@ const HomeView: React.FC = () => {
       </motion.div>
 
       <ReleaseNotesModal isOpen={isReleaseNotesOpen} onClose={() => setIsReleaseNotesOpen(false)} />
+      <RegisterStudyModal open={isRegisterOpen} onClose={() => setIsRegisterOpen(false)} />
     </motion.div>
   );
 };

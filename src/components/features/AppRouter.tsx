@@ -4,7 +4,7 @@ import { Routes, Route, Navigate } from 'react-router-dom';
 // Lazy loading de todas as views para reduzir o bundle inicial
 const HubView             = lazy(() => import('../../views/HubView'));
 const HomeView            = lazy(() => import('../../views/HomeView'));
-const EditalView          = lazy(() => import('../../views/EditalProgress'));
+const EstatisticasView    = lazy(() => import('../../views/Estatisticas'));
 const RegistrarEstudoView = lazy(() => import('../../views/StudyForm'));
 const HistoricoView       = lazy(() => import('../../views/History'));
 const SimuladosView       = lazy(() => import('../../views/Simulados'));
@@ -29,7 +29,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
       <Routes>
         <Route path="/" element={<HubView userEmail={userEmail || ''} />} />
         <Route path="/dashboard" element={<HomeView />} />
-        <Route path="/edital" element={<EditalView />} />
+        <Route path="/estatisticas" element={<EstatisticasView />} />
         <Route path="/registrar" element={<RegistrarEstudoView />} />
         <Route path="/historico" element={<HistoricoView />} />
         <Route path="/simulados" element={<SimuladosView />} />
