@@ -4,6 +4,7 @@ import {
   Radar,
   PolarGrid,
   PolarAngleAxis,
+  Tooltip,
   ResponsiveContainer,
 } from 'recharts';
 
@@ -21,40 +22,6 @@ const formatTempo = (minutes: number) => {
   const h = Math.floor(minutes / 60);
   const m = Math.round(minutes % 60);
   return `${h}h${String(m).padStart(2, '0')}min`;
-};
-
-interface VertexLabelProps {
-  x?: number;
-  y?: number;
-  value?: number;
-}
-
-const VertexLabel: React.FC<VertexLabelProps> = ({ x = 0, y = 0, value = 0 }) => {
-  const text = formatTempo(value);
-  const w = text.length * 6.5 + 12;
-  const h = 18;
-  return (
-    <g>
-      <rect
-        x={x - w / 2}
-        y={y - h / 2}
-        width={w}
-        height={h}
-        rx={4}
-        fill="#10b981"
-      />
-      <text
-        x={x}
-        y={y + 4}
-        textAnchor="middle"
-        fontSize={10}
-        fontWeight={800}
-        fill="#ffffff"
-      >
-        {text}
-      </text>
-    </g>
-  );
 };
 
 const CategoryRadar: React.FC<CategoryRadarProps> = ({ data }) => {
@@ -76,12 +43,22 @@ const CategoryRadar: React.FC<CategoryRadarProps> = ({ data }) => {
                 dataKey="category"
                 tick={{ fill: 'hsl(var(--text-muted))', fontSize: 11 }}
               />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: 'rgba(15, 23, 42, 0.8)',
+                  backdropFilter: 'blur(16px)',
+                  border: '1px solid rgba(255, 255, 255, 0.1)',
+                  borderRadius: '24px',
+                  boxShadow: '0 20px 40px -10px rgba(0,0,0,0.5)',
+                }}
+                labelStyle={{ color: 'rgba(255, 255, 255, 0.5)', fontSize: '10px', fontWeight: '900', textTransform: 'uppercase', letterSpacing: '0.1em' }}
+                formatter={(value) => [formatTempo(Number(value) || 0), 'Tempo']}
+              />
               <Radar
                 dataKey="minutes"
                 stroke="#2dd4bf"
                 fill="#2dd4bf"
                 fillOpacity={0.25}
-                label={<VertexLabel />}
               />
             </RadarChart>
           </ResponsiveContainer>

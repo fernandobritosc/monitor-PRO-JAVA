@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import type { LucideIcon } from 'lucide-react';
 import {
-  Home,
   CheckSquare,
   Calendar,
   Settings,
@@ -62,7 +61,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
   const getActiveViewFromPath = (path: string): ViewType => {
     switch (path) {
-      case '/': return 'HUB';
+      case '/': return 'DASHBOARD';
       case '/dashboard': return 'DASHBOARD';
       case '/estatisticas': return 'ESTATISTICAS';
       case '/flashcards': return 'FLASHCARDS';
@@ -72,7 +71,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case '/registrar-simulado': return 'REGISTRAR_SIMULADO';
       case '/configurar': return 'CONFIGURAR';
       case '/ranking': return 'RANKING';
-      default: return 'HUB';
+      default: return 'DASHBOARD';
     }
   };
 
@@ -80,7 +79,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
   const getPathFromView = (view: string): string => {
     switch (view) {
-      case 'HUB': return '/';
       case 'HOME':
       case 'DASHBOARD': return '/dashboard';
       case 'ESTATISTICAS': return '/estatisticas';
@@ -91,7 +89,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
       case 'REGISTRAR_SIMULADO': return '/registrar-simulado';
       case 'CONFIGURAR': return '/configurar';
       case 'RANKING': return '/ranking';
-      default: return '/';
+      default: return '/dashboard';
     }
   };
 
@@ -125,11 +123,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
 
   const menuItems = React.useMemo(() => {
     const getItems = (): MenuItem[] => {
-      const hubItems = [
-        { id: 'HUB', label: 'Início', icon: Home },
-        { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
-      ];
-
       const studyItems = [
         { id: 'DASHBOARD', label: 'Análise de Estudo', icon: TrendingUp },
         { id: 'ESTATISTICAS', label: 'Estatísticas', icon: ChartColumn },
@@ -144,19 +137,17 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         'CONFIGURAR', 'RANKING'
       ].includes(activeView);
 
-      if (activeView === 'HUB') {
-        return hubItems;
-      }
-
       if (isStudyModule) {
         return [
-          { id: 'HUB', label: 'Voltar ao Início', icon: Home },
           ...studyItems,
           { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
         ];
       }
 
-      return hubItems;
+      return [
+        ...studyItems,
+        { id: 'CONFIGURAR', label: 'Configurações', icon: Settings },
+      ];
     };
     return getItems();
   }, [activeView]);
@@ -176,8 +167,7 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
         />
       )}
 
-      {/* Sidebar - Explicit Conditional Rendering */}
-      {activeView === 'HUB' ? null : (
+      {/* Sidebar */}
         <motion.aside
           initial={false}
           animate={{
@@ -280,13 +270,12 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
             </motion.button>
           </div>
         </motion.aside>
-      )}
 
       {/* Main Content */}
       <main className="flex-1 min-w-0 relative flex flex-col transition-all duration-300">
 
         {/* Mobile Header */}
-        <header className={`lg:hidden sticky top-0 z-[50] flex items-center justify-between p-4 bg-[hsl(var(--bg-main))/0.8] backdrop-blur-md border-b border-[hsl(var(--border))] shadow-md ${activeView === 'HUB' ? 'hidden' : ''}`}>
+        <header className="lg:hidden sticky top-0 z-[50] flex items-center justify-between p-4 bg-[hsl(var(--bg-main))/0.8] backdrop-blur-md border-b border-[hsl(var(--border))] shadow-md">
           <div className="flex items-center gap-3">
             <button onClick={() => setSidebarOpen(true)} className="p-2 -ml-2 text-[hsl(var(--text-muted))] hover:text-[hsl(var(--accent))]">
               <Menu size={24} />
@@ -313,7 +302,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
               <header className="mb-4 animate-in fade-in slide-in-from-top-4 duration-700 mb-6">
                 <div className="flex flex-col md:flex-row md:items-center justify-between gap-1">
                   <div className="flex items-center gap-3">
-                    {activeView === 'HUB' ? null : (
                       <div className="flex items-center gap-4">
                         <h2 className="font-black text-[hsl(var(--text-bright))] uppercase tracking-tighter leading-none text-xl lg:text-2xl">
                           {missaoAtiva || 'Selecione uma Missão'}
@@ -338,7 +326,6 @@ const Layout: React.FC<LayoutProps> = ({ children, missaoAtiva, userEmail: propE
                           </span>
                         </motion.button>
                       </div>
-                    )}
                     <div className="flex items-center gap-2">
                       <div className="h-0.5 w-6 bg-gradient-to-r from-[hsl(var(--accent))] to-[hsl(var(--accent-secondary))] rounded-full opacity-50" />
                       <p className="text-[hsl(var(--text-muted))] font-bold uppercase tracking-[0.2em] text-[7px] lg:text-[8px]">

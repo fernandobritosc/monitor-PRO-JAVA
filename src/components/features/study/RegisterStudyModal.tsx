@@ -4,6 +4,13 @@ import { useQueryClient } from '@tanstack/react-query';
 import { supabase } from '../../../lib/supabase';
 import { StudyRecord } from '../../../types';
 import { getErrorMessage } from '../../../utils/error';
+import {
+  BASE_CATEGORIAS,
+  NOVA_CATEGORIA,
+  loadCustomCategorias,
+  mergeCategorias,
+  saveCustomCategorias,
+} from '../../../utils/categorias';
 import { syncService } from '../../../services/offline/sync';
 import { editaisQueries } from '../../../services/queries/editais';
 import { useSession } from '../../../hooks/useSession';
@@ -17,7 +24,7 @@ interface RegisterStudyModalProps {
 
 type DateMode = 'hoje' | 'ontem' | 'outro';
 
-const CATEGORIAS = ['Teoria', 'Revisão', 'Questões', 'Teoria e Questão', 'Nova Categoria'];
+
 
 const getLocalToday = () => {
   const now = new Date();
@@ -62,6 +69,9 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
   const [customDate, setCustomDate] = useState(getLocalToday());
   const [categoria, setCategoria] = useState('Teoria');
   const [categoriaNova, setCategoriaNova] = useState('');
+  const [customCategorias, setCustomCategorias] = useState<string[]>(() => loadCustomCategorias(userId));
+
+  const categorias = mergeCategorias(customCategorias);
   const [materia, setMateria] = useState('');
   const [assunto, setAssunto] = useState('');
   const [timeH, setTimeH] = useState('');
@@ -155,8 +165,16 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
       const user = session?.user;
       if (!user) throw new Error('Sessão expirada. Faça login novamente.');
 
-      const categoriaFinal = categoria === 'Nova Categoria' ? categoriaNova.trim() : categoria;
+      const isNova = categoria === NOVA_CATEGORIA;
+      const categoriaFinal = isNova ? categoriaNova.trim() : categoria;
       const tipo = categoriaFinal === 'Revisão' ? 'Revisão' : 'Estudo';
+
+      // Persiste a nova categoria na lista do dropdown
+      if (isNova && ![...BASE_CATEGORIAS, ...customCategorias].some((c) => c.toLowerCase() === categoriaFinal.toLowerCase())) {
+        const updated = [...customCategorias, categoriaFinal];
+        setCustomCategorias(updated);
+        saveCustomCategorias(userId, updated);
+      }
 
       // Garante que o tópico fica salvo na lista da matéria
       const materiaExiste = editais.some((e) => e.concurso === missaoAtiva && e.materia === materia.trim());
@@ -181,7 +199,7 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
 
       const linhas: string[] = [];
       if (material.trim()) linhas.push(`Material: ${material.trim()}`);
-      if (categoria === 'Nova Categoria') linhas.push(`Categoria: ${categoriaFinal}`);
+      linhas.push(`Categoria: ${categoriaFinal}`);
       if (comentarios.trim()) linhas.push(comentarios.trim());
 
       const payload: Partial<StudyRecord> = {
@@ -276,8 +294,8 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
           <div className="md:col-span-3">
             <label className={labelCls}>Categoria</label>
             <select value={categoria} onChange={(e) => setCategoria(e.target.value)} className={`${inputCls} cursor-pointer`}>
-              {CATEGORIAS.map((c) => (
-                <option key={c} value={c}>{c === 'Teoria' ? 'Selecione...' : c}</option>
+              {categorias.map((c) => (
+                <option key={c} value={c}>{c}</option>
               ))}
             </select>
             {categoria === 'Nova Categoria' && (

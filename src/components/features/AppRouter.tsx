@@ -2,7 +2,6 @@ import React, { Suspense, lazy } from 'react';
 import { Routes, Route, Navigate } from 'react-router-dom';
 
 // Lazy loading de todas as views para reduzir o bundle inicial
-const HubView             = lazy(() => import('../../views/HubView'));
 const HomeView            = lazy(() => import('../../views/HomeView'));
 const EstatisticasView    = lazy(() => import('../../views/Estatisticas'));
 const RegistrarEstudoView = lazy(() => import('../../views/StudyForm'));
@@ -13,7 +12,6 @@ const FlashcardsView      = lazy(() => import('../../views/Flashcards'));
 const RankingView         = lazy(() => import('../../views/RankingView'));
 
 interface AppRouterProps {
-  userEmail: string | null;
   session: unknown;
 }
 
@@ -23,11 +21,11 @@ const LoadingFallback = () => (
   </div>
 );
 
-const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
+const AppRouter: React.FC<AppRouterProps> = ({ session }) => {
   return (
     <Suspense fallback={<LoadingFallback />}>
       <Routes>
-        <Route path="/" element={<HubView userEmail={userEmail || ''} />} />
+        <Route path="/" element={<Navigate to="/dashboard" replace />} />
         <Route path="/dashboard" element={<HomeView />} />
         <Route path="/estatisticas" element={<EstatisticasView />} />
         <Route path="/registrar" element={<RegistrarEstudoView />} />
@@ -36,7 +34,7 @@ const AppRouter: React.FC<AppRouterProps> = ({ userEmail, session }) => {
         <Route path="/configurar" element={<ConfigurarView />} />
         <Route path="/flashcards" element={<FlashcardsView />} />
         <Route path="/ranking" element={<RankingView />} />
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<Navigate to="/dashboard" replace />} />
       </Routes>
     </Suspense>
   );

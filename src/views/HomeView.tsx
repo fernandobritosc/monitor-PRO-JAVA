@@ -11,6 +11,8 @@ import KPIRow from '../components/features/home/KPIRow';
 import SubjectPanel from '../components/features/home/SubjectPanel';
 import RecentActivities from '../components/features/home/RecentActivities';
 import RegisterStudyModal from '../components/features/study/RegisterStudyModal';
+import GlobalTop from '../components/features/home/GlobalTop';
+import { isSimuladoRecord } from '../utils/categorias';
 import KnowledgeCurveChart from '../components/features/home/KnowledgeCurveChart';
 import DailySummaryPanel from '../components/features/home/DailySummaryPanel';
 import ConsistencyHeatmap from '../components/features/home/ConsistencyHeatmap';
@@ -89,7 +91,7 @@ const HomeView: React.FC = () => {
   const subjectStats = useMemo(() => {
     const map = new Map<string, { time: number; correct: number; total: number }>();
     activeRecords
-      .filter(r => (r.tipo || 'Estudo') !== 'Simulado')
+      .filter(r => !isSimuladoRecord(r))
       .forEach(r => {
         const entry = map.get(r.materia) || { time: 0, correct: 0, total: 0 };
         entry.time += Number(r.tempo) || 0;
@@ -105,7 +107,7 @@ const HomeView: React.FC = () => {
   const simuladoStats = useMemo(() => {
     const totals = { time: 0, correct: 0, total: 0 };
     activeRecords
-      .filter(r => (r.tipo || '') === 'Simulado')
+      .filter(r => isSimuladoRecord(r))
       .forEach(r => {
         totals.time += Number(r.tempo) || 0;
         totals.correct += Number(r.acertos) || 0;
@@ -342,6 +344,11 @@ const HomeView: React.FC = () => {
       <motion.div variants={itemVariants} className="grid grid-cols-1 xl:grid-cols-2 gap-8">
         <SubjectPanel subjects={subjectStats} simulados={simuladoStats} />
         <RecentActivities records={activeRecords} />
+      </motion.div>
+
+      {/* ROW 5: GLOBAL TOP */}
+      <motion.div variants={itemVariants}>
+        <GlobalTop />
       </motion.div>
 
       <ReleaseNotesModal isOpen={isReleaseNotesOpen} onClose={() => setIsReleaseNotesOpen(false)} />

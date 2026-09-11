@@ -115,7 +115,6 @@ const AppContent: React.FC = () => {
       />
 
       <AppRouter
-        userEmail={userEmail}
         session={session}
       />
       <SyncStatus />

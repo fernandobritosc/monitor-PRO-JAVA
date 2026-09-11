@@ -11,6 +11,7 @@ import CategoryRadar, { CategoryPoint } from '../components/features/estatistica
 import SubjectPerformanceChart, { SubjectPerformancePoint } from '../components/features/estatisticas/SubjectPerformanceChart';
 import TopicPerformanceTable, { TopicPerformanceRow } from '../components/features/estatisticas/TopicPerformanceTable';
 import RegisterStudyModal from '../components/features/study/RegisterStudyModal';
+import { isSimuladoRecord } from '../utils/categorias';
 
 const formatTotal = (minutes: number) => {
   const h = Math.floor(minutes / 60);
@@ -216,14 +217,25 @@ const Estatisticas: React.FC = () => {
       Simulados: 0,
       Revisão: 0,
     };
+    const parseCategoria = (comentarios?: string): string | null => {
+      const match = (comentarios || '').match(/^Categoria:\s*(.+)$/mi);
+      const value = match ? match[1].trim() : '';
+      return value && Object.hasOwn(totals, value) ? value : null;
+    };
     scoped.forEach((r) => {
       const minutes = Number(r.tempo) || 0;
+      // 1. Categoria registrada no modal (fonte oficial)
+      const saved = parseCategoria(r.comentarios);
+      if (saved) {
+        totals[saved] += minutes;
+        return;
+      }
+      // 2. Heurística p/ registros antigos sem categoria salva
       const total = Number(r.total) || 0;
       const tipo = r.tipo || 'Estudo';
-      if (tipo === 'Simulado') totals['Simulados'] += minutes;
+      if (isSimuladoRecord(r)) totals['Simulados'] += minutes;
       else if (tipo === 'Revisão') totals['Revisão'] += minutes;
       else if (total === 0) totals['Teoria'] += minutes;
-      else if (minutes >= 60) totals['Teoria e Questão'] += minutes;
       else totals['Questões'] += minutes;
     });
     return (Object.keys(totals) as (keyof typeof totals)[]).map((category) => ({
