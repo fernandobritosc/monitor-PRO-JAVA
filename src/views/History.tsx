@@ -67,11 +67,21 @@ const History: React.FC = () => {
       if (!groups[key]) groups[key] = [];
       groups[key].push(r);
     });
+    // Registros dentro do grupo: mais recentes primeiro (data_estudo = YYYY-MM-DD)
+    Object.values(groups).forEach((list) =>
+      list.sort((a, b) => String(b.data_estudo).localeCompare(String(a.data_estudo)))
+    );
     return groups;
   }, [filteredRecords]);
 
-  const sortedMateriaKeys = useMemo(
-    () => Object.keys(groupedRecords).sort(),
+  // Grupos ordenados pela atividade mais recente (ordem cronológica decrescente)
+  const sortedGroupKeys = useMemo(
+    () =>
+      Object.keys(groupedRecords).sort((a, b) => {
+        const lastA = String(groupedRecords[a][0]?.data_estudo || '');
+        const lastB = String(groupedRecords[b][0]?.data_estudo || '');
+        return lastB.localeCompare(lastA);
+      }),
     [groupedRecords],
   );
 
@@ -131,10 +141,10 @@ const History: React.FC = () => {
       )}
 
       <div className="space-y-4">
-        {sortedMateriaKeys.length === 0 ? (
+        {sortedGroupKeys.length === 0 ? (
           <div className="py-20 text-center opacity-40">📜 Sem registros para esta missão.</div>
         ) : (
-          sortedMateriaKeys.map((materia) => {
+          sortedGroupKeys.map((materia) => {
             const recordsInGroup = groupedRecords[materia];
             const isOpen = openGroups[materia];
             const totalAcertos = recordsInGroup.reduce((acc, r) => acc + (r.acertos || 0), 0);

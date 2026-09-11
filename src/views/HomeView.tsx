@@ -8,17 +8,18 @@ import { ReleaseNotesModal } from '../components/ui/ReleaseNotesModal';
 import MissionBanner from '../components/features/home/MissionBanner';
 import AnalysisToolbar from '../components/features/home/AnalysisToolbar';
 import KPIRow from '../components/features/home/KPIRow';
+import SubjectPanel from '../components/features/home/SubjectPanel';
+import RecentActivities from '../components/features/home/RecentActivities';
 import KnowledgeCurveChart from '../components/features/home/KnowledgeCurveChart';
 import DailySummaryPanel from '../components/features/home/DailySummaryPanel';
 import ConsistencyHeatmap from '../components/features/home/ConsistencyHeatmap';
-import AnalysisPanel from '../components/features/home/AnalysisPanel';
+
 
 const HomeView: React.FC = () => {
   const { missaoAtiva } = useAppStore();
   const { session } = useAuth();
   const { studyRecords: records = [] } = useStudyRecords(session?.user?.id);
   const { editais = [] } = useEditais(session?.user?.id);
-  const [analysisTab, setAnalysisTab] = useState<'time' | 'precision' | 'comparative'>('time');
   const [filterPeriod, setFilterPeriod] = useState<number>(30);
   const [showGlobalStats, setShowGlobalStats] = useState(false);
 
@@ -83,6 +84,34 @@ const HomeView: React.FC = () => {
   const precision = totalQuestions > 0 ? (totalCorrect / totalQuestions) * 100 : 0;
   const totalHours = activeRecords.reduce((acc, r) => acc + (Number(r.tempo) || 0), 0) / 60;
 
+  const subjectStats = useMemo(() => {
+    const map = new Map<string, { time: number; correct: number; total: number }>();
+    activeRecords
+      .filter(r => (r.tipo || 'Estudo') !== 'Simulado')
+      .forEach(r => {
+        const entry = map.get(r.materia) || { time: 0, correct: 0, total: 0 };
+        entry.time += Number(r.tempo) || 0;
+        entry.correct += Number(r.acertos) || 0;
+        entry.total += Number(r.total) || 0;
+        map.set(r.materia, entry);
+      });
+    return [...map.entries()]
+      .map(([materia, s]) => ({ materia, ...s }))
+      .sort((a, b) => b.time - a.time);
+  }, [activeRecords]);
+
+  const simuladoStats = useMemo(() => {
+    const totals = { time: 0, correct: 0, total: 0 };
+    activeRecords
+      .filter(r => (r.tipo || '') === 'Simulado')
+      .forEach(r => {
+        totals.time += Number(r.tempo) || 0;
+        totals.correct += Number(r.acertos) || 0;
+        totals.total += Number(r.total) || 0;
+      });
+    return totals;
+  }, [activeRecords]);
+
   const daysUntilExam = useMemo(() => {
     const activeEdital = editais.find(e => e.concurso === missaoAtiva);
     if (!activeEdital?.data_prova) return null;
@@ -126,52 +155,6 @@ const HomeView: React.FC = () => {
       }
       return day;
     });
-  }, [activeRecords]);
-
-  const precisionData = useMemo(() => {
-    const stats = activeRecords.reduce<Record<string, { correct: number, total: number }>>((acc, r) => {
-      if (!acc[r.materia]) acc[r.materia] = { correct: 0, total: 0 };
-      acc[r.materia].correct += Number(r.acertos);
-      acc[r.materia].total += Number(r.total);
-      return acc;
-    }, {});
-    return Object.entries(stats)
-      .map(([materia, data]) => ({
-        materia,
-        precision: data.total > 0 ? (data.correct / data.total) * 100 : 0
-      }))
-      .sort((a, b) => b.precision - a.precision)
-      .slice(0, 8);
-  }, [activeRecords]);
-
-  const timeData = useMemo(() => {
-    const timeBySubject = activeRecords.reduce<Record<string, number>>((acc, r) => {
-      const current = Number(acc[r.materia] || 0);
-      acc[r.materia] = current + Number(r.tempo);
-      return acc;
-    }, {});
-    return Object.entries(timeBySubject)
-      .map(([materia, tempo]) => ({ materia, tempo }))
-      .sort((a, b) => b.tempo - a.tempo)
-      .slice(0, 8);
-  }, [activeRecords]);
-
-  const comparativeData = useMemo(() => {
-    const stats = activeRecords.reduce<Record<string, { time: number, correct: number, total: number }>>((acc, r) => {
-      if (!acc[r.materia]) acc[r.materia] = { time: 0, correct: 0, total: 0 };
-      acc[r.materia].time += Number(r.tempo);
-      acc[r.materia].correct += Number(r.acertos);
-      acc[r.materia].total += Number(r.total);
-      return acc;
-    }, {});
-    return Object.entries(stats)
-      .map(([materia, data]) => ({
-        materia,
-        tempo: data.time,
-        precision: data.total > 0 ? (data.correct / data.total) * 100 : 0
-      }))
-      .sort((a, b) => b.tempo - a.tempo)
-      .slice(0, 8);
   }, [activeRecords]);
 
   const heatmapData = useMemo(() => {
@@ -352,15 +335,10 @@ const HomeView: React.FC = () => {
         />
       </motion.div>
 
-      {/* ROW 4: ANALYSIS */}
-      <motion.div variants={itemVariants}>
-        <AnalysisPanel
-          analysisTab={analysisTab}
-          setAnalysisTab={setAnalysisTab}
-          timeData={timeData}
-          precisionData={precisionData}
-          comparativeData={comparativeData}
-        />
+      {/* ROW 4: PAINEL + ÚLTIMAS ATIVIDADES */}
+      <motion.div variants={itemVariants} className="grid grid-cols-1 xl:grid-cols-2 gap-8">
+        <SubjectPanel subjects={subjectStats} simulados={simuladoStats} />
+        <RecentActivities records={activeRecords} />
       </motion.div>
 
       <ReleaseNotesModal isOpen={isReleaseNotesOpen} onClose={() => setIsReleaseNotesOpen(false)} />
