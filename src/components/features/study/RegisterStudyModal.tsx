@@ -36,17 +36,15 @@ const getYesterday = () => {
   return `${y}-${m}-${d}`;
 };
 
-const maskTime = (v: string) => {
-  const digits = v.replace(/\D/g, '').slice(0, 6).padStart(6, '0');
-  return `${digits.slice(0, 2)}:${digits.slice(2, 4)}:${digits.slice(4, 6)}`;
-};
+const onlyDigits = (v: string, max: number) => v.replace(/\D/g, '').slice(0, max);
 
-const parseTimeToMinutes = (v: string): number | null => {
-  const parts = v.split(':').map(Number);
-  if (parts.length !== 3 || parts.some((n) => Number.isNaN(n))) return null;
-  const [h, m, s] = parts;
-  if (m > 59 || s > 59) return null;
-  return h * 60 + m + (s >= 30 ? 1 : 0);
+const parsePartsToMinutes = (h: string, m: string, s: string): number | null => {
+  const hours = h === '' ? 0 : Number(h);
+  const mins = m === '' ? 0 : Number(m);
+  const secs = s === '' ? 0 : Number(s);
+  if ([hours, mins, secs].some((n) => Number.isNaN(n) || n < 0)) return null;
+  if (mins > 59 || secs > 59) return null;
+  return hours * 60 + mins + (secs >= 30 ? 1 : 0);
 };
 
 const inputCls =
@@ -66,7 +64,9 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
   const [categoriaNova, setCategoriaNova] = useState('');
   const [materia, setMateria] = useState('');
   const [assunto, setAssunto] = useState('');
-  const [tempo, setTempo] = useState('00:00:00');
+  const [timeH, setTimeH] = useState('');
+  const [timeM, setTimeM] = useState('');
+  const [timeS, setTimeS] = useState('');
   const [material, setMaterial] = useState('');
   const [meta, setMeta] = useState('');
   const [acertos, setAcertos] = useState('');
@@ -97,7 +97,9 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
     setCategoriaNova('');
     setMateria('');
     setAssunto('');
-    setTempo('00:00:00');
+    setTimeH('');
+    setTimeM('');
+    setTimeS('');
     setMaterial('');
     setMeta('');
     setAcertos('');
@@ -127,9 +129,9 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
       setError('Informe o tópico (mínimo 3 letras).');
       return;
     }
-    const minutes = parseTimeToMinutes(tempo);
+    const minutes = parsePartsToMinutes(timeH, timeM, timeS);
     if (minutes === null || minutes <= 0) {
-      setError('Informe um tempo de estudo válido (HH:MM:SS).');
+      setError('Informe um tempo de estudo válido (horas, min e seg).');
       return;
     }
     if (categoria === 'Nova Categoria' && !categoriaNova.trim()) {
@@ -304,13 +306,37 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
           </div>
           <div className="md:col-span-3">
             <label className={labelCls}>Tempo de estudo</label>
-            <input
-              value={tempo}
-              onChange={(e) => setTempo(maskTime(e.target.value))}
-              placeholder="00:00:00"
-              inputMode="numeric"
-              className={`${inputCls} tabular-nums`}
-            />
+            <div className="flex items-center gap-1.5">
+              <input
+                value={timeH}
+                onChange={(e) => setTimeH(onlyDigits(e.target.value, 3))}
+                placeholder="00"
+                inputMode="numeric"
+                aria-label="Horas"
+                title="Horas"
+                className="w-full text-center border-b-2 border-teal-500/60 focus:border-teal-400 focus:outline-none py-2 text-sm font-black text-[hsl(var(--text-bright))] bg-transparent tabular-nums placeholder-[hsl(var(--text-muted)/0.5)]"
+              />
+              <span className="font-black text-[hsl(var(--text-muted))]">:</span>
+              <input
+                value={timeM}
+                onChange={(e) => setTimeM(onlyDigits(e.target.value, 2))}
+                placeholder="00"
+                inputMode="numeric"
+                aria-label="Minutos"
+                title="Minutos"
+                className="w-full text-center border-b-2 border-teal-500/60 focus:border-teal-400 focus:outline-none py-2 text-sm font-black text-[hsl(var(--text-bright))] bg-transparent tabular-nums placeholder-[hsl(var(--text-muted)/0.5)]"
+              />
+              <span className="font-black text-[hsl(var(--text-muted))]">:</span>
+              <input
+                value={timeS}
+                onChange={(e) => setTimeS(onlyDigits(e.target.value, 2))}
+                placeholder="00"
+                inputMode="numeric"
+                aria-label="Segundos"
+                title="Segundos"
+                className="w-full text-center border-b-2 border-teal-500/60 focus:border-teal-400 focus:outline-none py-2 text-sm font-black text-[hsl(var(--text-bright))] bg-transparent tabular-nums placeholder-[hsl(var(--text-muted)/0.5)]"
+              />
+            </div>
           </div>
         </div>
 
