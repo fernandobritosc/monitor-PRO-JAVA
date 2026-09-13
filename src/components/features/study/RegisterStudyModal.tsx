@@ -187,6 +187,7 @@ const RegisterStudyModal: React.FC<RegisterStudyModalProps> = ({ open, onClose }
       } else {
         const missionEdital = editais.find((e) => e.concurso === missaoAtiva);
         await editaisQueries.upsert([{
+          id: crypto.randomUUID(),
           user_id: user.id,
           concurso: missaoAtiva,
           cargo: missionEdital?.cargo || missaoAtiva,
