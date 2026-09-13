@@ -44,13 +44,16 @@ export const studyRecordsQueries = {
                 analise_erros: r.analise_erros && r.analise_erros.length > 0 ? r.analise_erros : null
             };
 
-            // Se o ID for um número (banco legado), mandamos como número. 
+            // Se o ID for um número (banco legado), mandamos como número.
             // Se for string (UUID), mandamos como string.
+            // O backend não gera id sozinho: garante UUID em registro novo.
             if (r.id) {
                 const numericId = Number(r.id);
                 entry.id = !isNaN(numericId) && String(numericId) === String(r.id) ? numericId : r.id;
+            } else {
+                entry.id = crypto.randomUUID();
             }
-            
+
             return entry;
         });
 

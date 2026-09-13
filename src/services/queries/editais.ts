@@ -37,9 +37,11 @@ export const editaisQueries = {
 
     /** Faz upsert de editais (cria ou atualiza) */
     async upsert(records: Partial<EditalMateria>[], ignoreDuplicates = false) {
+        // O backend não gera id sozinho: garante UUID em todo registro novo
+        const withIds = records.map((r) => (r.id ? r : { ...r, id: crypto.randomUUID() }));
         const { data, error } = await supabase
             .from('editais_materias')
-            .upsert(records.map(normalizeTopicos), { onConflict: 'user_id,concurso,materia', ignoreDuplicates })
+            .upsert(withIds.map(normalizeTopicos), { onConflict: 'user_id,concurso,materia', ignoreDuplicates })
             .select();
         if (error) throw error;
         return data ?? [];
