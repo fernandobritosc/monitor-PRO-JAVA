@@ -13,6 +13,7 @@ import RecentActivities from '../components/features/home/RecentActivities';
 import RegisterStudyModal from '../components/features/study/RegisterStudyModal';
 import GlobalTop from '../components/features/home/GlobalTop';
 import { isSimuladoRecord } from '../utils/categorias';
+import { getPeriodCutoffMs, isDateInPeriod } from '../utils/periodFilter';
 import KnowledgeCurveChart from '../components/features/home/KnowledgeCurveChart';
 import DailySummaryPanel from '../components/features/home/DailySummaryPanel';
 import ConsistencyHeatmap from '../components/features/home/ConsistencyHeatmap';
@@ -48,14 +49,9 @@ const HomeView: React.FC = () => {
 
     if (filterPeriod === 0) return baseRecords;
 
-    const now = new Date();
-    const limitMs = Date.UTC(now.getFullYear(), now.getMonth(), now.getDate() - filterPeriod);
+    const cutoffMs = getPeriodCutoffMs(filterPeriod);
 
-    return baseRecords.filter(r => {
-      const [y, m, d] = r.data_estudo.split('-').map(Number);
-      const recordMs = Date.UTC(y, m - 1, d);
-      return recordMs >= limitMs;
-    });
+    return baseRecords.filter(r => isDateInPeriod(r.data_estudo, cutoffMs));
   }, [records, missaoAtiva, filterPeriod]);
 
   const summaryRecords = records.filter(r => (missaoAtiva === 'Escolha a sua missão' || !missaoAtiva ? true : r.concurso === missaoAtiva) && r.data_estudo === summaryDate);
@@ -348,7 +344,13 @@ const HomeView: React.FC = () => {
 
       {/* ROW 5: GLOBAL TOP */}
       <motion.div variants={itemVariants}>
-        <GlobalTop />
+        <GlobalTop
+          period={filterPeriod === 0 ? null : filterPeriod}
+          missao={missaoAtiva}
+          localHours={totalHours}
+          localQuestions={totalQuestions}
+          onPeriodChange={setFilterPeriod}
+        />
       </motion.div>
 
       <ReleaseNotesModal isOpen={isReleaseNotesOpen} onClose={() => setIsReleaseNotesOpen(false)} />

@@ -1,6 +1,7 @@
 /**
  * Data Access Layer — Profiles e Ranking
- * Centraliza queries de `profiles` e `ranking_geral`
+ * Backend próprio (Fastify + Postgres na Oracle VM) via shim `src/lib/supabase.ts`:
+ * `supabase.rpc('get_ranking_by_period')` → POST /api/rpc/get_ranking_by_period
  */
 import { supabase } from '../supabase';
 import { logger } from '../../utils/logger';
@@ -62,17 +63,38 @@ export const profilesQueries = {
         return data ?? [];
     },
 
-    /** Busca o ranking filtrado por período via RPC */
-    async getRankingFiltered(days: number | null): Promise<RankingPeriodRow[]> {
-        const result = await supabase
-            .rpc('get_ranking_by_period', { p_days: days });
+    /** Busca o ranking filtrado por período (e missão, quando o backend suportar) */
+    async getRankingFiltered(days: number | null, missao: string | null = null): Promise<RankingPeriodRow[]> {
+        // Backend próprio: tenta POST /rpc/get_ranking_by_period com p_concurso;
+        // se o backend na VM ainda não aceita, cai para só p_days.
+        const attempts: Record<string, unknown>[] = [];
+        if (missao) attempts.push({ p_days: days, p_concurso: missao });
+        attempts.push({ p_days: days });
 
-        // Log diagnóstico: resposta bruta do RPC para cada período
-        console.log(`[RPC get_ranking_by_period] p_days=${days}`, { data: result.data, error: result.error });
+        let lastError: { message?: string } | null = null;
+        let result: { data: unknown; error: { message?: string } | null } | null = null;
+        for (const params of attempts) {
+            const res = await supabase.rpc('get_ranking_by_period', params);
+            if (!res.error) {
+                result = res;
+                break;
+            }
+            lastError = res.error as { message?: string };
+            // Se o erro for "argumento inexistente" (RPC antiga), tenta próxima assinatura
+            const msg = String(lastError?.message || '');
+            if (!/p_concurso|function|argument/i.test(msg)) {
+                result = res;
+                break;
+            }
+        }
 
-        if (result.error) {
-            console.error(`[RPC get_ranking_by_period] ERRO p_days=${days}`, result.error);
-            throw new Error(result.error.message || 'Erro no RPC get_ranking_by_period');
+        // Log diagnóstico: resposta bruta do RPC para cada período/missão
+        console.log(`[RPC get_ranking_by_period] p_days=${days} p_concurso=${missao ?? 'ALL'}`, { data: result?.data, error: result?.error ?? lastError });
+
+        if (!result || result.error) {
+            const errMsg = result?.error?.message || lastError?.message || 'Erro no RPC get_ranking_by_period';
+            console.error(`[RPC get_ranking_by_period] ERRO p_days=${days}`, result?.error ?? lastError);
+            throw new Error(errMsg);
         }
 
         const rows = (result.data ?? []) as RankingPeriodRow[];

@@ -3,6 +3,7 @@ import { Trophy, Loader2 } from 'lucide-react';
 import { supabase } from '../../../lib/supabase';
 import { logger } from '../../../utils/logger';
 import { profilesQueries } from '../../../services/queries';
+import { minutesToDisplayHours } from '../../../utils/periodFilter';
 
 interface RankerItem {
   id: string;
@@ -15,30 +16,78 @@ interface RankerItem {
 
 interface GlobalTopProps {
   limit?: number;
+  /** Período vindo da Home (7 | 15 | 30 | null). Se informado, vira fonte única. */
+  period?: number | null;
+  /** Missão ativa (concurso). Quando global, RPC soma tudo. */
+  missao?: string | null;
+  /** Totais locais (Dexie, já filtrados por missão+período) — verdade p/ linha "TU". */
+  localHours?: number;
+  localQuestions?: number;
+  /** Sincroniza troca de período com a Home (7/30/ALL). 15D fica só local ao ranking. */
+  onPeriodChange?: (p: number) => void;
 }
 
-const GlobalTop: React.FC<GlobalTopProps> = ({ limit = 15 }) => {
+const isGlobalMissao = (m: string | null | undefined) =>
+  !m || m === 'Escolha a sua missão';
+
+const GlobalTop: React.FC<GlobalTopProps> = ({
+  limit = 15,
+  period,
+  missao,
+  localHours,
+  localQuestions,
+  onPeriodChange,
+}) => {
   const [rankers, setRankers] = useState<RankerItem[]>([]);
   const [loadingRank, setLoadingRank] = useState(true);
-  const [timeFilter, setTimeFilter] = useState<number | null>(7);
+  const [innerFilter, setInnerFilter] = useState<number | null>(7);
+
+  // Fonte única de período: prop da Home prevalece quando definida
+  const timeFilter = period !== undefined ? period : innerFilter;
+
+  const applyFilter = (v: number | null) => {
+    if (period !== undefined && onPeriodChange) {
+      // Home só tem 7/30/ALL(0) — 15D não propaga
+      if (v === 7 || v === 30 || v === null) onPeriodChange(v ?? 0);
+      else setInnerFilter(v);
+    } else {
+      setInnerFilter(v);
+    }
+    // Sempre reflete localmente para feedback imediato
+    if (period === undefined) setInnerFilter(v);
+  };
+
+  // Mantém inner em sync quando a Home muda (ex: 7D ↔ 30D ↔ ALL)
+  useEffect(() => {
+    if (period !== undefined) setInnerFilter(period);
+  }, [period]);
 
   useEffect(() => {
     const fetchRanking = async () => {
       setLoadingRank(true);
       try {
         const { data: { user } } = await supabase.auth.getUser();
-        const data = await profilesQueries.getRankingFiltered(timeFilter);
+        const missaoParam = isGlobalMissao(missao) ? null : missao ?? null;
+        const data = await profilesQueries.getRankingFiltered(timeFilter, missaoParam);
 
         if (data) {
           const formatted = data.map((r: { user_id: string; name?: string | null; total_tempo: number; total_questoes: number }) => {
-            const hours = Math.floor(r.total_tempo / 60);
+            const isCurrentUser = user ? r.user_id === user.id : false;
+            // Linha "TU": usa verdade local (Dexie filtrada por missão+período)
+            // para bater 1:1 com o KPI "Tempo Investido / Volume".
+            const totalMin = isCurrentUser && localHours !== undefined
+              ? Math.round(localHours * 60)
+              : r.total_tempo;
+            const questions = isCurrentUser && localQuestions !== undefined
+              ? localQuestions
+              : r.total_questoes;
             return {
               id: r.user_id,
               name: r.name || 'Anônimo',
-              hours,
-              questions: r.total_questoes,
-              isUser: user ? r.user_id === user.id : false,
-              totalTempo: r.total_tempo,
+              hours: minutesToDisplayHours(totalMin),
+              questions,
+              isUser: isCurrentUser,
+              totalTempo: totalMin,
             };
           });
 
@@ -53,7 +102,7 @@ const GlobalTop: React.FC<GlobalTopProps> = ({ limit = 15 }) => {
     };
 
     fetchRanking();
-  }, [timeFilter, limit]);
+  }, [timeFilter, limit, missao, localHours, localQuestions]);
 
   return (
     <div className="glass-premium rounded-[2rem] border border-[hsl(var(--border))] shadow-2xl p-5 md:p-6 flex flex-col relative overflow-hidden">
@@ -70,7 +119,7 @@ const GlobalTop: React.FC<GlobalTopProps> = ({ limit = 15 }) => {
           ].map((filter) => (
             <button
               key={filter.label}
-              onClick={() => setTimeFilter(filter.value)}
+              onClick={() => applyFilter(filter.value)}
               className={`flex-1 py-1.5 px-2 text-[9px] font-black uppercase tracking-widest rounded-lg transition-all ${
                 timeFilter === filter.value
                   ? 'bg-[hsl(var(--accent))] text-[hsl(var(--bg-main))] shadow-md'
