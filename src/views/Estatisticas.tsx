@@ -89,6 +89,7 @@ const Estatisticas: React.FC = () => {
 
   const tempo = useMemo(() => {
     const totalMin = scoped.reduce((acc, r) => acc + (Number(r.tempo) || 0), 0);
+    const totalQuestions = scoped.reduce((acc, r) => acc + (Number(r.total) || 0), 0);
     const dates = [...new Set(scoped.map((r) => String(r.data_estudo).split('T')[0]))].sort();
     const studiedDays = dates.length;
     let totalDays = 0;
@@ -101,9 +102,11 @@ const Estatisticas: React.FC = () => {
     }
     return {
       totalMin,
+      totalQuestions,
       studiedDays,
       totalDays,
       avg: studiedDays > 0 ? totalMin / studiedDays : 0,
+      avgQuestions: studiedDays > 0 ? totalQuestions / studiedDays : 0,
     };
   }, [scoped]);
 
@@ -310,6 +313,10 @@ const Estatisticas: React.FC = () => {
           <CardTitle>Tempo de estudo</CardTitle>
           <div className="mt-4 space-y-1 text-xs text-[hsl(var(--text-main))]">
             <p>{formatAvg(tempo.avg)} por dia estudado (média)</p>
+            <p>
+              {tempo.avgQuestions.toLocaleString('pt-BR', { maximumFractionDigits: 0 })}{' '}
+              questões por dia estudado (média)
+            </p>
             <p>
               {tempo.studiedDays} {tempo.studiedDays === 1 ? 'dia estudado' : 'dias estudados'}
             </p>
